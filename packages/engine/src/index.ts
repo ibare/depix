@@ -7,3 +7,5 @@ export { renderElement, renderElements } from './ir-renderer.js';
 
 export { CoordinateTransform } from './coordinate-transform.js';
 export type { ViewportSize, AspectRatio } from './coordinate-transform.js';
+
+export * from './export/index.js';
