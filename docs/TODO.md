@@ -414,139 +414,136 @@ DSL → IR → Render 전체 파이프라인을 예제 다이어그램으로 검
 
 ---
 
-## Phase 2: 에디터
+## Phase 2: 에디터 ✅ COMPLETED
 
-### T-16: SelectionManager 포팅 [P/M]
+### T-16: SelectionManager 포팅 [P/M] ✅
 
 IR 요소 기반 선택 관리 시스템.
 
-- [ ] `packages/editor/src/selection-manager.ts`:
-  - `DepixObject` → `IRElement`로 타입 변경
-  - 유지: 클릭 선택, 다중 선택 (shift/ctrl), 드래그, 호버, 이벤트 위임
-  - 수정: IR 요소 ID 기반 조회
-  - 스냅 가이드 인터페이스 유지
+- [x] `packages/editor/src/selection-manager.ts`:
+  - `DepixObject` → `IRElement`로 타입 변경 (순수 상태 관리, Konva 의존 없음)
+  - select, selectMultiple, deselect, clearSelection, toggleSelection, isSelected, getSelectedIds
+  - 호버: setHovered, getHoveredId
+  - 이벤트: onChange, onDragEnd, onTransformEnd (언서브스크라이브 지원)
+  - IR 요소 조회: getSelectedElements(ir) — findElement 사용
+  - getPrimarySelection, getSelectionCount, getState, destroy
+- [x] 테스트: 45 tests (단일/다중 선택, 호버, 이벤트, 요소 조회, 라이프사이클, 엣지 케이스)
 
 **depends**: T-14
-**ref**: `original/src/editor/selection-manager.ts`
 
 ---
 
-### T-17: HistoryManager 포팅 [P]
+### T-17: HistoryManager 포팅 [P] ✅
 
-Undo/Redo 시스템. 대부분 IR 무관한 로직.
+Undo/Redo 시스템. 타입 무관 순수 로직.
 
-- [ ] `packages/editor/src/history-manager.ts`:
-  - 코어 undo/redo 스택 로직은 타입 무관 (클로저 기반 액션)
-  - `createPropertyAction` 헬퍼를 IR 요소 속성에 맞게 수정
-  - `createAddAction` / `createDeleteAction` IR 요소용으로 수정
-  - 유지: 머지 타임아웃, 최대 히스토리, 변경 리스너
+- [x] `packages/editor/src/history-manager.ts`:
+  - 클로저 기반 액션 (HistoryAction: execute/undo/mergeKey)
+  - push, undo, redo, canUndo, canRedo, getState, clear, destroy
+  - 액션 머지: 동일 mergeKey + mergeTimeout(300ms) 내 → 기존 undo 보존 + 새 execute 교체
+  - maxHistory(100) 적용, 초과 시 oldest 제거
+  - `createPropertyAction`, `createAddAction`, `createDeleteAction` 헬퍼
+  - onChange 리스너 (언서브스크라이브)
+- [x] 테스트: 45 tests (undo/redo, 스택 관리, 머지, 리스너, 헬퍼, 통합, 엣지 케이스)
 
 **depends**: T-01
-**ref**: `original/src/editor/history-manager.ts` (거의 1:1 포팅)
+**ref**: `original/src/editor/history-manager.ts`
 
 ---
 
-### T-18: HandleManager 포팅 [P/M]
+### T-18: HandleManager 포팅 [P/M] ✅
 
-IR 요소용 핸들 시스템 (리사이즈, 회전, 엔드포인트).
+IR 요소용 핸들 시스템 (리사이즈, 회전, 엔드포인트). 순수 로직, Konva 의존 없음.
 
-- [ ] `packages/editor/src/handle-manager.ts` — 포팅
-- [ ] 핸들 전략, IR용으로 간소화:
-  - `IRShape` 가 모든 도형 처리 (rect, circle, ellipse, diamond 등)
-  - `IRContainer` 는 그룹 스타일 핸들
-  - `IREdge` 는 커넥터 핸들
-  - `IRLine` 은 엔드포인트 핸들
-  - `IRText`, `IRImage` 는 사각형 스타일 핸들
-- [ ] 트랜스포머 통합
-- [ ] 간소화: 프레임 auto-layout 자식 감지 제거 (IR 컨테이너는 bounds 해석 완료)
+- [x] `packages/editor/src/handles/types.ts` — HandleType, AnchorName, HandleDefinition, ALL_ANCHORS, CORNER_ANCHORS
+- [x] `packages/editor/src/handles/handle-strategies.ts` — 순수 함수 getHandleDefinition(element):
+  - `IRShape`: shape 서브타입별 (circle=keepRatio+CORNER, 나머지=ALL+rotate)
+  - `IRText`: bounding-box, ALL_ANCHORS, no rotation
+  - `IRImage`: bounding-box, keepRatio, CORNER_ANCHORS
+  - `IRLine`: endpoint 핸들
+  - `IRPath`: bounding-box, keepRatio, CORNER_ANCHORS, rotate
+  - `IREdge`: connector 핸들
+  - `IRContainer`: bounding-box, ALL_ANCHORS, no rotation
+  - `isKeepRatioShape()` 헬퍼
+- [x] `packages/editor/src/handles/handle-manager.ts`:
+  - updateForElements, getActiveHandleType, getDefinition, hideHandles, onHandleChange, destroy
+  - 다중 선택 → merged definition (bounding-box, no rotation, ALL_ANCHORS)
+- [x] `packages/editor/src/handles/index.ts` — barrel exports
+- [x] 간소화: auto-layout 자식 감지 제거 (IR은 bounds 해석 완료)
+- [x] 테스트: handle-strategies.test.ts (28) + handle-manager.test.ts (28) = 56 tests
 
 **depends**: T-14, T-16
-**ref**:
-  - `original/src/editor/handle-manager.ts`
-  - `original/src/editor/handles/` (모든 파일)
-  - `original/src/editor/transformers/` (모든 파일)
 
 ---
 
-### T-19: 스냅 가이드 시스템 포팅 [P]
+### T-19: 스냅 가이드 시스템 포팅 [P] ✅
 
-정렬/스냅 가이드 시스템.
+정렬/스냅 가이드 시스템. IRBounds(0-100) 기반, 렌더러 콜백 패턴.
 
-- [ ] `packages/editor/src/guides/`:
-  - `snap-calculator.ts`
-  - `snap-guide-manager.ts`
-  - `guide-renderer.ts`
-  - `types.ts`
-- [ ] IR bounds에 맞게 적응 (더 단순 — 모든 요소에 `IRBounds` 존재)
+- [x] `packages/editor/src/guides/types.ts` — SnapPoint, GuideLine, SnapResult, SnapGuideConfig, DEFAULT_SNAP_CONFIG
+- [x] `packages/editor/src/guides/snap-calculator.ts`:
+  - extractSnapPoints: 요소 bounds → 6개 스냅 포인트 (left/center-x/right/top/center-y/bottom)
+  - calculateSnap: 드래그 요소 vs 다른 요소들 + 캔버스 엣지(0,50,100) 스냅, 가이드라인 생성
+- [x] `packages/editor/src/guides/snap-guide-manager.ts`:
+  - onDragStart (캐시), onDragMove (스냅 계산), onDragEnd (클리어)
+  - setGuideRenderer 콜백 (Konva 분리), setEnabled, updateConfig
+- [x] `packages/editor/src/guides/index.ts` — barrel exports
+- [x] 테스트: snap-calculator.test.ts (33) + snap-guide-manager.test.ts (16) = 49 tests
 
 **depends**: T-14
-**ref**: `original/src/editor/guides/` (모든 파일)
 
 ---
 
-### T-20: IR 직접 조작 API [N]
+### T-20: IR 직접 조작 API [N] ✅
 
-에디터가 IR을 직접 변경하는 연산 레이어.
+에디터가 IR을 직접 변경하는 연산 레이어. 불변 패턴 (structuredClone).
 
-- [ ] `packages/editor/src/ir-operations.ts`:
-  - `moveElement(ir, elementId, dx, dy)` — bounds 변경, origin 있으면 연결 엣지 재계산
-  - `resizeElement(ir, elementId, newBounds)` — bounds 변경, 연결 엣지 재계산
-  - `addElement(scene, element)` — elements 배열에 추가
-  - `removeElement(ir, elementId)` — 트리에서 제거, 참조 엣지 정리
-  - `updateStyle(ir, elementId, style)` — 스타일 변경 머지
-  - `updateText(ir, elementId, content)` — 텍스트 내용 변경
-  - `reorderElements(scene, elementIds)` — z-order 재정렬
-- [ ] `packages/editor/src/ir-edge-operations.ts`:
-  - `recalculateEdge(ir, edgeId)` — 현재 요소 위치 기반 엣지 재라우팅
-  - `recalculateConnectedEdges(ir, elementId)` — 해당 요소에 연결된 모든 엣지 재라우팅
-- [ ] 테스트 (`packages/editor/__tests__/ir-operations.test.ts`):
-  - moveElement: 일반 이동 → bounds 변경 확인, 컨테이너 내 이동
-  - resizeElement: bounds 업데이트, 최소 크기 제약
-  - addElement: 추가 후 findElement로 조회
-  - removeElement: 삭제 후 조회 불가, 연결 엣지 정리 확인
-  - updateStyle: 부분 머지 (기존 스타일 유지), 새 속성 추가
-  - reorderElements: z-order 변경 확인
-  - recalculateEdge: 요소 이동 후 엣지 path 업데이트 확인
-  - recalculateConnectedEdges: 연결된 모든 엣지 업데이트
+- [x] `packages/editor/src/ir-operations.ts`:
+  - `moveElement(ir, elementId, dx, dy)` — bounds 변경, 컨테이너 자식 재귀 이동
+  - `resizeElement(ir, elementId, newBounds)` — bounds 변경, 최소 1x1 적용
+  - `addElement(ir, sceneId, element, targetId?)` — 씬 또는 컨테이너에 추가
+  - `removeElement(ir, elementId)` — 트리에서 제거 + 연결 엣지 정리 (중첩 자식 ID 수집)
+  - `updateStyle(ir, elementId, style)` — Partial<IRStyle> 머지
+  - `updateText(ir, elementId, content)` — IRText.content 또는 IRShape.innerText.content
+  - `reorderElements(ir, sceneId, elementIds)` — z-order 재정렬
+- [x] `packages/editor/src/ir-edge-operations.ts`:
+  - `recalculateEdge(ir, edgeId)` — routeEdge()로 경로 재계산, 기존 스타일/ID 보존
+  - `recalculateConnectedEdges(ir, elementId)` — 연결된 모든 엣지 재라우팅
+- [x] 테스트: 49 tests (7개 연산 + 엣지 재계산 + 통합, 불변성 검증 포함)
 
 **depends**: T-02, T-12, T-01A
 
 ---
 
-### T-21: 시맨틱 구조 활용 [N]
+### T-21: 시맨틱 구조 활용 [N] ✅
 
-`IROrigin` 메타데이터를 활용한 스마트 편집.
+`IROrigin` 메타데이터를 활용한 스마트 편집. 레이아웃 자동 재실행.
 
-- [ ] `packages/editor/src/semantic-editor.ts`:
-  - `addNodeToFlow(container, newNode)` — origin이 `flow`면 flow 레이아웃 재실행
-  - `reorderStackChild(container, fromIndex, toIndex)` — stack 레이아웃 재실행
-  - `addGridCell(container, newCell)` — grid 레이아웃 재실행
-  - `isSemanticContainer(element): boolean`
-  - `getSemanticType(element): string | null`
-- [ ] 시맨틱 컨테이너 내 요소 수정 시 자동 재레이아웃 통합
-- [ ] 테스트 (`packages/editor/__tests__/semantic-editor.test.ts`):
-  - addNodeToFlow: flow origin 컨테이너에 노드 추가 → 재배치 발생
-  - reorderStackChild: 순서 변경 → 재배치 발생
-  - addGridCell: 셀 추가 → 그리드 재계산
-  - isSemanticContainer: origin 있는/없는 요소 구분
-  - 일반 컨테이너 (origin 없음)에 추가 시 재배치 미발생
+- [x] `packages/editor/src/semantic-editor.ts`:
+  - `isSemanticContainer(element)` — container + origin 존재 확인
+  - `getSemanticType(element)` — origin.sourceType 반환 또는 null
+  - `addNodeToFlow(ir, containerId, newNode, edges?)` — flow에 노드 + 엣지 추가 후 재레이아웃
+  - `reorderStackChild(ir, containerId, fromIndex, toIndex)` — stack 자식 순서 변경 후 재레이아웃
+  - `addGridCell(ir, containerId, newCell)` — grid에 셀 추가 후 재레이아웃
+  - `relayoutContainer(ir, containerId)` — origin.sourceType 기반 디스패치 (stack/grid/flow/group/layers)
+  - 기본 sourceProps: stack(col,2,start,false), grid(2,2), flow(right,5), group(2), layers(1)
+  - 엣지 자식은 레이아웃에서 제외 (bounds 보존)
+- [x] 테스트: 44 tests (쿼리, 스마트 편집, relayout 6종, 엣지 케이스)
 
 **depends**: T-20, T-07, T-08, T-09, T-10
 
 ---
 
-### T-22: 시맨틱 해체 (Detach) [N]
+### T-22: 시맨틱 해체 (Detach) [N] ✅
 
 시맨틱 레이아웃 제약에서 벗어나 자유 편집으로 전환. Figma의 "Remove Auto Layout"과 동일.
 
-- [ ] `packages/editor/src/detach.ts`:
-  - `detachFromLayout(ir, containerId)` — 컨테이너와 모든 자식에서 `origin` 제거
-  - 해체 후 자식은 현재 절대 위치 유지, 자동 레이아웃 미적용
-- [ ] 테스트 (`packages/editor/__tests__/detach.test.ts`):
-  - flow 컨테이너 해체 → origin 제거 확인, 자식 위치 보존 확인
-  - 해체 후 노드 추가 시 재레이아웃 미트리거 확인
-  - 중첩 컨테이너 해체: 자식의 origin도 제거
-  - 이미 origin 없는 컨테이너 해체 → 무동작
+- [x] `packages/editor/src/detach.ts`:
+  - `detachFromLayout(ir, containerId)` — 컨테이너와 모든 중첩 자식에서 origin 제거 (delete)
+  - `detachAll(ir)` — IR 전체의 모든 origin 제거 (flatten/export용)
+  - no-op 최적화: 미발견/origin 없음 → 동일 참조 반환 (변경 감지 가능)
+  - 자식 bounds 불변 (현재 절대 위치 유지)
+- [x] 테스트: 27 tests (기본, 중첩, 불변성, no-op, 위치 보존, detachAll, 엣지 케이스)
 
 **depends**: T-21
 
