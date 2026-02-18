@@ -24,7 +24,8 @@
     "konva": "^9.0.0"
   },
   "devDependencies": {
-    "typescript": "catalog:",
-    "happy-dom": "^17.4.4"
+    "canvas": "^3.2.1",
+    "happy-dom": "^17.4.4",
+    "typescript": "catalog:"
   }
 }

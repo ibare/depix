@@ -1,0 +1,236 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AST snapshots > flow-basic matches snapshot 1`] = `
+{
+  "directives": [],
+  "scenes": [
+    {
+      "children": [
+        {
+          "blockType": "flow",
+          "children": [
+            {
+              "children": [],
+              "elementType": "node",
+              "flags": [],
+              "id": "a",
+              "items": undefined,
+              "kind": "element",
+              "label": "A",
+              "loc": {
+                "column": 3,
+                "line": 2,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "children": [],
+              "elementType": "node",
+              "flags": [],
+              "id": "b",
+              "items": undefined,
+              "kind": "element",
+              "label": "B",
+              "loc": {
+                "column": 3,
+                "line": 3,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "edgeStyle": "->",
+              "fromId": "a",
+              "kind": "edge",
+              "label": undefined,
+              "loc": {
+                "column": 3,
+                "line": 4,
+              },
+              "toId": "b",
+            },
+          ],
+          "id": undefined,
+          "kind": "block",
+          "label": undefined,
+          "loc": {
+            "column": 1,
+            "line": 1,
+          },
+          "props": {
+            "direction": "right",
+          },
+          "style": {},
+        },
+      ],
+      "loc": {
+        "column": 1,
+        "line": 1,
+      },
+      "name": null,
+    },
+  ],
+}
+`;
+
+exports[`AST snapshots > grid-basic matches snapshot 1`] = `
+{
+  "directives": [],
+  "scenes": [
+    {
+      "children": [
+        {
+          "blockType": "grid",
+          "children": [
+            {
+              "children": [],
+              "elementType": "cell",
+              "flags": [
+                "header",
+              ],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "H1",
+              "loc": {
+                "column": 3,
+                "line": 2,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "children": [],
+              "elementType": "cell",
+              "flags": [
+                "header",
+              ],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "H2",
+              "loc": {
+                "column": 3,
+                "line": 3,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "children": [],
+              "elementType": "cell",
+              "flags": [],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "A",
+              "loc": {
+                "column": 3,
+                "line": 4,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "children": [],
+              "elementType": "cell",
+              "flags": [],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "B",
+              "loc": {
+                "column": 3,
+                "line": 5,
+              },
+              "props": {},
+              "style": {},
+            },
+          ],
+          "id": undefined,
+          "kind": "block",
+          "label": undefined,
+          "loc": {
+            "column": 1,
+            "line": 1,
+          },
+          "props": {
+            "cols": 2,
+          },
+          "style": {},
+        },
+      ],
+      "loc": {
+        "column": 1,
+        "line": 1,
+      },
+      "name": null,
+    },
+  ],
+}
+`;
+
+exports[`AST snapshots > stack-row matches snapshot 1`] = `
+{
+  "directives": [],
+  "scenes": [
+    {
+      "children": [
+        {
+          "blockType": "stack",
+          "children": [
+            {
+              "children": [],
+              "elementType": "box",
+              "flags": [],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "Card 1",
+              "loc": {
+                "column": 3,
+                "line": 2,
+              },
+              "props": {},
+              "style": {},
+            },
+            {
+              "children": [],
+              "elementType": "box",
+              "flags": [],
+              "id": undefined,
+              "items": undefined,
+              "kind": "element",
+              "label": "Card 2",
+              "loc": {
+                "column": 3,
+                "line": 3,
+              },
+              "props": {},
+              "style": {},
+            },
+          ],
+          "id": undefined,
+          "kind": "block",
+          "label": undefined,
+          "loc": {
+            "column": 1,
+            "line": 1,
+          },
+          "props": {
+            "direction": "row",
+            "gap": "md",
+          },
+          "style": {},
+        },
+      ],
+      "loc": {
+        "column": 1,
+        "line": 1,
+      },
+      "name": null,
+    },
+  ],
+}
+`;
