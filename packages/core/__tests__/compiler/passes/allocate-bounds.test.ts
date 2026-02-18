@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { allocateScene, runLayout, buildTreeNodes } from '../../../src/compiler/passes/allocate-bounds.js';
+import { allocateScene, runLayout, buildTreeNodes, computeLayoutChildren } from '../../../src/compiler/passes/allocate-bounds.js';
+import type { LayoutPlanNode } from '../../../src/compiler/passes/plan-layout.js';
 import { planScene, planNode } from '../../../src/compiler/passes/plan-layout.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
 import type { ASTScene, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
@@ -312,5 +313,119 @@ describe('buildTreeNodes', () => {
 
     expect(nodes[0].id).toBe('root');
     expect(nodes[0].children).toContain(1); // c1 is now at index 1
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge-aware sizing in flow/tree
+// ---------------------------------------------------------------------------
+
+describe('edge-aware sizing in flow/tree', () => {
+  function makePlanNode(blockType: string, childIds: string[], edges: ASTEdge[], props: Record<string, string | number> = {}): LayoutPlanNode {
+    const children: (ASTElement | ASTEdge)[] = childIds.map(id =>
+      makeElement('node', { id }),
+    );
+    edges.forEach(e => children.push(e));
+    const block = makeBlock(blockType, children, { id: `${blockType}-block`, props });
+    return planNode(block, lightTheme);
+  }
+
+  function totalNodeArea(children: { width: number; height: number }[]): number {
+    return children.reduce((sum, c) => sum + c.width * c.height, 0);
+  }
+
+  describe('flow', () => {
+    it('nodes are smaller when edges exist vs no edges', () => {
+      const noEdges = makePlanNode('flow', ['a', 'b', 'c'], []);
+      const withEdges = makePlanNode('flow', ['a', 'b', 'c'], [
+        makeEdge('a', 'b'), makeEdge('b', 'c'),
+      ]);
+
+      const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
+      const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
+
+      const areaNoEdge = totalNodeArea(sizesNoEdge);
+      const areaWithEdge = totalNodeArea(sizesWithEdge);
+
+      expect(areaWithEdge).toBeLessThan(areaNoEdge);
+    });
+
+    it('more edges → smaller nodes', () => {
+      const oneEdge = makePlanNode('flow', ['a', 'b', 'c'], [
+        makeEdge('a', 'b'),
+      ]);
+      const twoEdges = makePlanNode('flow', ['a', 'b', 'c'], [
+        makeEdge('a', 'b'), makeEdge('b', 'c'),
+      ]);
+
+      const sizes1 = computeLayoutChildren(oneEdge, CANVAS);
+      const sizes2 = computeLayoutChildren(twoEdges, CANVAS);
+
+      expect(totalNodeArea(sizes2)).toBeLessThan(totalNodeArea(sizes1));
+    });
+
+    it('vertical flow reduces height axis when edges exist', () => {
+      const noEdges = makePlanNode('flow', ['a', 'b'], [], { direction: 'down' });
+      const withEdges = makePlanNode('flow', ['a', 'b'], [
+        makeEdge('a', 'b'),
+      ], { direction: 'down' });
+
+      const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
+      const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
+
+      // Height (main axis for vertical) should shrink when edges exist
+      for (let i = 0; i < sizesWithEdge.length; i++) {
+        expect(sizesWithEdge[i].height).toBeLessThan(sizesNoEdge[i].height);
+      }
+    });
+
+    it('no edges → same behavior as before (no shrink)', () => {
+      const noEdges = makePlanNode('flow', ['a', 'b'], []);
+      const sizes = computeLayoutChildren(noEdges, CANVAS);
+
+      // With no edges, gapCount=0, so reservedForEdges=0 → full area used
+      const fullArea = CANVAS.w * CANVAS.h;
+      const nodeArea = totalNodeArea(sizes);
+      // Nodes should use a reasonable fraction of the full area
+      expect(nodeArea).toBeGreaterThan(fullArea * 0.3);
+    });
+  });
+
+  describe('tree', () => {
+    it('nodes are smaller when edges exist vs no edges', () => {
+      const noEdges = makePlanNode('tree', ['r', 'c1', 'c2'], []);
+      const withEdges = makePlanNode('tree', ['r', 'c1', 'c2'], [
+        makeEdge('r', 'c1'), makeEdge('r', 'c2'),
+      ]);
+
+      const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
+      const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
+
+      expect(totalNodeArea(sizesWithEdge)).toBeLessThan(totalNodeArea(sizesNoEdge));
+    });
+
+    it('horizontal tree reduces width axis when edges exist', () => {
+      const noEdges = makePlanNode('tree', ['r', 'c1'], [], { direction: 'right' });
+      const withEdges = makePlanNode('tree', ['r', 'c1'], [
+        makeEdge('r', 'c1'),
+      ], { direction: 'right' });
+
+      const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
+      const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
+
+      // Width (main axis for horizontal) should shrink when edges exist
+      for (let i = 0; i < sizesWithEdge.length; i++) {
+        expect(sizesWithEdge[i].width).toBeLessThan(sizesNoEdge[i].width);
+      }
+    });
+
+    it('no edges → same behavior as before (no shrink)', () => {
+      const noEdges = makePlanNode('tree', ['r', 'c1'], []);
+      const sizes = computeLayoutChildren(noEdges, CANVAS);
+
+      const fullArea = CANVAS.w * CANVAS.h;
+      const nodeArea = totalNodeArea(sizes);
+      expect(nodeArea).toBeGreaterThan(fullArea * 0.1);
+    });
   });
 });

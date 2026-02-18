@@ -288,26 +288,66 @@ export function computeLayoutChildren(
 
     case 'flow': {
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
-      const flowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
-      const totalArea = bounds.w * bounds.h;
+      const baseFlowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
+      const dir = (props.direction as string) ?? 'right';
+      const isHorizontal = dir === 'right' || dir === 'left';
+      const mainAxis = isHorizontal ? bounds.w : bounds.h;
+      const crossAxis = isHorizontal ? bounds.h : bounds.w;
+
+      // Edge-aware gap: proportional to available space when edges exist
+      const flowGap = plan.edges.length > 0
+        ? Math.max(baseFlowGap, mainAxis / (2 * n))
+        : baseFlowGap;
+      const gapCount = Math.min(plan.edges.length, n - 1);
+      const reservedForEdges = gapCount * flowGap;
+      const availableMain = Math.max(mainAxis - reservedForEdges, mainAxis * 0.3);
+      // Cross-axis cap: compact nodes, don't fill the entire cross dimension
+      const maxNodeCross = crossAxis * 0.4;
+      const totalArea = availableMain * maxNodeCross;
+      const maxNodeMain = availableMain / n * 1.5;
+
       return plan.children.map(c => {
         const frac = totalWeight > 0 ? c.weight / totalWeight : 1 / n;
         const area = totalArea * frac;
         const aspect = 1.5;
-        const w = Math.min(Math.sqrt(area * aspect), bounds.w - flowGap);
-        const h = Math.min(area / Math.max(w, 1), bounds.h - flowGap);
+        const w = isHorizontal
+          ? Math.min(Math.sqrt(area * aspect), maxNodeMain)
+          : Math.min(Math.sqrt(area * aspect), maxNodeCross);
+        const h = isHorizontal
+          ? Math.min(area / Math.max(w, 1), maxNodeCross)
+          : Math.min(area / Math.max(w, 1), maxNodeMain);
         return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
       });
     }
 
     case 'tree': {
-      const totalArea = bounds.w * bounds.h;
+      const defaultLevelGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
+      const baseLevelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
+      const dir = (props.direction as string) ?? 'down';
+      const isHorizontal = dir === 'right' || dir === 'left';
+      const mainAxis = isHorizontal ? bounds.w : bounds.h;
+      const crossAxis = isHorizontal ? bounds.h : bounds.w;
+
+      // Edge-aware gap: proportional to available space when edges exist
+      const levelGap = plan.edges.length > 0
+        ? Math.max(baseLevelGap, mainAxis / (2 * n))
+        : baseLevelGap;
+      const gapCount = Math.min(plan.edges.length, n - 1);
+      const reservedForEdges = gapCount * levelGap;
+      const availableMain = Math.max(mainAxis - reservedForEdges, mainAxis * 0.3);
+      const totalArea = availableMain * crossAxis;
+      const maxNodeMain = availableMain / n * 1.5;
+
       return plan.children.map(c => {
         const frac = totalWeight > 0 ? c.weight / totalWeight : 1 / n;
         const area = totalArea * frac;
         const aspect = 1.5;
-        const w = Math.min(Math.sqrt(area * aspect), bounds.w * 0.4);
-        const h = Math.min(area / Math.max(w, 1), bounds.h * 0.4);
+        const w = isHorizontal
+          ? Math.min(Math.sqrt(area * aspect), maxNodeMain)
+          : Math.min(Math.sqrt(area * aspect), crossAxis * 0.4);
+        const h = isHorizontal
+          ? Math.min(area / Math.max(w, 1), crossAxis * 0.4)
+          : Math.min(area / Math.max(w, 1), maxNodeMain);
         return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
       });
     }
@@ -384,10 +424,18 @@ export function runLayout(
     case 'flow': {
       const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId }));
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
+      const baseGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
+      const dir = (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right';
+      const isHz = dir === 'right' || dir === 'left';
+      const mainAvail = isHz ? bounds.w : bounds.h;
+      // When edges exist, ensure gap is proportional to available space
+      const flowGap = flowEdges.length > 0
+        ? Math.max(baseGap, mainAvail / (2 * children.length))
+        : baseGap;
       return layoutFlow(children, {
         bounds,
-        direction: (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right',
-        gap: typeof props.gap === 'number' ? props.gap : defaultFlowGap,
+        direction: dir,
+        gap: flowGap,
         edges: flowEdges,
       });
     }
@@ -396,10 +444,18 @@ export function runLayout(
       const treeNodes = buildTreeNodes(children, edges);
       const defaultLevelGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
       const defaultSiblingGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
+      const baseLevelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
+      const treeDir = (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down';
+      const isTreeHz = treeDir === 'right' || treeDir === 'left';
+      const treeMainAvail = isTreeHz ? bounds.w : bounds.h;
+      // When edges exist, ensure level gap is proportional to available space
+      const treeLevelGap = edges.length > 0
+        ? Math.max(baseLevelGap, treeMainAvail / (2 * children.length))
+        : baseLevelGap;
       return layoutTree(treeNodes, {
         bounds,
-        direction: (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down',
-        levelGap: typeof props.gap === 'number' ? props.gap : defaultLevelGap,
+        direction: treeDir,
+        levelGap: treeLevelGap,
         siblingGap: typeof props.gap === 'number' ? props.gap : defaultSiblingGap,
       });
     }
