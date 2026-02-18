@@ -72,6 +72,11 @@ body {
   margin: 0 auto;
 }
 
+.app-main--editor {
+  max-width: none;
+  padding: 0;
+}
+
 /* ===== Header ===== */
 .header {
   background: var(--bg-primary);
@@ -300,19 +305,50 @@ body {
 
 /* ===== Editor ===== */
 .editor-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  height: calc(100vh - 104px);
+  display: flex;
+  height: calc(100vh - 56px);
 }
 
 .editor-panel {
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
+  border: none;
   overflow: hidden;
+}
+
+.editor-panel--left {
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color);
+}
+
+.editor-panel--right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== Resize Bar ===== */
+.resize-bar {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border-color);
+  transition: background 0.15s;
+  position: relative;
+}
+
+.resize-bar:hover,
+.resize-bar.active {
+  background: var(--accent);
+}
+
+.resize-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
 }
 
 .panel-header {
@@ -371,6 +407,7 @@ body {
   background: var(--canvas-bg);
   width: 100%;
   height: 100%;
+  padding: 20px;
 }
 
 .error-bar {
@@ -436,39 +473,40 @@ body {
   border-color: var(--accent);
 }
 
-/* ===== Example List ===== */
-.example-list {
-  border-bottom: 1px solid var(--border-color);
-  max-height: 180px;
-  overflow-y: auto;
-  flex-shrink: 0;
+/* ===== IR Viewer ===== */
+.ir-toggle-header {
+  border-top: 1px solid var(--border-color);
 }
 
-.example-item {
-  padding: 8px 16px;
+.ir-toggle-btn {
+  padding: 4px 8px;
   border: none;
   background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: 12px;
   cursor: pointer;
-  width: 100%;
-  text-align: left;
-  border-bottom: 1px solid var(--border-color);
-  transition: background 0.1s;
+  font-family: inherit;
 }
 
-.example-item:last-child {
-  border-bottom: none;
+.ir-toggle-btn:hover {
+  color: var(--text-primary);
 }
 
-.example-item:hover {
-  background: var(--bg-tertiary);
+.ir-viewer {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
 }
 
-.example-item.active {
-  background: var(--accent-light);
-  color: var(--accent);
-  font-weight: 500;
+.ir-json {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* ===== Utility ===== */

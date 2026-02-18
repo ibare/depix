@@ -1,6 +1,6 @@
 // @depix/engine — Konva renderer
 
-export { DepixEngine } from './depix-engine.js';
+export { DepixEngine, fitToAspectRatio } from './depix-engine.js';
 export type { DepixEngineOptions } from './depix-engine.js';
 
 export { renderElement, renderElements } from './ir-renderer.js';

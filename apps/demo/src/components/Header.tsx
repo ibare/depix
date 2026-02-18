@@ -1,6 +1,6 @@
 import { ThemeSwitcher } from './ThemeSwitcher';
 
-export type TabId = 'gallery' | 'editor' | 'editable';
+export type TabId = 'gallery' | 'editor';
 
 interface HeaderProps {
   activeTab: TabId;
@@ -10,7 +10,6 @@ interface HeaderProps {
 const tabs: { id: TabId; label: string }[] = [
   { id: 'gallery', label: 'Gallery' },
   { id: 'editor', label: 'Editor' },
-  { id: 'editable', label: 'Editable' },
 ];
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {

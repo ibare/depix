@@ -5,10 +5,17 @@
  * Extends the rendering capabilities of DepixCanvas with selection,
  * undo/redo history, handle management, and snap guides.
  *
+ * Supports two modes:
+ * - **Read mode** (default): Canvas only, hover shows "Edit" button
+ * - **Edit mode**: Full editor with FloatingToolbar + FloatingPropertyPanel
+ *
  * This is a **controlled** component: the parent owns the IR and is
  * notified of changes via `onIRChange`. The component manages internal
  * editing state (selection, history, handles, guides) and exposes an
  * imperative ref API for programmatic control.
+ *
+ * When in edit mode, a snapshot of the IR is taken on entry.
+ * "Done" commits the changes, "Cancel" restores the snapshot.
  */
 
 import React, {
@@ -20,9 +27,9 @@ import React, {
   forwardRef,
   useId,
 } from 'react';
-import type { DepixIR, IRElement } from '@depix/core';
+import type { DepixIR, IRElement, IRStyle, IRBounds, IRBackground } from '@depix/core';
 import { findElement } from '@depix/core';
-import { DepixEngine } from '@depix/engine';
+import { DepixEngine, fitToAspectRatio } from '@depix/engine';
 import {
   SelectionManager,
   HistoryManager,
@@ -30,8 +37,13 @@ import {
   SnapGuideManager,
   addElement as irAddElement,
   removeElement as irRemoveElement,
+  updateStyle as irUpdateStyle,
+  updateText as irUpdateText,
+  moveElement as irMoveElement,
 } from '@depix/editor';
 import type { ToolType } from './types.js';
+import { FloatingToolbar } from './components/FloatingToolbar.js';
+import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,6 +68,18 @@ export interface DepixCanvasEditableProps {
   width?: number;
   /** Initial height in pixels. Default: 450 */
   height?: number;
+
+  // ---- Edit mode props ----
+  /** Whether to start in edit mode. Default: false */
+  initialEditMode?: boolean;
+  /** Position of the edit button in read mode. Default: 'top-right' */
+  editButtonPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  /** Callback when edit mode changes. */
+  onEditModeChange?: (editing: boolean) => void;
+  /** Whether to show the toolbar in edit mode. Default: true */
+  showToolbar?: boolean;
+  /** Whether to show the property panel in edit mode. Default: true */
+  showPropertyPanel?: boolean;
 }
 
 export interface DepixCanvasEditableRef {
@@ -84,6 +108,32 @@ export interface DepixCanvasEditableRef {
 }
 
 // ---------------------------------------------------------------------------
+// Edit button position map
+// ---------------------------------------------------------------------------
+
+const EDIT_BTN_POSITIONS: Record<string, React.CSSProperties> = {
+  'top-left': { top: '8px', left: '8px' },
+  'top-right': { top: '8px', right: '8px' },
+  'bottom-left': { bottom: '8px', left: '8px' },
+  'bottom-right': { bottom: '8px', right: '8px' },
+};
+
+const editBtnStyle: React.CSSProperties = {
+  position: 'absolute',
+  padding: '6px 14px',
+  borderRadius: '6px',
+  border: '1px solid rgba(255,255,255,0.2)',
+  backgroundColor: 'rgba(30,30,30,0.85)',
+  color: '#ddd',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  opacity: 0,
+  transition: 'opacity 0.2s',
+  zIndex: 10,
+};
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -98,12 +148,17 @@ export const DepixCanvasEditable = forwardRef<
     ir,
     onIRChange,
     onSelectionChange,
-    tool = 'select',
+    tool: toolProp,
     readOnly = false,
     className,
     style,
     width = 800,
     height = 450,
+    initialEditMode = false,
+    editButtonPosition = 'top-right',
+    onEditModeChange,
+    showToolbar = true,
+    showPropertyPanel = true,
   } = props;
 
   const generatedId = useId();
@@ -112,6 +167,21 @@ export const DepixCanvasEditable = forwardRef<
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DepixEngine | null>(null);
 
+  // ---- Edit mode state ---------------------------------------------------
+
+  const [isEditing, setIsEditing] = useState(initialEditMode);
+  const [isHovered, setIsHovered] = useState(false);
+  const snapshotRef = useRef<DepixIR | null>(null);
+
+  // ---- Internal tool state (used only in self-managed edit mode) ----------
+
+  const [internalTool, setInternalTool] = useState<ToolType>('select');
+  const tool = toolProp ?? internalTool;
+
+  // ---- Scene state -------------------------------------------------------
+
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+
   // ---- Editor managers (stable across renders) ---------------------------
 
   const selectionRef = useRef<SelectionManager | null>(null);
@@ -119,16 +189,31 @@ export const DepixCanvasEditable = forwardRef<
   const handleRef = useRef<HandleManager | null>(null);
   const snapRef = useRef<SnapGuideManager | null>(null);
 
+  // ---- Derived edit-active flag ------------------------------------------
+
+  /** True when editing functionality is active (self-managed or external tool). */
+  const isEditActive = isEditing || !!toolProp;
+
+  // ---- Selection state for UI updates ------------------------------------
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   // ---- History state for re-render triggers ------------------------------
 
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+
+  // ---- Konva overlay refs (created only in edit mode) --------------------
+
+  const overlayLayerRef = useRef<any>(null);
+  const transformerRef = useRef<any>(null);
 
   // ---- Initialize managers on mount --------------------------------------
 
   useEffect(() => {
     const selection = new SelectionManager({
       onChange: (state) => {
+        setSelectedIds(state.selectedIds);
         onSelectionChange?.(state.selectedIds);
       },
     });
@@ -152,8 +237,6 @@ export const DepixCanvasEditable = forwardRef<
       history.destroy();
       handle.destroy();
     };
-    // onSelectionChange is intentionally excluded: the selection manager's
-    // onChange callback captures it via closure and only fires on state changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -180,13 +263,75 @@ export const DepixCanvasEditable = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Load IR when it changes -------------------------------------------
+  // ---- Update IR when it changes (preserves current scene) ---------------
 
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    engine.load(ir);
+    engine.update(ir);
   }, [ir]);
+
+  // ---- Sync scene index to engine ----------------------------------------
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setScene(currentSceneIndex);
+  }, [currentSceneIndex]);
+
+  // ---- Canvas click → element selection (via Konva Stage) ----------------
+  // Only active when in edit mode — prevents selection in read mode.
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || readOnly || !isEditActive) return;
+
+    let stage: any;
+    try {
+      stage = engine.getStage();
+    } catch {
+      return;
+    }
+    if (!stage || typeof stage.on !== 'function') return;
+
+    const handleStageClick = (e: any) => {
+      // Only handle selection when in select mode
+      const currentTool = toolProp ?? internalTool;
+      if (currentTool !== 'select') return;
+
+      const target = e.target;
+
+      // Click on empty stage → clear selection
+      if (target === stage) {
+        selectionRef.current?.clearSelection();
+        return;
+      }
+
+      // Walk up the node tree to find a node with an element ID (starts with 'el-')
+      let node = target;
+      let elementId: string | null = null;
+      while (node && node !== stage) {
+        const id = typeof node.id === 'function' ? node.id() : node.id;
+        if (id && typeof id === 'string' && id.startsWith('el-')) {
+          elementId = id;
+          break;
+        }
+        node = node.parent;
+      }
+
+      if (elementId) {
+        const shiftKey = e.evt?.shiftKey ?? false;
+        selectionRef.current?.select(elementId, shiftKey);
+      } else {
+        selectionRef.current?.clearSelection();
+      }
+    };
+
+    stage.on('click', handleStageClick);
+    return () => {
+      stage.off('click', handleStageClick);
+    };
+  }, [readOnly, toolProp, internalTool, isEditing]);
 
   // ---- Responsive resize -------------------------------------------------
 
@@ -208,12 +353,163 @@ export const DepixCanvasEditable = forwardRef<
     return () => observer.disconnect();
   }, []);
 
+  // ---- Konva overlay: create/destroy Transformer on edit mode change ------
+  // Uses Konva.Transformer (like the original) instead of manual drawing.
+  // Only active when in edit mode.
+
+  useEffect(() => {
+    if (!isEditActive) {
+      // Teardown on edit mode exit
+      if (transformerRef.current) {
+        transformerRef.current.nodes([]);
+        transformerRef.current.destroy();
+        transformerRef.current = null;
+      }
+      if (overlayLayerRef.current) {
+        overlayLayerRef.current.destroy();
+        overlayLayerRef.current = null;
+      }
+      return;
+    }
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    let stage: any;
+    try {
+      stage = engine.getStage();
+    } catch {
+      return;
+    }
+    if (!stage || typeof stage.add !== 'function') return;
+
+    let cancelled = false;
+
+    import('konva').then((mod) => {
+      if (cancelled) return;
+      const K = mod.default ?? mod;
+
+      const layer = new K.Layer();
+      stage.add(layer);
+
+      const transformer = new K.Transformer({
+        // Match original Depix style: blue border, white anchors with blue stroke
+        borderStroke: '#3b82f6',
+        borderStrokeWidth: 1,
+        anchorFill: '#ffffff',
+        anchorStroke: '#3b82f6',
+        anchorStrokeWidth: 2,
+        anchorSize: 8,
+        anchorCornerRadius: 2,
+        keepRatio: false,
+        rotateEnabled: true,
+        rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
+        rotationSnapTolerance: 5,
+      });
+      layer.add(transformer);
+
+      overlayLayerRef.current = layer;
+      transformerRef.current = transformer;
+      layer.batchDraw();
+    }).catch(() => {
+      // Konva not available (test environment)
+    });
+
+    return () => {
+      cancelled = true;
+      if (transformerRef.current) {
+        transformerRef.current.nodes([]);
+        transformerRef.current.destroy();
+        transformerRef.current = null;
+      }
+      if (overlayLayerRef.current) {
+        overlayLayerRef.current.destroy();
+        overlayLayerRef.current = null;
+      }
+    };
+  }, [isEditing, toolProp]);
+
+  // ---- Update Transformer nodes when selection changes -------------------
+  // Finds rendered Konva nodes by element ID and attaches Transformer.
+  // Configures Transformer based on HandleManager definition.
+
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    if (!transformer || !isEditActive) return;
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    let stage: any;
+    try {
+      stage = engine.getStage();
+    } catch {
+      return;
+    }
+    if (!stage) return;
+
+    if (selectedIds.length === 0) {
+      transformer.nodes([]);
+      overlayLayerRef.current?.batchDraw();
+      return;
+    }
+
+    // Find rendered Konva nodes by element ID
+    const nodes: any[] = [];
+    for (const id of selectedIds) {
+      const node = stage.findOne(`#${id}`);
+      if (node) nodes.push(node);
+    }
+
+    if (nodes.length === 0) {
+      transformer.nodes([]);
+      overlayLayerRef.current?.batchDraw();
+      return;
+    }
+
+    // Configure Transformer from HandleManager definition
+    const elements = selectedIds
+      .map((id) => findElement(ir, id))
+      .filter((el): el is IRElement => el !== undefined);
+
+    handleRef.current?.updateForElements(elements);
+    const def = handleRef.current?.getDefinition();
+
+    if (def?.handleType === 'bounding-box') {
+      transformer.keepRatio(def.keepRatio ?? false);
+      transformer.rotateEnabled(def.rotateEnabled ?? true);
+      if (def.enabledAnchors) {
+        transformer.enabledAnchors(def.enabledAnchors);
+      }
+    }
+
+    transformer.nodes(nodes);
+    overlayLayerRef.current?.moveToTop();
+    overlayLayerRef.current?.batchDraw();
+  }, [selectedIds, ir, isEditing, toolProp]);
+
+  // ---- Clear selection when leaving edit mode ----------------------------
+
+  const wasEditActiveRef = useRef(isEditActive);
+  useEffect(() => {
+    const wasActive = wasEditActiveRef.current;
+    wasEditActiveRef.current = isEditActive;
+
+    // Only clear when transitioning from edit → non-edit
+    if (wasActive && !isEditActive) {
+      selectionRef.current?.clearSelection();
+    }
+  }, [isEditActive]);
+
   // ---- Keyboard shortcuts ------------------------------------------------
 
   useEffect(() => {
     if (readOnly) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when in edit mode (or when tool is externally controlled)
+      if (!isEditing && !toolProp) return;
+
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       // Undo: Ctrl+Z
@@ -253,16 +549,141 @@ export const DepixCanvasEditable = forwardRef<
       // Select all: Ctrl+A
       if (isCtrlOrCmd && e.key === 'a') {
         e.preventDefault();
-        const scene = ir.scenes[0];
+        const scene = ir.scenes[currentSceneIndex];
         if (!scene) return;
         const allIds = scene.elements.map((el) => el.id);
         selectionRef.current?.selectMultiple(allIds);
+      }
+
+      // Escape: exit edit mode
+      if (e.key === 'Escape' && isEditing && !toolProp) {
+        handleCancel();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, ir, onIRChange]);
+  }, [readOnly, ir, onIRChange, isEditing, toolProp, currentSceneIndex]);
+
+  // ---- Edit mode management ----------------------------------------------
+
+  const enterEditMode = useCallback(() => {
+    snapshotRef.current = structuredClone(ir);
+    setIsEditing(true);
+    setInternalTool('select');
+    onEditModeChange?.(true);
+  }, [ir, onEditModeChange]);
+
+  const handleConfirm = useCallback(() => {
+    // Commit: the current ir is already the latest via onIRChange
+    snapshotRef.current = null;
+    setIsEditing(false);
+    selectionRef.current?.clearSelection();
+    onEditModeChange?.(false);
+  }, [onEditModeChange]);
+
+  const handleCancel = useCallback(() => {
+    // Restore snapshot
+    if (snapshotRef.current) {
+      onIRChange(snapshotRef.current);
+      snapshotRef.current = null;
+    }
+    setIsEditing(false);
+    selectionRef.current?.clearSelection();
+    onEditModeChange?.(false);
+  }, [onIRChange, onEditModeChange]);
+
+  // ---- IR manipulation callbacks -----------------------------------------
+
+  const handleStyleChange = useCallback(
+    (id: string, style: Partial<IRStyle>) => {
+      const newIR = irUpdateStyle(ir, id, style);
+      onIRChange(newIR);
+    },
+    [ir, onIRChange],
+  );
+
+  const handleTextChange = useCallback(
+    (id: string, text: string) => {
+      const newIR = irUpdateText(ir, id, text);
+      onIRChange(newIR);
+    },
+    [ir, onIRChange],
+  );
+
+  const handleBoundsChange = useCallback(
+    (id: string, bounds: Partial<IRBounds>) => {
+      if (bounds.x !== undefined || bounds.y !== undefined) {
+        const el = findElement(ir, id);
+        if (el) {
+          const dx = bounds.x !== undefined ? bounds.x - el.bounds.x : 0;
+          const dy = bounds.y !== undefined ? bounds.y - el.bounds.y : 0;
+          const newIR = irMoveElement(ir, id, dx, dy);
+          onIRChange(newIR);
+        }
+      }
+    },
+    [ir, onIRChange],
+  );
+
+  const handleSelectElement = useCallback(
+    (id: string, append?: boolean) => {
+      selectionRef.current?.select(id, append);
+    },
+    [],
+  );
+
+  const handleAspectRatioChange = useCallback(
+    (ratio: { width: number; height: number }) => {
+      const newIR = structuredClone(ir);
+      newIR.meta.aspectRatio = ratio;
+      onIRChange(newIR);
+    },
+    [ir, onIRChange],
+  );
+
+  const handleBackgroundChange = useCallback(
+    (bg: IRBackground) => {
+      const newIR = structuredClone(ir);
+      newIR.meta.background = bg;
+      onIRChange(newIR);
+    },
+    [ir, onIRChange],
+  );
+
+  const handleAddScene = useCallback(() => {
+    const newIR = structuredClone(ir);
+    const newScene = {
+      id: `scene-${Date.now()}`,
+      elements: [],
+      background: { type: 'solid' as const, color: '#ffffff' },
+    };
+    newIR.scenes.push(newScene);
+    onIRChange(newIR);
+    setCurrentSceneIndex(newIR.scenes.length - 1);
+  }, [ir, onIRChange]);
+
+  const handleDeleteScene = useCallback(
+    (index: number) => {
+      if (ir.scenes.length <= 1) return;
+      const newIR = structuredClone(ir);
+      newIR.scenes.splice(index, 1);
+      onIRChange(newIR);
+      if (currentSceneIndex >= newIR.scenes.length) {
+        setCurrentSceneIndex(newIR.scenes.length - 1);
+      }
+    },
+    [ir, onIRChange, currentSceneIndex],
+  );
+
+  const handleRenameScene = useCallback(
+    (index: number, name: string) => {
+      const newIR = structuredClone(ir);
+      (newIR.scenes[index] as unknown as { name: string }).name = name;
+      onIRChange(newIR);
+    },
+    [ir, onIRChange],
+  );
 
   // ---- Imperative ref API ------------------------------------------------
 
@@ -275,11 +696,11 @@ export const DepixCanvasEditable = forwardRef<
   }, []);
 
   const selectAll = useCallback(() => {
-    const scene = ir.scenes[0];
+    const scene = ir.scenes[currentSceneIndex];
     if (!scene) return;
     const allIds = scene.elements.map((el) => el.id);
     selectionRef.current?.selectMultiple(allIds);
-  }, [ir]);
+  }, [ir, currentSceneIndex]);
 
   const clearSelection = useCallback(() => {
     selectionRef.current?.clearSelection();
@@ -307,12 +728,12 @@ export const DepixCanvasEditable = forwardRef<
 
   const addElementFn = useCallback(
     (element: IRElement) => {
-      const scene = ir.scenes[0];
+      const scene = ir.scenes[currentSceneIndex];
       if (!scene) return;
       const newIR = irAddElement(ir, scene.id, element);
       onIRChange(newIR);
     },
-    [ir, onIRChange],
+    [ir, onIRChange, currentSceneIndex],
   );
 
   const removeElementFn = useCallback(
@@ -357,9 +778,59 @@ export const DepixCanvasEditable = forwardRef<
     ],
   );
 
+  // ---- Derive selected elements for property panel -----------------------
+
+  const selectedElements: IRElement[] = selectedIds
+    .map((id) => findElement(ir, id))
+    .filter((el): el is IRElement => el !== undefined);
+
+  // ---- Determine if we show edit-mode UI ---------------------------------
+
+  const showEditUI = isEditActive;
+  const showReadModeEditButton = !showEditUI && !readOnly && !toolProp;
+
+  // ---- Calculate panel positions relative to canvas ----------------------
+
+  const [panelPositions, setPanelPositions] = useState<{
+    toolbar: { top: number; left: number };
+    panel: { top: number; left: number };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!showEditUI) {
+      setPanelPositions(null);
+      return;
+    }
+
+    const updatePositions = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      setPanelPositions({
+        toolbar: {
+          top: rect.top + 8,
+          left: rect.left + 8,
+        },
+        panel: {
+          top: rect.top + 8,
+          left: rect.right - 288, // 280px panel + 8px padding
+        },
+      });
+    };
+
+    updatePositions();
+    window.addEventListener('scroll', updatePositions, true);
+    window.addEventListener('resize', updatePositions);
+    return () => {
+      window.removeEventListener('scroll', updatePositions, true);
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [showEditUI]);
+
   // ---- Render ------------------------------------------------------------
 
   const containerStyle: React.CSSProperties = {
+    position: 'relative',
     width: style?.width ?? width,
     height: style?.height ?? height,
     ...style,
@@ -367,11 +838,107 @@ export const DepixCanvasEditable = forwardRef<
 
   return (
     <div
-      ref={containerRef}
-      className={className}
       style={containerStyle}
+      className={className}
       data-tool={tool}
       data-readonly={readOnly || undefined}
-    />
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Canvas container */}
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        data-tool={tool}
+        data-readonly={readOnly || undefined}
+      />
+
+      {/* Read mode: edit button overlay — sized to match the fitted canvas */}
+      {showReadModeEditButton && (() => {
+        const fitted = fitToAspectRatio(width, height, ir.meta.aspectRatio);
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          >
+            <div style={{ position: 'relative', width: fitted.width, height: fitted.height }}>
+              <button
+                type="button"
+                data-edit-button
+                style={{
+                  ...editBtnStyle,
+                  ...EDIT_BTN_POSITIONS[editButtonPosition],
+                  opacity: isHovered ? 1 : 0,
+                  pointerEvents: isHovered ? 'auto' : 'none',
+                }}
+                onClick={enterEditMode}
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Edit mode: floating panels */}
+      {showEditUI && showToolbar && panelPositions && (
+        <FloatingToolbar
+          tool={tool}
+          onToolChange={toolProp ? (props as any).onToolChange ?? (() => {}) : setInternalTool}
+          onUndo={undo}
+          onRedo={redo}
+          onDelete={deleteSelected}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          hasSelection={selectedIds.length > 0}
+          style={{
+            position: 'fixed',
+            top: `${panelPositions.toolbar.top}px`,
+            left: `${panelPositions.toolbar.left}px`,
+          }}
+          draggable
+        />
+      )}
+
+      {showEditUI && showPropertyPanel && panelPositions && (
+        <FloatingPropertyPanel
+          elements={selectedElements}
+          onStyleChange={handleStyleChange}
+          onTextChange={handleTextChange}
+          onBoundsChange={handleBoundsChange}
+          ir={ir}
+          currentSceneIndex={currentSceneIndex}
+          selectedIds={selectedIds}
+          onCancel={toolProp ? undefined : handleCancel}
+          onConfirm={toolProp ? undefined : handleConfirm}
+          onSceneChange={setCurrentSceneIndex}
+          onAddScene={handleAddScene}
+          onDeleteScene={handleDeleteScene}
+          onRenameScene={handleRenameScene}
+          onSelectElement={handleSelectElement}
+          onAspectRatioChange={handleAspectRatioChange}
+          onBackgroundChange={handleBackgroundChange}
+          style={{
+            position: 'fixed',
+            top: `${panelPositions.panel.top}px`,
+            left: `${panelPositions.panel.left}px`,
+          }}
+          draggable
+        />
+      )}
+    </div>
   );
 });

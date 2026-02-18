@@ -31,6 +31,9 @@ export { usePanelPositions } from './hooks/usePanelPositions.js';
 export type { PanelPosition, UsePanelPositionsOptions, UsePanelPositionsReturn } from './hooks/usePanelPositions.js';
 
 // UI Components
+export { FloatingPanel, PanelSection, PanelDivider, PanelButton } from './components/FloatingPanel.js';
+export type { FloatingPanelProps, PanelSectionProps, PanelButtonProps } from './components/FloatingPanel.js';
+
 export { FloatingToolbar } from './components/FloatingToolbar.js';
 export type { FloatingToolbarProps } from './components/FloatingToolbar.js';
 
@@ -39,6 +42,34 @@ export type { FloatingPropertyPanelProps } from './components/FloatingPropertyPa
 
 export { SymbolPicker } from './components/SymbolPicker.js';
 export type { SymbolPickerProps } from './components/SymbolPicker.js';
+
+// Property Panel Tabs
+export { ObjectTab } from './components/property-panel-tabs/ObjectTab.js';
+export type { ObjectTabProps } from './components/property-panel-tabs/ObjectTab.js';
+
+export { LayersTab } from './components/property-panel-tabs/LayersTab.js';
+export type { LayersTabProps } from './components/property-panel-tabs/LayersTab.js';
+
+export { CanvasTab } from './components/property-panel-tabs/CanvasTab.js';
+export type { CanvasTabProps } from './components/property-panel-tabs/CanvasTab.js';
+
+export { SceneTab } from './components/property-panel-tabs/SceneTab.js';
+export type { SceneTabProps } from './components/property-panel-tabs/SceneTab.js';
+
+// Tool Icons
+export {
+  SelectIcon,
+  RectIcon,
+  CircleIcon,
+  TextIcon,
+  LineIcon,
+  ConnectorIcon,
+  ImageIcon,
+  UndoIcon,
+  RedoIcon,
+  DeleteIcon,
+  TOOL_ICON_MAP,
+} from './icons/ToolIcons.js';
 
 // Property Controls
 export {

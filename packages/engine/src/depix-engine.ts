@@ -15,6 +15,27 @@ import { renderElements } from './ir-renderer.js';
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Compute fitted dimensions that preserve the given aspect ratio
+ * within the available width/height (contain strategy).
+ */
+export function fitToAspectRatio(
+  availW: number,
+  availH: number,
+  aspectRatio: { width: number; height: number },
+): { width: number; height: number } {
+  const canvasAR = aspectRatio.width / aspectRatio.height;
+  const viewAR = availW / availH;
+
+  if (viewAR > canvasAR) {
+    // Height-constrained: use full height, narrow width
+    return { width: Math.round(availH * canvasAR), height: availH };
+  } else {
+    // Width-constrained: use full width, shorter height
+    return { width: availW, height: Math.round(availW / canvasAR) };
+  }
+}
+
 export interface DepixEngineOptions {
   /** DOM container element or CSS selector. */
   container: string | HTMLDivElement;
@@ -35,6 +56,7 @@ export class DepixEngine {
   private ir: DepixIR | null = null;
   private currentSceneIndex = 0;
   private transform: CoordinateTransform;
+  private availableSize: { width: number; height: number } | null = null;
 
   constructor(options: DepixEngineOptions) {
     const container =
@@ -69,10 +91,41 @@ export class DepixEngine {
     this.ir = ir;
     this.currentSceneIndex = 0;
 
-    // Update transform with the IR's aspect ratio
-    const { width, height } = this.stage.size();
+    // Fit stage to IR's aspect ratio within the current available space
+    const avail = this.availableSize ?? this.stage.size();
+    const fitted = fitToAspectRatio(avail.width, avail.height, ir.meta.aspectRatio);
+    this.stage.width(fitted.width);
+    this.stage.height(fitted.height);
+
     this.transform = new CoordinateTransform(
-      { width, height },
+      { width: fitted.width, height: fitted.height },
+      ir.meta.aspectRatio,
+    );
+
+    this.renderCurrentScene();
+  }
+
+  /**
+   * Update the IR in-place without resetting the scene index.
+   * Use this for editable canvases where the user modifies the IR
+   * and the current scene should be preserved.
+   */
+  update(ir: DepixIR): void {
+    this.ir = ir;
+
+    // Clamp scene index if scenes were removed
+    if (this.currentSceneIndex >= ir.scenes.length) {
+      this.currentSceneIndex = Math.max(0, ir.scenes.length - 1);
+    }
+
+    // Recompute fitted size (aspect ratio may have changed)
+    const avail = this.availableSize ?? this.stage.size();
+    const fitted = fitToAspectRatio(avail.width, avail.height, ir.meta.aspectRatio);
+    this.stage.width(fitted.width);
+    this.stage.height(fitted.height);
+
+    this.transform = new CoordinateTransform(
+      { width: fitted.width, height: fitted.height },
       ir.meta.aspectRatio,
     );
 
@@ -120,17 +173,26 @@ export class DepixEngine {
 
   // ---- Resize ---------------------------------------------------------------
 
-  /** Update the stage size (e.g. on window resize). */
-  resize(width: number, height: number): void {
-    this.stage.width(width);
-    this.stage.height(height);
+  /**
+   * Update with new available space.
+   * The engine fits the stage to the IR's aspect ratio within this space.
+   */
+  resize(availableWidth: number, availableHeight: number): void {
+    this.availableSize = { width: availableWidth, height: availableHeight };
 
     if (this.ir) {
+      const fitted = fitToAspectRatio(availableWidth, availableHeight, this.ir.meta.aspectRatio);
+      this.stage.width(fitted.width);
+      this.stage.height(fitted.height);
+
       this.transform = new CoordinateTransform(
-        { width, height },
+        { width: fitted.width, height: fitted.height },
         this.ir.meta.aspectRatio,
       );
       this.renderCurrentScene();
+    } else {
+      this.stage.width(availableWidth);
+      this.stage.height(availableHeight);
     }
   }
 

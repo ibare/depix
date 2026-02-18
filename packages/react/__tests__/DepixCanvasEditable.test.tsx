@@ -20,10 +20,12 @@ import type { DepixIR, IRElement, IRShape } from '@depix/core';
 
 const {
   mockLoad,
+  mockUpdate,
   mockResize,
   mockDestroy,
   mockGetStage,
   mockGetTransform,
+  mockSetScene,
   MockEngineConstructor,
   mockSelectionManagerInstance,
   MockSelectionManager,
@@ -37,17 +39,21 @@ const {
 } = vi.hoisted(() => {
   // ---- DepixEngine mock ----
   const _mockLoad = vi.fn();
+  const _mockUpdate = vi.fn();
   const _mockResize = vi.fn();
   const _mockDestroy = vi.fn();
   const _mockGetStage = vi.fn();
   const _mockGetTransform = vi.fn();
+  const _mockSetScene = vi.fn();
 
   const _MockEngineConstructor = vi.fn().mockImplementation(() => ({
     load: _mockLoad,
+    update: _mockUpdate,
     resize: _mockResize,
     destroy: _mockDestroy,
     getStage: _mockGetStage,
     getTransform: _mockGetTransform,
+    setScene: _mockSetScene,
     get sceneIndex() { return 0; },
     get sceneCount() { return 1; },
   }));
@@ -125,10 +131,12 @@ const {
 
   return {
     mockLoad: _mockLoad,
+    mockUpdate: _mockUpdate,
     mockResize: _mockResize,
     mockDestroy: _mockDestroy,
     mockGetStage: _mockGetStage,
     mockGetTransform: _mockGetTransform,
+    mockSetScene: _mockSetScene,
     MockEngineConstructor: _MockEngineConstructor,
     mockSelectionManagerInstance: _mockSelectionManagerInstance,
     MockSelectionManager: _MockSelectionManager,
@@ -146,9 +154,13 @@ const {
 // Module mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('@depix/engine', () => ({
-  DepixEngine: MockEngineConstructor,
-}));
+vi.mock('@depix/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@depix/engine')>();
+  return {
+    ...actual,
+    DepixEngine: MockEngineConstructor,
+  };
+});
 
 vi.mock('@depix/editor', () => ({
   SelectionManager: MockSelectionManager,
@@ -342,21 +354,21 @@ describe('DepixCanvasEditable', () => {
   // ---- IR loading ----------------------------------------------------------
 
   describe('IR loading', () => {
-    it('loads IR on mount', () => {
+    it('updates IR on mount', () => {
       render(<DepixCanvasEditable ir={mockIR} onIRChange={noop} />);
 
-      expect(mockLoad).toHaveBeenCalledWith(mockIR);
+      expect(mockUpdate).toHaveBeenCalledWith(mockIR);
     });
 
-    it('reloads when IR prop changes', () => {
+    it('updates when IR prop changes', () => {
       const { rerender } = render(
         <DepixCanvasEditable ir={mockIR} onIRChange={noop} />,
       );
-      expect(mockLoad).toHaveBeenCalledTimes(1);
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
 
       rerender(<DepixCanvasEditable ir={emptyIR} onIRChange={noop} />);
-      expect(mockLoad).toHaveBeenCalledTimes(2);
-      expect(mockLoad).toHaveBeenLastCalledWith(emptyIR);
+      expect(mockUpdate).toHaveBeenCalledTimes(2);
+      expect(mockUpdate).toHaveBeenLastCalledWith(emptyIR);
     });
   });
 

@@ -197,6 +197,9 @@ export const DepixCanvas = forwardRef<DepixCanvasRef, DepixCanvasProps>(
     const containerStyle: React.CSSProperties = {
       width: style?.width ?? width,
       height: style?.height ?? height,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       ...style,
     };
 
