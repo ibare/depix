@@ -1,0 +1,278 @@
+/**
+ * Compiler Pass — Plan Layout
+ *
+ * Performs structural analysis of the AST to produce a LayoutPlan tree.
+ * Each node carries weight and metrics that drive top-down space allocation
+ * in the subsequent allocate-bounds pass.
+ *
+ * Pipeline: AST → planScene() → SceneLayoutPlan
+ */
+
+import type { DepixTheme } from '../../theme/types.js';
+import type {
+  ASTBlock,
+  ASTEdge,
+  ASTElement,
+  ASTNode,
+  ASTScene,
+} from '../ast.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type PlanNodeType =
+  | 'block-flow' | 'block-stack' | 'block-grid' | 'block-tree'
+  | 'block-group' | 'block-layers' | 'block-canvas'
+  | 'element-shape' | 'element-text' | 'element-box'
+  | 'element-list' | 'element-divider' | 'element-image';
+
+export interface PlanMetrics {
+  descendantCount: number;
+  childCount: number;
+  maxDepth: number;
+  blockChildCount: number;
+  leafChildCount: number;
+}
+
+export interface LayoutPlanNode {
+  id: string;
+  astNode: ASTBlock | ASTElement;
+  nodeType: PlanNodeType;
+  children: LayoutPlanNode[];
+  metrics: PlanMetrics;
+  weight: number;
+  intrinsicSize: { width: number; height: number };
+  edges: ASTEdge[];
+}
+
+export interface SceneLayoutPlan {
+  children: LayoutPlanNode[];
+  totalWeight: number;
+}
+
+// ---------------------------------------------------------------------------
+// Base weight table
+// ---------------------------------------------------------------------------
+
+const BASE_WEIGHT: Record<PlanNodeType, number> = {
+  'block-flow': 3.0,
+  'block-stack': 2.5,
+  'block-grid': 3.0,
+  'block-tree': 3.5,
+  'block-group': 2.0,
+  'block-layers': 3.0,
+  'block-canvas': 2.5,
+  'element-shape': 1.0,
+  'element-text': 0.6,
+  'element-box': 1.5,
+  'element-list': 1.2,
+  'element-divider': 0.3,
+  'element-image': 1.5,
+};
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Analyse a scene's AST and produce a LayoutPlan tree.
+ *
+ * Edges at scene level are collected but not represented as plan nodes
+ * (they are routed after bounds allocation).
+ */
+export function planScene(scene: ASTScene, theme: DepixTheme): SceneLayoutPlan {
+  const children: LayoutPlanNode[] = [];
+
+  for (const child of scene.children) {
+    if (child.kind === 'edge') continue;
+    children.push(planNode(child, theme));
+  }
+
+  const totalWeight = children.reduce((sum, c) => sum + c.weight, 0);
+  return { children, totalWeight };
+}
+
+/**
+ * Recursively plan a single AST node (block or element).
+ */
+export function planNode(
+  node: ASTBlock | ASTElement,
+  theme: DepixTheme,
+  indexHint: number = 0,
+): LayoutPlanNode {
+  const nodeType = classifyNode(node);
+  const id = getNodeId(node, indexHint);
+  const edges: ASTEdge[] = [];
+  const childPlans: LayoutPlanNode[] = [];
+
+  if (node.kind === 'block') {
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i];
+      if (child.kind === 'edge') {
+        edges.push(child);
+      } else {
+        childPlans.push(planNode(child, theme, i));
+      }
+    }
+  } else if (node.children.length > 0) {
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i];
+      if (child.kind === 'edge') {
+        edges.push(child);
+      } else {
+        childPlans.push(planNode(child, theme, i));
+      }
+    }
+  }
+
+  const metrics = computeMetrics(childPlans);
+  const intrinsicSize = computeIntrinsicSize(node, theme);
+  const weight = computeWeight(nodeType, metrics);
+
+  return {
+    id,
+    astNode: node,
+    nodeType,
+    children: childPlans,
+    metrics,
+    weight,
+    intrinsicSize,
+    edges,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
+  if (node.kind === 'block') {
+    switch (node.blockType) {
+      case 'flow': return 'block-flow';
+      case 'stack': return 'block-stack';
+      case 'grid': return 'block-grid';
+      case 'tree': return 'block-tree';
+      case 'group': return 'block-group';
+      case 'layers': return 'block-layers';
+      case 'canvas': return 'block-canvas';
+      default: return 'block-canvas';
+    }
+  }
+
+  switch (node.elementType) {
+    case 'node':
+    case 'cell':
+    case 'rect':
+    case 'circle':
+    case 'badge':
+    case 'icon':
+      return 'element-shape';
+    case 'label':
+    case 'text':
+      return 'element-text';
+    case 'box':
+    case 'layer':
+      return 'element-box';
+    case 'list':
+      return 'element-list';
+    case 'divider':
+    case 'line':
+      return 'element-divider';
+    case 'image':
+      return 'element-image';
+    default:
+      return 'element-shape';
+  }
+}
+
+export function computeMetrics(children: LayoutPlanNode[]): PlanMetrics {
+  let descendantCount = 0;
+  let maxDepth = 0;
+  let blockChildCount = 0;
+  let leafChildCount = 0;
+
+  for (const child of children) {
+    descendantCount += 1 + child.metrics.descendantCount;
+    const childDepth = 1 + child.metrics.maxDepth;
+    if (childDepth > maxDepth) maxDepth = childDepth;
+    if (child.nodeType.startsWith('block-')) blockChildCount++;
+    if (child.children.length === 0) leafChildCount++;
+  }
+
+  return {
+    descendantCount,
+    childCount: children.length,
+    maxDepth,
+    blockChildCount,
+    leafChildCount,
+  };
+}
+
+export function computeWeight(nodeType: PlanNodeType, metrics: PlanMetrics): number {
+  const base = BASE_WEIGHT[nodeType];
+  const contentMul = (1 + Math.sqrt(metrics.descendantCount)) * (1 + metrics.blockChildCount * 0.5);
+  const depthMul = 1 + metrics.maxDepth * 0.2;
+  return base * contentMul * depthMul;
+}
+
+/**
+ * Compute intrinsic size for leaf elements, mirroring the old measureElement logic.
+ * Blocks return {0,0} since their size is determined by allocation.
+ */
+export function computeIntrinsicSize(
+  node: ASTBlock | ASTElement,
+  theme: DepixTheme,
+): { width: number; height: number } {
+  if (node.kind === 'block') {
+    return { width: 0, height: 0 };
+  }
+
+  const w = typeof node.props.width === 'number' ? node.props.width : undefined;
+  const h = typeof node.props.height === 'number' ? node.props.height : undefined;
+
+  switch (node.elementType) {
+    case 'node':
+    case 'cell':
+    case 'rect':
+      return {
+        width: w ?? theme.node.minWidth,
+        height: h ?? theme.node.minHeight,
+      };
+    case 'circle':
+    case 'icon':
+      return {
+        width: w ?? theme.node.minHeight,
+        height: h ?? theme.node.minHeight,
+      };
+    case 'badge':
+      return { width: w ?? 10, height: h ?? 4 };
+    case 'label':
+    case 'text':
+      return { width: w ?? 20, height: h ?? 4 };
+    case 'divider':
+    case 'line':
+      return { width: w ?? 90, height: h ?? 1 };
+    case 'image':
+      return { width: w ?? 20, height: h ?? 15 };
+    case 'box':
+    case 'layer':
+      return { width: w ?? 30, height: h ?? 20 };
+    case 'list': {
+      const itemCount = node.items?.length ?? 0;
+      return { width: w ?? 20, height: h ?? Math.max(itemCount * 4, 8) };
+    }
+    default:
+      return { width: w ?? theme.node.minWidth, height: h ?? theme.node.minHeight };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ID extraction (mirrors emit-ir getNodeId)
+// ---------------------------------------------------------------------------
+
+function getNodeId(node: ASTNode, index: number): string {
+  if (node.kind === 'block') return node.id ?? `block-${index}`;
+  if (node.kind === 'element') return node.id ?? `el-${index}`;
+  return `edge-${index}`;
+}

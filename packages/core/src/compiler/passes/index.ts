@@ -1,2 +1,8 @@
 export { resolveTheme } from './resolve-theme.js';
 export { emitIR } from './emit-ir.js';
+export { planScene, planNode } from './plan-layout.js';
+export type { LayoutPlanNode, PlanNodeType, PlanMetrics, SceneLayoutPlan } from './plan-layout.js';
+export { allocateScene, runLayout, buildTreeNodes, computeLayoutChildren } from './allocate-bounds.js';
+export type { BoundsMap } from './allocate-bounds.js';
+export { createScaleContext, computeBaseUnit, computeGap, computeFontSize, computePadding, countElements } from './scale-system.js';
+export type { ScaleContext, GapType, TextRole } from './scale-system.js';

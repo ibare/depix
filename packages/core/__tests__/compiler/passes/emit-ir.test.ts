@@ -668,13 +668,14 @@ describe('emitIR — nested blocks', () => {
 // ---------------------------------------------------------------------------
 
 describe('emitIR — element sizing', () => {
-  it('uses theme node defaults for node size', () => {
+  it('standalone node fills available canvas space', () => {
     const node = makeElement('node', { id: 'n1' });
     const ir = emitIR(makeDoc([makeScene([node])]), lightTheme);
 
     const el = ir.scenes[0].elements[0];
-    expect(el.bounds.w).toBe(lightTheme.node.minWidth);
-    expect(el.bounds.h).toBe(lightTheme.node.minHeight);
+    // Single standalone node fills the full canvas allocation (90×90 within 5-unit margin)
+    expect(el.bounds.w).toBe(90);
+    expect(el.bounds.h).toBe(90);
   });
 
   it('uses explicit size props', () => {

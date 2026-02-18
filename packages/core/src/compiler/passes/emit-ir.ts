@@ -2,18 +2,16 @@
  * Compiler Pass — Emit IR
  *
  * Converts a theme-resolved AST into a fully resolved DepixIR document.
- * This pass handles:
- * - Layout computation (dispatching to appropriate layout algorithms)
- * - Edge routing
- * - AST element → IR element conversion
- * - Directive → meta/transition extraction
+ * Uses the plan → allocate → emit pipeline:
+ *   1. planScene()     — structural analysis (plan-layout.ts)
+ *   2. allocateScene() — top-down space allocation (allocate-bounds.ts)
+ *   3. emitSceneFromPlan() — AST→IR conversion using allocated bounds
  *
  * All coordinates in the output are in the 0-100 relative space.
  */
 
 import type {
   DepixIR,
-  IRBackground,
   IRBounds,
   IRContainer,
   IREdge as IREdgeType,
@@ -24,7 +22,6 @@ import type {
   IRMeta,
   IROrigin,
   IRScene,
-  IRShadow,
   IRShape,
   IRShapeType,
   IRStyle,
@@ -38,22 +35,15 @@ import type {
   ASTDocument,
   ASTEdge,
   ASTElement,
-  ASTNode,
   ASTScene,
 } from '../ast.js';
-import { layoutStack } from '../layout/stack-layout.js';
-import { layoutGrid } from '../layout/grid-layout.js';
-import { layoutFlow } from '../layout/flow-layout.js';
-import { layoutTree } from '../layout/tree-layout.js';
-import { layoutGroup } from '../layout/group-layout.js';
-import { layoutLayers } from '../layout/layers-layout.js';
-import type {
-  LayoutChild,
-  LayoutResult,
-  TreeNode,
-} from '../layout/types.js';
 import { routeEdge, type RouteEdgeInput } from '../routing/edge-router.js';
 import { generateId } from '../../ir/utils.js';
+import { planScene, planNode } from './plan-layout.js';
+import { allocateScene, runLayout, computeLayoutChildren, type BoundsMap } from './allocate-bounds.js';
+import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { ScaleContext } from './scale-system.js';
+import { createScaleContext, computeFontSize, computePadding } from './scale-system.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -64,7 +54,13 @@ import { generateId } from '../../ir/utils.js';
  */
 export function emitIR(ast: ASTDocument, theme: DepixTheme): DepixIR {
   const meta = buildMeta(ast.directives, theme);
-  const scenes = ast.scenes.map((scene, i) => emitScene(scene, i, theme));
+  const canvasBounds: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
+  const scenes = ast.scenes.map((scene, i) => {
+    const plan = planScene(scene, theme);
+    const scaleCtx = createScaleContext(plan, canvasBounds);
+    const boundsMap = allocateScene(plan, canvasBounds, theme, scaleCtx);
+    return emitSceneFromPlan(scene, plan, boundsMap, i, theme, scaleCtx);
+  });
   const transitions = buildTransitions(ast.directives, scenes);
   return { meta, scenes, transitions };
 }
@@ -136,34 +132,38 @@ function buildTransitions(
 }
 
 // ---------------------------------------------------------------------------
-// Scene
+// Scene emission from plan
 // ---------------------------------------------------------------------------
 
-function emitScene(
+function emitSceneFromPlan(
   scene: ASTScene,
+  plan: SceneLayoutPlan,
+  boundsMap: BoundsMap,
   index: number,
   theme: DepixTheme,
+  scaleCtx?: ScaleContext,
 ): IRScene {
   const elements: IRElement[] = [];
   const pendingEdges: ASTEdge[] = [];
-  const boundsMap = new Map<string, IRBounds>();
+  // Use boundsMap directly (mutable for edge routing additions)
+  const routingBoundsMap = new Map<string, IRBounds>(boundsMap);
 
-  // Auto-layout: stack top-level items vertically with margin
-  let currentY = 5;
-
+  let planIndex = 0;
   for (const child of scene.children) {
     switch (child.kind) {
       case 'block': {
-        const availBounds: IRBounds = { x: 5, y: currentY, w: 90, h: 80 };
-        const container = emitBlock(child, availBounds, theme, boundsMap);
+        const childPlan = plan.children[planIndex++];
+        const container = emitBlockFromPlan(child, childPlan, routingBoundsMap, theme, scaleCtx);
         elements.push(container);
-        currentY += container.bounds.h + 3;
         break;
       }
       case 'element': {
-        const el = emitStandaloneElement(child, currentY, theme, boundsMap);
-        elements.push(el);
-        currentY += el.bounds.h + 3;
+        const childPlan = plan.children[planIndex++];
+        const bounds = routingBoundsMap.get(childPlan.id);
+        if (bounds) {
+          const el = emitElement(child, bounds, theme, routingBoundsMap, scaleCtx);
+          elements.push(el);
+        }
         break;
       }
       case 'edge':
@@ -174,7 +174,7 @@ function emitScene(
 
   // Route edges after all element bounds are known
   for (const edge of pendingEdges) {
-    const irEdge = routeASTEdge(edge, boundsMap);
+    const irEdge = routeASTEdge(edge, routingBoundsMap);
     if (irEdge) elements.push(irEdge);
   }
 
@@ -185,53 +185,40 @@ function emitScene(
 }
 
 // ---------------------------------------------------------------------------
-// Block → IRContainer
+// Block emission from plan
 // ---------------------------------------------------------------------------
 
-function emitBlock(
+function emitBlockFromPlan(
   block: ASTBlock,
-  availBounds: IRBounds,
-  theme: DepixTheme,
+  plan: LayoutPlanNode,
   boundsMap: Map<string, IRBounds>,
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
 ): IRContainer {
-  const childNodes: (ASTElement | ASTBlock)[] = [];
-  const childEdges: ASTEdge[] = [];
+  const containerBounds = boundsMap.get(plan.id);
+  if (!containerBounds) {
+    throw new Error(`Missing bounds for block ${plan.id}`);
+  }
+
+  const irChildren: IRElement[] = [];
+  let childPlanIdx = 0;
 
   for (const child of block.children) {
-    if (child.kind === 'edge') {
-      childEdges.push(child);
+    if (child.kind === 'edge') continue;
+
+    const childPlan = plan.children[childPlanIdx++];
+    const childBounds = boundsMap.get(childPlan.id);
+    if (!childBounds) continue;
+
+    if (child.kind === 'block') {
+      irChildren.push(emitBlockFromPlan(child, childPlan, boundsMap, theme, scaleCtx));
     } else {
-      childNodes.push(child);
+      irChildren.push(emitElement(child, childBounds, theme, boundsMap, scaleCtx));
     }
   }
 
-  // Measure children for layout
-  const layoutChildren: LayoutChild[] = childNodes.map((child, i) => {
-    const id = getNodeId(child, i);
-    const size = measureElement(child, theme);
-    return { id, width: size.width, height: size.height };
-  });
-
-  // Run the appropriate layout algorithm
-  const layoutResult = runLayout(
-    block.blockType,
-    layoutChildren,
-    block.props,
-    availBounds,
-    childEdges,
-  );
-
-  // Convert children to IR elements with computed bounds
-  const irChildren: IRElement[] = [];
-  for (let i = 0; i < childNodes.length; i++) {
-    const child = childNodes[i];
-    const childBounds = layoutResult.childBounds[i];
-    const irChild = emitChildNode(child, childBounds, theme, boundsMap);
-    irChildren.push(irChild);
-  }
-
   // Route internal edges
-  for (const edge of childEdges) {
+  for (const edge of plan.edges) {
     const irEdge = routeASTEdge(edge, boundsMap);
     if (irEdge) irChildren.push(irEdge);
   }
@@ -246,49 +233,18 @@ function emitBlock(
   const container: IRContainer = {
     id: containerId,
     type: 'container',
-    bounds: layoutResult.containerBounds,
+    bounds: containerBounds,
     style: containerStyle,
     children: irChildren,
   };
 
   if (origin) container.origin = origin;
-  boundsMap.set(containerId, layoutResult.containerBounds);
+  boundsMap.set(containerId, containerBounds);
   return container;
 }
 
 function isLayoutSourceType(type: string): boolean {
   return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas'].includes(type);
-}
-
-// ---------------------------------------------------------------------------
-// Child node dispatch
-// ---------------------------------------------------------------------------
-
-function emitChildNode(
-  node: ASTElement | ASTBlock,
-  bounds: IRBounds,
-  theme: DepixTheme,
-  boundsMap: Map<string, IRBounds>,
-): IRElement {
-  if (node.kind === 'block') {
-    return emitBlock(node, bounds, theme, boundsMap);
-  }
-  return emitElement(node, bounds, theme, boundsMap);
-}
-
-// ---------------------------------------------------------------------------
-// Standalone element (top-level, no layout parent)
-// ---------------------------------------------------------------------------
-
-function emitStandaloneElement(
-  element: ASTElement,
-  y: number,
-  theme: DepixTheme,
-  boundsMap: Map<string, IRBounds>,
-): IRElement {
-  const size = measureElement(element, theme);
-  const bounds: IRBounds = { x: 5, y, w: size.width, h: size.height };
-  return emitElement(element, bounds, theme, boundsMap);
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +256,7 @@ function emitElement(
   bounds: IRBounds,
   theme: DepixTheme,
   boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
 ): IRElement {
   const id = element.id ?? generateId();
   boundsMap.set(id, bounds);
@@ -308,28 +265,28 @@ function emitElement(
     case 'node':
     case 'cell':
     case 'rect':
-      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap);
+      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx);
     case 'circle':
-      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap);
+      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx);
     case 'badge':
-      return emitShapeElement(element, id, bounds, 'pill', theme, boundsMap);
+      return emitShapeElement(element, id, bounds, 'pill', theme, boundsMap, scaleCtx);
     case 'icon':
-      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap);
+      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx);
     case 'label':
     case 'text':
-      return emitTextElement(element, id, bounds, theme);
+      return emitTextElement(element, id, bounds, theme, scaleCtx);
     case 'box':
     case 'layer':
-      return emitBoxElement(element, id, bounds, theme, boundsMap);
+      return emitBoxElement(element, id, bounds, theme, boundsMap, scaleCtx);
     case 'list':
-      return emitListElement(element, id, bounds, theme);
+      return emitListElement(element, id, bounds, theme, scaleCtx);
     case 'divider':
     case 'line':
       return emitDividerElement(element, id, bounds);
     case 'image':
       return emitImageElement(element, id, bounds);
     default:
-      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap);
+      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx);
   }
 }
 
@@ -344,6 +301,7 @@ function emitShapeElement(
   defaultShape: IRShapeType,
   theme: DepixTheme,
   boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
 ): IRElement {
   const shapeType = (element.props.shape as IRShapeType) ?? defaultShape;
   const style = buildStyle(element.style);
@@ -362,13 +320,12 @@ function emitShapeElement(
   }
 
   if (element.label) {
-    shape.innerText = buildInnerText(element, theme);
+    shape.innerText = buildInnerText(element, theme, bounds, scaleCtx);
   }
 
   // Process nested children
   if (element.children.length > 0) {
-    // For shapes with children, wrap in a container instead
-    return emitShapeWithChildren(element, shape, bounds, theme, boundsMap);
+    return emitShapeWithChildren(element, shape, bounds, theme, boundsMap, scaleCtx);
   }
 
   return shape;
@@ -380,11 +337,11 @@ function emitShapeWithChildren(
   bounds: IRBounds,
   theme: DepixTheme,
   boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
 ): IRElement {
   const children: IRElement[] = [shape];
 
-  // Layout children inside the shape bounds with padding
-  const padding = 2;
+  const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
   const innerBounds: IRBounds = {
     x: bounds.x + padding,
     y: bounds.y + padding,
@@ -392,17 +349,20 @@ function emitShapeWithChildren(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
+  const childH = scaleCtx ? Math.max(innerBounds.h / Math.max(element.children.length, 1) * 0.8, 2) : 4;
+  const childStep = scaleCtx ? childH * 1.25 : 5;
   let childY = innerBounds.y;
   for (const child of element.children) {
     if (child.kind === 'edge') continue;
     const childEl = emitChildNode(
       child as ASTElement | ASTBlock,
-      { x: innerBounds.x, y: childY, w: innerBounds.w, h: 4 },
+      { x: innerBounds.x, y: childY, w: innerBounds.w, h: childH },
       theme,
       boundsMap,
+      scaleCtx,
     );
     children.push(childEl);
-    childY += 5;
+    childY += childStep;
   }
 
   return {
@@ -415,6 +375,92 @@ function emitShapeWithChildren(
 }
 
 // ---------------------------------------------------------------------------
+// Child node dispatch (for nested elements within shapes/boxes)
+// ---------------------------------------------------------------------------
+
+function emitChildNode(
+  node: ASTElement | ASTBlock,
+  bounds: IRBounds,
+  theme: DepixTheme,
+  boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
+): IRElement {
+  if (node.kind === 'block') {
+    return emitInlineBlock(node, bounds, theme, boundsMap, scaleCtx);
+  }
+  return emitElement(node, bounds, theme, boundsMap, scaleCtx);
+}
+
+/**
+ * Emit an inline block (block nested inside a shape/box element).
+ * Uses runLayout for positioning children within the given bounds.
+ */
+function emitInlineBlock(
+  block: ASTBlock,
+  bounds: IRBounds,
+  theme: DepixTheme,
+  boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
+): IRContainer {
+  const plan = planNode(block, theme);
+  const childNodes: (ASTElement | ASTBlock)[] = [];
+  const childEdges: ASTEdge[] = [];
+
+  for (const child of block.children) {
+    if (child.kind === 'edge') {
+      childEdges.push(child);
+    } else {
+      childNodes.push(child);
+    }
+  }
+
+  const layoutChildren = computeLayoutChildren(plan, bounds, scaleCtx);
+
+  const layoutResult = runLayout(
+    block.blockType,
+    layoutChildren,
+    block.props,
+    bounds,
+    childEdges,
+    scaleCtx,
+  );
+
+  const irChildren: IRElement[] = [];
+  for (let i = 0; i < childNodes.length; i++) {
+    const child = childNodes[i];
+    const childBounds = layoutResult.childBounds[i];
+    if (child.kind === 'block') {
+      irChildren.push(emitInlineBlock(child, childBounds, theme, boundsMap, scaleCtx));
+    } else {
+      irChildren.push(emitElement(child, childBounds, theme, boundsMap, scaleCtx));
+    }
+  }
+
+  for (const edge of childEdges) {
+    const irEdge = routeASTEdge(edge, boundsMap);
+    if (irEdge) irChildren.push(irEdge);
+  }
+
+  const containerId = block.id ?? generateId();
+  const containerStyle = buildStyle(block.style);
+  const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
+    ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
+    : undefined;
+
+  const container: IRContainer = {
+    id: containerId,
+    type: 'container',
+    bounds: layoutResult.containerBounds,
+    style: containerStyle,
+    children: irChildren,
+  };
+
+  if (origin) container.origin = origin;
+  boundsMap.set(containerId, layoutResult.containerBounds);
+  return container;
+}
+
+// ---------------------------------------------------------------------------
 // Text element (label, text)
 // ---------------------------------------------------------------------------
 
@@ -423,11 +469,13 @@ function emitTextElement(
   id: string,
   bounds: IRBounds,
   theme: DepixTheme,
+  scaleCtx?: ScaleContext,
 ): IRText {
   const style = buildStyle(element.style);
+  const shortSide = Math.min(bounds.w, bounds.h);
   const fontSize = typeof element.style['font-size'] === 'number'
     ? element.style['font-size']
-    : theme.fontSize.md;
+    : scaleCtx ? computeFontSize(shortSide, 'standaloneText') : theme.fontSize.md;
   const color = typeof element.style.color === 'string'
     ? element.style.color
     : theme.foreground;
@@ -459,12 +507,12 @@ function emitBoxElement(
   bounds: IRBounds,
   theme: DepixTheme,
   boundsMap: Map<string, IRBounds>,
+  scaleCtx?: ScaleContext,
 ): IRContainer {
   const style = buildStyle(element.style);
   const children: IRElement[] = [];
 
-  // Stack children vertically inside the box
-  const padding = 2;
+  const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
   const innerBounds: IRBounds = {
     x: bounds.x + padding,
     y: bounds.y + padding,
@@ -475,15 +523,17 @@ function emitBoxElement(
   let childY = innerBounds.y;
   for (const child of element.children) {
     if (child.kind === 'edge') continue;
-    const size = measureElement(child as ASTElement | ASTBlock, theme);
-    const childBounds: IRBounds = {
+    // Use pre-allocated bounds from boundsMap if available
+    const childId = child.kind === 'element' ? child.id : undefined;
+    const preallocatedBounds = childId ? boundsMap.get(childId) : undefined;
+    const childBounds: IRBounds = preallocatedBounds ?? {
       x: innerBounds.x,
       y: childY,
       w: innerBounds.w,
-      h: size.height,
+      h: 4,
     };
-    children.push(emitChildNode(child as ASTElement | ASTBlock, childBounds, theme, boundsMap));
-    childY += size.height + 1;
+    children.push(emitChildNode(child as ASTElement | ASTBlock, childBounds, theme, boundsMap, scaleCtx));
+    childY += childBounds.h + 1;
   }
 
   return { id, type: 'container', bounds, style, children };
@@ -498,13 +548,15 @@ function emitListElement(
   id: string,
   bounds: IRBounds,
   theme: DepixTheme,
+  scaleCtx?: ScaleContext,
 ): IRContainer {
   const style = buildStyle(element.style);
   const items = element.items ?? [];
   const itemHeight = bounds.h / Math.max(items.length, 1);
+  const shortSide = Math.min(bounds.w, bounds.h);
   const fontSize = typeof element.style['font-size'] === 'number'
     ? element.style['font-size']
-    : theme.fontSize.sm;
+    : scaleCtx ? computeFontSize(shortSide, 'listItem') : theme.fontSize.sm;
 
   const children: IRElement[] = items.map((item, i) => ({
     id: `${id}-item-${i}`,
@@ -594,196 +646,8 @@ function routeASTEdge(
 }
 
 // ---------------------------------------------------------------------------
-// Layout dispatch
-// ---------------------------------------------------------------------------
-
-function runLayout(
-  blockType: string,
-  children: LayoutChild[],
-  props: Record<string, string | number>,
-  bounds: IRBounds,
-  edges: ASTEdge[],
-): LayoutResult {
-  const gap = typeof props.gap === 'number' ? props.gap : 3;
-
-  switch (blockType) {
-    case 'stack':
-      return layoutStack(children, {
-        bounds,
-        direction: (props.direction as 'row' | 'col') ?? 'col',
-        gap,
-        align: (props.align as 'start' | 'center' | 'end' | 'stretch') ?? 'stretch',
-        wrap: props.wrap === 'true' || props.wrap === 1,
-      });
-
-    case 'grid':
-      return layoutGrid(children, {
-        bounds,
-        cols: typeof props.cols === 'number' ? props.cols : 2,
-        gap,
-      });
-
-    case 'flow': {
-      const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId }));
-      return layoutFlow(children, {
-        bounds,
-        direction: (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right',
-        gap: typeof props.gap === 'number' ? props.gap : 5,
-        edges: flowEdges,
-      });
-    }
-
-    case 'tree': {
-      const treeNodes = buildTreeNodes(children, edges);
-      return layoutTree(treeNodes, {
-        bounds,
-        direction: (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down',
-        levelGap: typeof props.gap === 'number' ? props.gap : 5,
-        siblingGap: typeof props.gap === 'number' ? props.gap : 3,
-      });
-    }
-
-    case 'group':
-      return layoutGroup(children, {
-        bounds,
-        padding: typeof props.padding === 'number' ? props.padding : 3,
-      });
-
-    case 'layers':
-      return layoutLayers(children, {
-        bounds,
-        gap: typeof props.gap === 'number' ? props.gap : 2,
-      });
-
-    case 'canvas':
-    default:
-      // Canvas or unknown: stack children vertically
-      return layoutStack(children, {
-        bounds,
-        direction: 'col',
-        gap,
-        align: 'stretch',
-        wrap: false,
-      });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tree node conversion
-// ---------------------------------------------------------------------------
-
-function buildTreeNodes(
-  children: LayoutChild[],
-  edges: ASTEdge[],
-): TreeNode[] {
-  if (children.length === 0) return [];
-
-  const idToIndex = new Map<string, number>();
-  children.forEach((child, i) => idToIndex.set(child.id, i));
-
-  const childrenMap = new Map<number, number[]>();
-  children.forEach((_, i) => childrenMap.set(i, []));
-
-  const hasParent = new Set<number>();
-  for (const edge of edges) {
-    const fromIdx = idToIndex.get(edge.fromId);
-    const toIdx = idToIndex.get(edge.toId);
-    if (fromIdx !== undefined && toIdx !== undefined) {
-      childrenMap.get(fromIdx)!.push(toIdx);
-      hasParent.add(toIdx);
-    }
-  }
-
-  const treeNodes: TreeNode[] = children.map((child, i) => ({
-    id: child.id,
-    width: child.width,
-    height: child.height,
-    children: childrenMap.get(i) ?? [],
-  }));
-
-  // Ensure root (node without parent) is at index 0
-  const rootIndex = treeNodes.findIndex((_, i) => !hasParent.has(i));
-  if (rootIndex > 0) {
-    // Swap root to index 0 and remap all child indices
-    const indexMap = new Map<number, number>();
-    indexMap.set(0, rootIndex);
-    indexMap.set(rootIndex, 0);
-
-    const temp = treeNodes[0];
-    treeNodes[0] = treeNodes[rootIndex];
-    treeNodes[rootIndex] = temp;
-
-    for (const node of treeNodes) {
-      node.children = node.children.map(ci =>
-        indexMap.has(ci) ? indexMap.get(ci)! : ci,
-      );
-    }
-  }
-
-  return treeNodes;
-}
-
-// ---------------------------------------------------------------------------
-// Element measurement
-// ---------------------------------------------------------------------------
-
-function measureElement(
-  node: ASTElement | ASTBlock,
-  theme: DepixTheme,
-): { width: number; height: number } {
-  if (node.kind === 'block') {
-    // Blocks expand to fill available space; use a reasonable default
-    return { width: 40, height: 30 };
-  }
-
-  // Use explicit size props if provided
-  const w = typeof node.props.width === 'number' ? node.props.width : undefined;
-  const h = typeof node.props.height === 'number' ? node.props.height : undefined;
-
-  switch (node.elementType) {
-    case 'node':
-    case 'cell':
-    case 'rect':
-      return {
-        width: w ?? theme.node.minWidth,
-        height: h ?? theme.node.minHeight,
-      };
-    case 'circle':
-    case 'icon':
-      return {
-        width: w ?? theme.node.minHeight,
-        height: h ?? theme.node.minHeight,
-      };
-    case 'badge':
-      return { width: w ?? 10, height: h ?? 4 };
-    case 'label':
-    case 'text':
-      return { width: w ?? 20, height: h ?? 4 };
-    case 'divider':
-    case 'line':
-      return { width: w ?? 90, height: h ?? 1 };
-    case 'image':
-      return { width: w ?? 20, height: h ?? 15 };
-    case 'box':
-    case 'layer':
-      return { width: w ?? 30, height: h ?? 20 };
-    case 'list': {
-      const itemCount = node.items?.length ?? 0;
-      return { width: w ?? 20, height: h ?? Math.max(itemCount * 4, 8) };
-    }
-    default:
-      return { width: w ?? theme.node.minWidth, height: h ?? theme.node.minHeight };
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getNodeId(node: ASTElement | ASTBlock, index: number): string {
-  if (node.kind === 'block') return node.id ?? `block-${index}`;
-  return node.id ?? `el-${index}`;
-}
 
 function buildStyle(astStyle: Record<string, string | number>): IRStyle {
   const style: IRStyle = {};
@@ -824,10 +688,16 @@ function buildStyle(astStyle: Record<string, string | number>): IRStyle {
   return style;
 }
 
-function buildInnerText(element: ASTElement, theme: DepixTheme): IRInnerText {
+function buildInnerText(
+  element: ASTElement,
+  theme: DepixTheme,
+  bounds?: IRBounds,
+  scaleCtx?: ScaleContext,
+): IRInnerText {
+  const shortSide = bounds ? Math.min(bounds.w, bounds.h) : 0;
   const fontSize = typeof element.style['font-size'] === 'number'
     ? element.style['font-size']
-    : theme.fontSize.md;
+    : scaleCtx && bounds ? computeFontSize(shortSide, 'innerLabel') : theme.fontSize.md;
   const color = typeof element.style.color === 'string'
     ? element.style.color
     : theme.foreground;

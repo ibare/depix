@@ -99,7 +99,10 @@ DSL v2 텍스트                   에디터
     ↓ Compiler                    │
     ├─ Parse                      │
     ├─ Resolve Theme              │
-    ├─ Layout                     │ (IR 직접 조작)
+    ├─ Plan Layout                │
+    ├─ Scale System               │ (IR 직접 조작)
+    ├─ Allocate Bounds            │
+    ├─ Layout                     │
     ├─ Route Edges                │
     ↓                             ↓
 DepixIR (JSON)  ←─────────────────┘
@@ -216,16 +219,54 @@ IR의 핵심 속성:
 ```
 DSL v2 텍스트
     ↓
-① Parse ─────────── 텍스트 → AST
+① Parse ─────────── 텍스트 → AST (tokenizer → parser)
     ↓
 ② Resolve Theme ─── 시맨틱 토큰 → 구체값
     ↓
-③ Layout ────────── flow/stack/grid/tree → 절대 좌표
+③ Plan Layout ───── 구조 분석, 가중치 산출
     ↓
-④ Route Edges ───── 연결선 경로 계산
+④ Scale System ──── 캔버스 면적 + 요소 수 → baseUnit → 동적 gap/font/padding
     ↓
-⑤ Emit IR ────────── 최종 DepixIR JSON
+⑤ Allocate Bounds ─ 가중치 비례 공간 배분 (top-down)
+    ↓
+⑥ Layout ────────── flow/stack/grid/tree → 절대 좌표
+    ↓
+⑦ Route Edges ───── 연결선 경로 계산
+    ↓
+⑧ Emit IR ────────── AST → IR 변환 + 동적 fontSize/padding 적용
 ```
+
+③~⑧은 `emitIR()` 내부에서 씬 단위로 실행된다:
+`planScene() → createScaleContext() → allocateScene() → emitSceneFromPlan()`
+
+### 스케일 시스템 (`passes/scale-system.ts`)
+
+요소 수에 따라 간격, 폰트 크기, 패딩을 동적으로 조정하는 통일된 스케일 시스템이다.
+
+**핵심 공식:**
+```
+baseUnit = sqrt(canvasArea / elementCount) * DENSITY_FACTOR(0.55)
+```
+
+**Gap 계층 (5종):**
+| 타입 | 비율 | 범위 | 용도 |
+|------|------|------|------|
+| `childGap` | 0.03 | 0.5~3.0 | 부모-자식 내부 간격 |
+| `innerPadding` | 0.06 | 1.0~5.0 | 컨테이너 내부 여백 |
+| `siblingGap` | 0.10 | 1.5~6.0 | 형제 요소 간격 |
+| `sectionGap` | 0.12 | 2.0~7.0 | 씬 레벨 섹션 간격 |
+| `connectorGap` | 0.15 | 2.5~8.0 | flow/tree 연결선 간격 |
+
+**동적 fontSize (4종 역할):**
+| 역할 | 비율 | 범위 |
+|------|------|------|
+| `listItem` | 0.20 | 0.6~3.2 |
+| `standaloneText` | 0.25 | 0.6~3.2 |
+| `innerLabel` | 0.30 | 0.6~3.2 |
+| `edgeLabel` | 0.60 | 0.6~3.2 |
+
+fontSize는 `containerShortSide * ratio`로 산출하여 도형 크기에 비례한다.
+DSL에서 명시적으로 지정한 `gap`, `font-size`, `padding` 값은 항상 우선한다.
 
 ### 각 단계의 입출력
 
@@ -233,9 +274,12 @@ DSL v2 텍스트
 |------|------|------|----------|
 | Parse | DSL 텍스트 | AST | 토큰화, 구문 분석 |
 | Resolve Theme | AST + Theme | AST (값 해결됨) | 시맨틱 컬러/토큰 → HEX/수치 |
-| Layout | AST (해결됨) | IR 요소들 (좌표 포함) | 레이아웃 알고리즘 실행 |
-| Route Edges | IR 요소들 + edge 정의 | IR 요소들 + IREdge[] | 경로 계산, 라벨 배치 |
-| Emit IR | 모든 결과 | DepixIR JSON | ID 생성, 조합, 검증 |
+| Plan Layout | AST (해결됨) | SceneLayoutPlan | 가중치, 깊이, 자식 수 분석 |
+| Scale System | Plan + Canvas | ScaleContext | baseUnit, 요소 수 기반 스케일 팩터 |
+| Allocate Bounds | Plan + ScaleContext | BoundsMap | top-down 가중치 비례 공간 배분 |
+| Layout | LayoutChildren + Props | LayoutResult | 레이아웃 알고리즘 실행 (동적 gap) |
+| Route Edges | IR 요소들 + edge 정의 | IREdge[] | 경로 계산, 라벨 배치 |
+| Emit IR | AST + BoundsMap + ScaleContext | DepixIR JSON | IR 변환, 동적 fontSize/padding |
 
 ### 레이아웃 알고리즘
 
