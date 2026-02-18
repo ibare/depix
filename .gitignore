@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+*.tsbuildinfo
+
+# Test
+coverage
+
+# Build tools
+.turbo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+
+# Symlink to original source (not part of this repo)
+original

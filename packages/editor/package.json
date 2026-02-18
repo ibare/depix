@@ -1,0 +1,31 @@
+{
+  "name": "@depix/editor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@depix/core": "workspace:*",
+    "@depix/engine": "workspace:*"
+  },
+  "peerDependencies": {
+    "konva": "^9.0.0"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "happy-dom": "^17.4.4"
+  }
+}

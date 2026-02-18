@@ -1,0 +1,35 @@
+@page 16:9
+@theme dark
+@transition fade
+
+scene "Intro" {
+  box "Depix" {
+    subtitle: "Declarative Graphics DSL"
+    font-size: 2xl
+    center
+  }
+}
+
+scene "Features" {
+  stack direction:row gap:lg {
+    box "Feature 1" {
+      icon "zap"
+      label "Fast Generation"
+    }
+    box "Feature 2" {
+      icon "edit"
+      label "Easy Editing"
+    }
+    box "Feature 3" {
+      icon "sparkles"
+      label "Beautiful Results"
+    }
+  }
+}
+
+scene "Closing" {
+  box "Thank You" {
+    font-size: 3xl
+    center
+  }
+}

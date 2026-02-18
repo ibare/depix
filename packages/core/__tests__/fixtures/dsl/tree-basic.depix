@@ -1,0 +1,14 @@
+@page 16:9
+
+tree direction:down {
+  node "CEO" {
+    node "CTO" {
+      node "Dev Team"
+      node "Infra Team"
+    }
+    node "CFO" {
+      node "Finance"
+      node "Accounting"
+    }
+  }
+}

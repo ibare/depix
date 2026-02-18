@@ -1,0 +1,21 @@
+@page 16:9
+@theme light
+
+flow direction:right {
+  group "Light Reactions" #light {
+    icon "sun"
+    label "Thylakoid"
+    label "H2O -> O2"
+    label "Electron Transport Chain"
+    badge "O2 Release" { color: blue }
+  }
+
+  group "Dark Reactions" #dark {
+    label "Calvin Cycle"
+    label "CO2 -> C6H12O6"
+    label "+ RuBisCO"
+    badge "Glucose Synthesis" { color: green }
+  }
+
+  #light -> #dark "ATP\nNADPH"
+}

@@ -1,0 +1,28 @@
+@page 16:9
+
+stack direction:row gap:lg {
+  box "Mounting" {
+    background: primary
+    list [
+      "constructor()"
+      "render()"
+      "componentDidMount()"
+    ]
+  }
+
+  box "Updating" {
+    background: info
+    list [
+      "shouldComponentUpdate()"
+      "render()"
+      "componentDidUpdate()"
+    ]
+  }
+
+  box "Unmounting" {
+    background: warning
+    list [
+      "componentWillUnmount()"
+    ]
+  }
+}

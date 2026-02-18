@@ -1,0 +1,14 @@
+@page 16:9
+@theme light
+
+flow direction:right {
+  node "A" #a
+  node "B" #b
+  node "C" #c
+  node "D" #d
+
+  #a -> #b "yes"
+  #a -> #c "no"
+  #b -> #d
+  #c -> #d "merge"
+}

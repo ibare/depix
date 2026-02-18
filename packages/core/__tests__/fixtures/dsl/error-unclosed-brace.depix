@@ -1,0 +1,6 @@
+@page 16:9
+
+flow direction:right {
+  node "A"
+  node "B" {
+    shape: diamond

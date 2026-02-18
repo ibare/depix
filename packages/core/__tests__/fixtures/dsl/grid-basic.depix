@@ -1,0 +1,19 @@
+@page 16:9
+
+grid cols:3 {
+  cell "" { header }
+  cell "React" { header }
+  cell "Vue" { header }
+
+  cell "Learning Curve" { header }
+  cell "Medium" { color: warning }
+  cell "Easy" { color: success }
+
+  cell "Ecosystem" { header }
+  cell "Very Large" { color: success }
+  cell "Large" { color: info }
+
+  cell "Performance" { header }
+  cell "Excellent" { color: success }
+  cell "Excellent" { color: success }
+}
