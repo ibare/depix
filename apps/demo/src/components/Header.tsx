@@ -1,32 +1,37 @@
 import { ThemeSwitcher } from './ThemeSwitcher';
 
-export type TabId = 'gallery' | 'editor';
+export type PageId = 'showcase' | 'playground' | 'reference';
 
 interface HeaderProps {
-  activeTab: TabId;
-  onTabChange: (tab: TabId) => void;
+  activePage: PageId;
+  onPageChange: (page: PageId) => void;
 }
 
-const tabs: { id: TabId; label: string }[] = [
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'editor', label: 'Editor' },
+const pages: { id: PageId; label: string }[] = [
+  { id: 'showcase', label: 'Showcase' },
+  { id: 'playground', label: 'Playground' },
+  { id: 'reference', label: 'Reference' },
 ];
 
-export function Header({ activeTab, onTabChange }: HeaderProps) {
+export function Header({ activePage, onPageChange }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-left">
-        <div className="header-logo">
-          Depix<span>v2</span>
+        <div
+          className="header-logo"
+          onClick={() => onPageChange('showcase')}
+          style={{ cursor: 'pointer' }}
+        >
+          Depix
         </div>
         <nav className="header-tabs">
-          {tabs.map((tab) => (
+          {pages.map((page) => (
             <button
-              key={tab.id}
-              className={`header-tab${activeTab === tab.id ? ' active' : ''}`}
-              onClick={() => onTabChange(tab.id)}
+              key={page.id}
+              className={`header-tab${activePage === page.id ? ' active' : ''}`}
+              onClick={() => onPageChange(page.id)}
             >
-              {tab.label}
+              {page.label}
             </button>
           ))}
         </nav>
