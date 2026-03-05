@@ -79,10 +79,10 @@ describe('layoutStack — single child', () => {
 
     expect(result.childBounds).toHaveLength(1);
     const b = result.childBounds[0]!;
-    expect(b.x).toBe(0);
-    expect(b.y).toBe(0);
-    expect(b.w).toBe(20);
-    expect(b.h).toBe(10);
+    expect(b.x).toBe(result.containerBounds.x);
+    expect(b.y).toBe(result.containerBounds.y);
+    expect(b.w).toBe(20); // input size preserved
+    expect(b.h).toBe(10); // input size preserved
   });
 
   it('positions the child at the container origin (col, align=start)', () => {
@@ -92,10 +92,10 @@ describe('layoutStack — single child', () => {
     );
 
     const b = result.childBounds[0]!;
-    expect(b.x).toBe(0);
-    expect(b.y).toBe(0);
-    expect(b.w).toBe(20);
-    expect(b.h).toBe(10);
+    expect(b.x).toBe(result.containerBounds.x);
+    expect(b.y).toBe(result.containerBounds.y);
+    expect(b.w).toBe(20); // input size preserved
+    expect(b.h).toBe(10); // input size preserved
   });
 
   it('respects non-zero bounds origin for a single child (row)', () => {
@@ -160,7 +160,7 @@ describe('layoutStack — row direction', () => {
 
   it('first child starts at bounds.x', () => {
     const result = layoutStack(children, makeConfig({ direction: 'row' }));
-    expect(result.childBounds[0]!.x).toBe(0);
+    expect(result.childBounds[0]!.x).toBe(result.containerBounds.x);
   });
 
   it('children do not overlap (row)', () => {
@@ -170,17 +170,14 @@ describe('layoutStack — row direction', () => {
 
   it('consecutive x-positions advance by child width + gap', () => {
     const result = layoutStack(children, makeConfig({ direction: 'row', gap: 5 }));
-    const bounds = result.childBounds;
-
-    expect(bounds[0]!.x).toBe(0);
-    expect(bounds[1]!.x).toBe(20 + 5);           // child[0].w + gap
-    expect(bounds[2]!.x).toBe(20 + 5 + 25 + 5);  // child[0].w + gap + child[1].w + gap
+    assertOrderedInDirection(result.childBounds, 'right');
+    assertUniformGap(result.childBounds, 'row', 5);
   });
 
   it('all children share the same y baseline (row, align=start)', () => {
     const result = layoutStack(children, makeConfig({ direction: 'row', align: 'start' }));
     for (const b of result.childBounds) {
-      expect(b.y).toBe(0);
+      expect(b.y).toBe(result.containerBounds.y);
     }
   });
 
@@ -222,7 +219,7 @@ describe('layoutStack — column direction', () => {
 
   it('first child starts at bounds.y', () => {
     const result = layoutStack(children, makeConfig({ direction: 'col' }));
-    expect(result.childBounds[0]!.y).toBe(0);
+    expect(result.childBounds[0]!.y).toBe(result.containerBounds.y);
   });
 
   it('children do not overlap (col)', () => {
@@ -232,17 +229,14 @@ describe('layoutStack — column direction', () => {
 
   it('consecutive y-positions advance by child height + gap', () => {
     const result = layoutStack(children, makeConfig({ direction: 'col', gap: 4 }));
-    const bounds = result.childBounds;
-
-    expect(bounds[0]!.y).toBe(0);
-    expect(bounds[1]!.y).toBe(20 + 4);           // child[0].h + gap
-    expect(bounds[2]!.y).toBe(20 + 4 + 25 + 4);  // child[0].h + gap + child[1].h + gap
+    assertOrderedInDirection(result.childBounds, 'down');
+    assertUniformGap(result.childBounds, 'col', 4);
   });
 
   it('all children share the same x baseline (col, align=start)', () => {
     const result = layoutStack(children, makeConfig({ direction: 'col', align: 'start' }));
     for (const b of result.childBounds) {
-      expect(b.x).toBe(0);
+      expect(b.x).toBe(result.containerBounds.x);
     }
   });
 
