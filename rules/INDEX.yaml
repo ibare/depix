@@ -1,0 +1,95 @@
+# rules/INDEX.yaml
+# Rule Registry — 트리거 조건에 따라 로드할 규칙 결정
+#
+# Trigger types:
+#   paths:    파일 경로 glob 패턴
+#   patterns: 코드에서 발견되는 문자열/정규식
+#   imports:  import 문에 포함된 모듈명
+#   events:   작업 유형 (create-file, rename-file 등)
+
+# ─────────────────────────────────────
+# Always loaded
+# ─────────────────────────────────────
+always:
+  - file: principles.md
+    description: 모든 코드에 적용되는 핵심 원칙 (레이어 의존성, IR 불변성, 컴파일러 순수성, Konva 격리)
+
+# ─────────────────────────────────────
+# Concerns (Cross-cutting)
+# ─────────────────────────────────────
+concerns:
+  - id: C1
+    file: concerns/C1-module-structure.md
+    description: 모듈 구조 — .js 확장자, import type, barrel exports, 파일 네이밍
+    triggers:
+      events: [create-file, rename-file]
+      patterns:
+        - "^import "
+        - "^export "
+
+  - id: C2
+    file: concerns/C2-error-handling.md
+    description: 에러 처리 — ParseError 수집 패턴, throw vs collect
+    triggers:
+      paths:
+        - "packages/core/src/compiler/**"
+        - "packages/editor/src/**"
+      patterns:
+        - "try {"
+        - "catch ("
+        - "throw new"
+        - "ParseError"
+
+  - id: C3
+    file: concerns/C3-testing.md
+    description: 테스트 원칙 — 불변식 기반 검증, IR 빌더 활용, 좌표 하드코딩 금지
+    triggers:
+      paths:
+        - "**/__tests__/**"
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.spec.ts"
+
+  - id: C4
+    file: concerns/C4-konva-isolation.md
+    description: Konva 격리 — engine 외부에서 konva import 금지
+    triggers:
+      imports:
+        - "konva"
+      paths:
+        - "packages/core/**"
+        - "packages/editor/**"
+        - "packages/react/**"
+
+# ─────────────────────────────────────
+# Specifics (Domain-specific)
+# ─────────────────────────────────────
+specifics:
+  - id: S-compiler
+    file: specifics/S-compiler.md
+    description: 컴파일러 패스 — 순서, 책임 분리, 순수 함수, 좌표계
+    triggers:
+      paths:
+        - "packages/core/src/compiler/**"
+
+  - id: S-renderer
+    file: specifics/S-renderer.md
+    description: 렌더러 — IR을 그리기만, 좌표 변환, load vs update
+    triggers:
+      paths:
+        - "packages/engine/src/**"
+      imports:
+        - "konva"
+
+  - id: S-ir-ops
+    file: specifics/S-ir-ops.md
+    description: IR 조작 — structuredClone, 반환 타입, origin 관리
+    triggers:
+      paths:
+        - "packages/editor/src/ir-operations.ts"
+        - "packages/editor/src/ir-edge-operations.ts"
+        - "packages/editor/src/semantic-editor.ts"
+        - "packages/editor/src/detach.ts"
+      patterns:
+        - "structuredClone"
+        - "DepixIR"
