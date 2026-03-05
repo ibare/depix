@@ -28,16 +28,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **action은 자유롭게 서술하라.** 수행할 행동을 요약하는 snake_case 키워드를 직접 만들어 사용하라.
 - **reason은 구체적으로 기술하라.** 나중에 읽어도 맥락을 이해할 수 있는 설명을 작성하라.
 
+## 필수 구현 원칙
+- 코드를 수정하는 모든 작업은 Rule Guard 에이전트의 검증 하에 수행한다.
 
-## Rule Guard
+### Rule Guard
+1. 수정 계획 수립 후, 실행 전 → 사전 검토 (PASS 시 수정 진행)
+2. 수정 완료 후 → 사후 검증 (PASS 시 다음 작업)
 
-코드를 수정할 때 rule-guard 서브에이전트를 두 번 호출한다:
-1. 수정 계획 수립 후, 실행 전 → 사전 검토
-2. 수정 완료 후 → 사후 검증
+### Rule Guard 흐름
+- 작업 에이전트: 수정 계획 수립
+  → rule-guard 호출 (사전 검토, **반드시 현재 taskId를 프롬프트에 포함**)
+  → ISSUE면 계획 수정 → 다시 호출
+  → PASS면 수정 실행
+- 작업 에이전트: 수정 완료
+  → rule-guard 호출 (사후 검증, **반드시 현재 taskId를 프롬프트에 포함**)
+  → ISSUE면 재수정 → 다시 호출
+  → PASS면 다음 작업
 
-`rules/INDEX.yaml`에서 현재 작업에 적용되는 규칙을 확인한다.
-MUST / MUST NOT 위반은 금지한다. 규칙 파일을 먼저 읽는다. 추론하지 않는다.
-규칙 파일을 수정하지 않는다.
+> **주의**: rule-guard는 서브에이전트이므로 MCP 도구(`baden_*`)에 접근할 수 없다.
+> Baden 보고를 위해 taskId가 필요하므로, 호출 시 프롬프트에 `taskId: "..."` 형태로 전달한다.
 
 ## Build & Development Commands
 
