@@ -529,9 +529,9 @@ function emitBoxElement(
 
   // P1: Emit title text from element.label
   if (element.label) {
-    const titleFontSize = scaleCtx
-      ? computeFontSize(shortSide, 'innerLabel')
-      : theme.fontSize.md;
+    const titleFontSize = typeof element.style['font-size'] === 'number'
+      ? element.style['font-size']
+      : scaleCtx ? computeFontSize(shortSide, 'innerLabel') : theme.fontSize.md;
     const titleH = scaleCtx ? titleFontSize * 2.5 : 4;
     const titleText: IRText = {
       id: `${id}-title`,
@@ -549,9 +549,9 @@ function emitBoxElement(
 
   // P2: Emit subtitle text from element.props.subtitle
   if (typeof element.props.subtitle === 'string') {
-    const subtitleFontSize = scaleCtx
-      ? computeFontSize(shortSide, 'listItem')
-      : theme.fontSize.sm;
+    const subtitleFontSize = typeof element.style['font-size'] === 'number'
+      ? element.style['font-size']
+      : scaleCtx ? computeFontSize(shortSide, 'listItem') : theme.fontSize.sm;
     const subtitleH = scaleCtx ? subtitleFontSize * 2 : 3;
     const subtitleText: IRText = {
       id: `${id}-subtitle`,
