@@ -26,7 +26,6 @@ DSL v2 텍스트  →  Compiler  →  DepixIR  →  Renderer
 
 ```depix
 @page 16:9
-@theme light
 
 flow direction:right {
   node "Light Reaction" #light { color: yellow }

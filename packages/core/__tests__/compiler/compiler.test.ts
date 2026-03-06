@@ -49,9 +49,8 @@ describe('compile — directives', () => {
     expect(result.ir.meta.drawingStyle).toBe('sketch');
   });
 
-  it('parses theme directive (resolves with specified theme)', () => {
-    // The @theme directive is parsed but the theme must be provided externally
-    const result = compile('@theme dark', { theme: darkTheme });
+  it('uses externally provided theme', () => {
+    const result = compile('@page 16:9', { theme: darkTheme });
     expect(result.ir.meta.background.color).toBe(darkTheme.background);
   });
 });

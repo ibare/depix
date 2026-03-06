@@ -180,7 +180,7 @@ expect.extend({
 
 | 대상 | 테스트 방법 | 핵심 케이스 |
 |------|-----------|------------|
-| 디렉티브 | 단위 | `@page 16:9`, `@theme dark`, `@style sketch`, `@transition fade` |
+| 디렉티브 | 단위 | `@page 16:9`, `@style sketch`, `@transition fade` |
 | 블록 타입 | 단위 | flow, stack, grid, tree, group, layers, canvas |
 | 요소 타입 | 단위 | node, box, label, list, badge, icon, divider, image, cell, layer |
 | 문자열 | 단위 | 일반 문자열, 이스케이프, 유니코드, 빈 문자열, 줄바꿈 포함 |

@@ -1,5 +1,4 @@
 @page 16:9
-@theme dark
 @transition fade
 
 scene "Intro" {

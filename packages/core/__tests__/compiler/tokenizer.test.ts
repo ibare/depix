@@ -36,7 +36,7 @@ function tokens(input: string): Token[] {
 // ===========================================================================
 
 describe('Directives', () => {
-  it.each(['page', 'theme', 'style', 'transition', 'lane'])(
+  it.each(['page', 'style', 'transition', 'lane'])(
     'tokenizes @%s',
     (name) => {
       const result = tokenize(`@${name}`);
@@ -56,11 +56,9 @@ describe('Directives', () => {
     ]);
   });
 
-  it('tokenizes @theme dark', () => {
-    expect(pairs('@theme dark')).toEqual([
-      ['DIRECTIVE', 'theme'],
-      ['IDENTIFIER', 'dark'],
-    ]);
+  it('rejects @theme as unknown directive', () => {
+    const result = tokenize('@theme dark');
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it('tokenizes @style sketch', () => {
@@ -872,7 +870,6 @@ describe('Comprehensive examples', () => {
 
   it('tokenizes full minimal example', () => {
     const input = `@page 16:9
-@theme light
 
 scene "타이틀" {
   flow direction:right {
@@ -894,8 +891,6 @@ scene "타이틀" {
       ['NUMBER', '16'],
       ['COLON', ':'],
       ['NUMBER', '9'],
-      ['DIRECTIVE', 'theme'],
-      ['IDENTIFIER', 'light'],
       ['SCENE', 'scene'],
       ['STRING', '타이틀'],
       ['BRACE_OPEN', '{'],

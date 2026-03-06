@@ -97,7 +97,7 @@ export const FLAGS = new Set([
   'ordered',
 ]);
 
-const DIRECTIVES = new Set(['page', 'theme', 'style', 'transition', 'lane']);
+const DIRECTIVES = new Set(['page', 'style', 'transition', 'lane']);
 
 // ---------------------------------------------------------------------------
 // Public API

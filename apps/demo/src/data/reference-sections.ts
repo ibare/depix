@@ -1,6 +1,7 @@
 export interface ReferenceExample {
   label: string;
   dsl: string;
+  themeName?: 'light' | 'dark';
 }
 
 export interface ReferenceSection {
@@ -44,14 +45,14 @@ box "Square Canvas" { color: accent }`,
       },
       {
         id: 'theme',
-        title: '@theme',
-        description: '렌더링 테마를 지정한다. 시맨틱 컬러(primary, success 등)의 실제 색상이 결정된다.',
-        syntax: '@theme light | dark',
+        title: 'Theme',
+        description: '테마는 DSL 외부에서 지정한다. 동일한 DSL을 다른 테마로 렌더링하여 시맨틱 컬러의 차이를 확인할 수 있다.',
+        syntax: 'compile(dsl, { theme: lightTheme | darkTheme })',
         examples: [
           {
             label: 'Light 테마',
+            themeName: 'light',
             dsl: `@page 16:9
-@theme light
 
 stack direction:row gap:md {
   box "Primary" { color: primary }
@@ -61,8 +62,8 @@ stack direction:row gap:md {
           },
           {
             label: 'Dark 테마',
+            themeName: 'dark',
             dsl: `@page 16:9
-@theme dark
 
 stack direction:row gap:md {
   box "Primary" { color: primary }

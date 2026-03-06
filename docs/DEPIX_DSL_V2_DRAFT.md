@@ -14,7 +14,6 @@
 
 ```depix
 @page 16:9
-@theme light
 
 scene "타이틀" {
   ...
@@ -30,7 +29,6 @@ scene "본문" {
 | 키 | 값 | 설명 |
 |---|---|---|
 | `@page` | `16:9`, `4:3`, `1:1`, `A4`, `letter` | 캔버스 비율/크기 |
-| `@theme` | `light`, `dark`, 또는 커스텀 이름 | 렌더러의 기본 색상 테마 |
 | `@style` | `default`, `sketch` | 드로잉 스타일 |
 | `@transition` | `fade`, `slide`, `none` | 씬 간 기본 전환 |
 
@@ -377,7 +375,6 @@ cell "헤더" { header }
 
 ```depix
 @page 16:9
-@theme dark
 
 scene "인트로" {
   box "Depix" {
@@ -415,7 +412,6 @@ scene "기능 소개" {
 
 ```depix
 @page 16:9
-@theme light
 
 flow direction:right {
   group "명반응" #light {
@@ -630,8 +626,8 @@ canvas {
 3. **애니메이션/전환** — 씬 간 전환 외에 요소 단위 애니메이션을 지원할 것인가?
    지원한다면 DSL에서 어떻게 표현할 것인가?
 
-4. **커스텀 테마 정의** — `@theme` 확장 시 DSL 안에서 테마를 정의하는 문법이
-   필요한가, 외부 파일로 분리하는가?
+4. **커스텀 테마 정의** — 테마는 `compile()` API의 외부 옵션으로 전달한다.
+   커스텀 테마 생성을 위한 헬퍼 함수가 필요한가?
 
 5. **반응형** — 화면 크기에 따라 레이아웃이 바뀌어야 하는 경우를 DSL이
    다뤄야 하는가?

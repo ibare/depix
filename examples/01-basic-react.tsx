@@ -11,7 +11,6 @@ import type { DepixCanvasRef } from '@depix/react';
 
 const dsl = `
 @page 16:9
-@theme light
 
 flow direction:right {
   node "Input" #a

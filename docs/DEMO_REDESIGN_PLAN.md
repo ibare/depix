@@ -38,7 +38,7 @@ ASCII/개념 → DSL → 렌더링 캔버스의 3단 패널로 변환 과정을 
 DSL 문법 완전 가이드. 각 섹션에 라이브 예제 포함.
 
 목차:
-1. 문서 구조 (@page, @theme, scene)
+1. 문서 구조 (@page, scene)
 2. 레이아웃 프리미티브 (flow, stack, grid, tree, group, layers)
 3. 시각 요소 (box, node, label, badge, icon, list, divider, image)
 4. 연결과 ID (#id, ->, -->, --, <->)

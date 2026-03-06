@@ -44,6 +44,7 @@ export function ReferencePage() {
                   layout="row"
                   width={420}
                   height={240}
+                  themeName={ex.themeName}
                 />
               </div>
             ))}

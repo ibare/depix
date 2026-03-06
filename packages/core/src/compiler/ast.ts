@@ -31,7 +31,7 @@ export interface ASTScene {
 }
 
 export interface ASTDirective {
-  key: string; // 'page', 'theme', 'style', 'transition'
+  key: string; // 'page', 'style', 'transition'
   value: string; // '16:9', 'dark', 'sketch', 'fade'
   loc: SourceLocation;
 }

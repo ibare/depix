@@ -126,14 +126,14 @@
 v2 문법을 위한 새 토크나이저. v1과 문법이 근본적으로 다름.
 
 - [x] `packages/core/src/compiler/tokenizer.ts`:
-  - 토큰 타입: `DIRECTIVE` (`@page`, `@theme` 등), `BLOCK_TYPE` (`flow`, `stack`, `grid`, `tree`, `group`, `layers`, `canvas`), `ELEMENT_TYPE` (`node`, `box`, `label`, `list`, `badge`, `icon`, `divider`, `image`, `cell`, `layer`, `rect`, `circle`, `line`, `text`), `HASH` (`#id`), `ARROW` (`->`, `-->`, `--`, `<->`), `STRING`, `BRACE_OPEN/CLOSE`, `BRACKET_OPEN/CLOSE`, `COLON`, `COMMA`, `NUMBER`, `IDENTIFIER`, `FLAG`, `SCENE`, `NEWLINE`, `EOF`
+  - 토큰 타입: `DIRECTIVE` (`@page`, `@style` 등), `BLOCK_TYPE` (`flow`, `stack`, `grid`, `tree`, `group`, `layers`, `canvas`), `ELEMENT_TYPE` (`node`, `box`, `label`, `list`, `badge`, `icon`, `divider`, `image`, `cell`, `layer`, `rect`, `circle`, `line`, `text`), `HASH` (`#id`), `ARROW` (`->`, `-->`, `--`, `<->`), `STRING`, `BRACE_OPEN/CLOSE`, `BRACKET_OPEN/CLOSE`, `COLON`, `COMMA`, `NUMBER`, `IDENTIFIER`, `FLAG`, `SCENE`, `NEWLINE`, `EOF`
   - 주석 처리 (`//`)
   - 문자열 리터럴, 이스케이프
   - 리스트 구문: `["item1", "item2"]`
   - 속성: `direction:right`, `gap:md`, `cols:3`
   - 플래그: `bold`, `italic`, `underline`, `strikethrough`, `center`, `outline`, `header`, `ordered`
 - [x] 테스트 (`__tests__/compiler/tokenizer.test.ts`): 133 tests
-  - 디렉티브: `@page 16:9`, `@theme dark`, `@style sketch`, `@transition fade`
+  - 디렉티브: `@page 16:9`, `@style sketch`, `@transition fade`
   - 블록/요소 타입: 각 키워드별 토큰 생성 확인
   - 문자열: 일반, 이스케이프, 유니코드, 빈 문자열, 줄바꿈 포함
   - ID: `#simple`, `#with-dash`, `#123`
@@ -160,7 +160,7 @@ v2 문법을 위한 새 토크나이저. v1과 문법이 근본적으로 다름.
   - `ASTEdge { fromId, toId, edgeStyle, label }`
   - `ASTDirective { key, value }`
 - [x] `packages/core/src/compiler/parser.ts`:
-  - 문서 디렉티브 파싱 (`@page`, `@theme`, `@style`, `@transition`)
+  - 문서 디렉티브 파싱 (`@page`, `@style`, `@transition`)
   - `scene "name" { ... }` 파싱
   - 레이아웃 프리미티브 블록 파싱 (`flow`, `stack`, `grid`, `tree`, `group`, `layers`, `canvas`)
   - 시각 요소 파싱 (`node`, `box`, `label` 등)

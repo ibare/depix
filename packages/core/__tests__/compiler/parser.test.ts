@@ -43,10 +43,10 @@ describe('Document structure', () => {
   });
 
   it('parses directives only', () => {
-    const { ast } = parse('@page 16:9\n@theme dark');
+    const { ast } = parse('@page 16:9\n@style sketch');
     expect(ast.directives).toHaveLength(2);
     expect(ast.directives[0]).toMatchObject({ key: 'page', value: '16:9' });
-    expect(ast.directives[1]).toMatchObject({ key: 'theme', value: 'dark' });
+    expect(ast.directives[1]).toMatchObject({ key: 'style', value: 'sketch' });
   });
 
   it('parses single explicit scene', () => {
@@ -79,7 +79,7 @@ scene "Body" {
 
   it('parses directives + scenes together', () => {
     const input = `@page 16:9
-@theme light
+@style sketch
 
 scene "Slide 1" {
   node "A"
@@ -99,11 +99,6 @@ describe('Directives', () => {
   it('parses @page 16:9', () => {
     const { ast } = parse('@page 16:9');
     expect(ast.directives[0]).toMatchObject({ key: 'page', value: '16:9' });
-  });
-
-  it('parses @theme dark', () => {
-    const { ast } = parse('@theme dark');
-    expect(ast.directives[0]).toMatchObject({ key: 'theme', value: 'dark' });
   });
 
   it('parses @style sketch', () => {
@@ -630,7 +625,6 @@ describe('Error recovery', () => {
 describe('Comprehensive spec examples', () => {
   it('parses photosynthesis diagram', () => {
     const input = `@page 16:9
-@theme light
 
 flow direction:right {
   group "명반응" #light {
@@ -650,7 +644,7 @@ flow direction:right {
 }`;
     const result = parse(input);
     expect(result.errors).toHaveLength(0);
-    expect(result.ast.directives).toHaveLength(2);
+    expect(result.ast.directives).toHaveLength(1);
     expect(result.ast.scenes).toHaveLength(1);
 
     const flow = result.ast.scenes[0].children[0] as ASTBlock;
@@ -735,7 +729,6 @@ grid cols:3 {
 
   it('parses multi-scene presentation', () => {
     const input = `@page 16:9
-@theme dark
 
 scene "인트로" {
   box "Depix" {

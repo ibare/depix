@@ -498,7 +498,7 @@ describe('resolveTheme — color palette expansion', () => {
 describe('resolveTheme — multi-scene', () => {
   it('resolves across multiple scenes', () => {
     const ast: ASTDocument = {
-      directives: [{ key: 'theme', value: 'light', loc }],
+      directives: [{ key: 'page', value: '16:9', loc }],
       scenes: [
         {
           name: 'scene1',
@@ -522,8 +522,8 @@ describe('resolveTheme — multi-scene', () => {
 
   it('preserves directives unchanged', () => {
     const directives = [
-      { key: 'theme', value: 'light', loc },
-      { key: 'title', value: 'Test', loc },
+      { key: 'page', value: '16:9', loc },
+      { key: 'style', value: 'sketch', loc },
     ];
     const ast: ASTDocument = {
       directives,
@@ -603,7 +603,7 @@ describe('resolveTheme — immutability', () => {
   });
 
   it('returns a new directives array (not same reference)', () => {
-    const directives = [{ key: 'theme', value: 'light', loc }];
+    const directives = [{ key: 'page', value: '16:9', loc }];
     const ast: ASTDocument = {
       directives,
       scenes: [{ name: null, children: [], loc }],

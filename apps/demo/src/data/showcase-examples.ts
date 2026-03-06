@@ -15,7 +15,6 @@ export const SHOWCASE_EXAMPLES: ShowcaseExample[] = [
 | Input | --> | Process | --> | Output |
 +-------+     +---------+     +--------+`,
     dsl: `@page 16:9
-@theme light
 
 flow direction:right {
   node "Input" #in
