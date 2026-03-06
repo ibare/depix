@@ -520,7 +520,54 @@ function emitBoxElement(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
+  const shortSide = Math.min(bounds.w, bounds.h);
+  const textColor = typeof element.style.color === 'string'
+    ? element.style.color
+    : theme.foreground;
+
   let childY = innerBounds.y;
+
+  // P1: Emit title text from element.label
+  if (element.label) {
+    const titleFontSize = scaleCtx
+      ? computeFontSize(shortSide, 'innerLabel')
+      : theme.fontSize.md;
+    const titleH = scaleCtx ? titleFontSize * 2.5 : 4;
+    const titleText: IRText = {
+      id: `${id}-title`,
+      type: 'text',
+      bounds: { x: innerBounds.x, y: childY, w: innerBounds.w, h: titleH },
+      style: {},
+      content: element.label,
+      fontSize: titleFontSize,
+      color: textColor,
+      fontWeight: 'bold',
+    };
+    children.push(titleText);
+    childY += titleH + 1;
+  }
+
+  // P2: Emit subtitle text from element.props.subtitle
+  if (typeof element.props.subtitle === 'string') {
+    const subtitleFontSize = scaleCtx
+      ? computeFontSize(shortSide, 'listItem')
+      : theme.fontSize.sm;
+    const subtitleH = scaleCtx ? subtitleFontSize * 2 : 3;
+    const subtitleText: IRText = {
+      id: `${id}-subtitle`,
+      type: 'text',
+      bounds: { x: innerBounds.x, y: childY, w: innerBounds.w, h: subtitleH },
+      style: {},
+      content: element.props.subtitle as string,
+      fontSize: subtitleFontSize,
+      color: typeof element.props['subtitle-color'] === 'string'
+        ? element.props['subtitle-color'] as string
+        : theme.colors.muted,
+    };
+    children.push(subtitleText);
+    childY += subtitleH + 1;
+  }
+
   for (const child of element.children) {
     if (child.kind === 'edge') continue;
     // Use pre-allocated bounds from boundsMap if available

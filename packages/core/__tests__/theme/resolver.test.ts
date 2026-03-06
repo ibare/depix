@@ -10,6 +10,7 @@ import {
   resolveRadius,
   resolveShadow,
   resolveSpacing,
+  generateColorPalette,
 } from '../../src/theme/resolver.js';
 
 // ---------------------------------------------------------------------------
@@ -237,5 +238,63 @@ describe('isNamedColor', () => {
 
   it.each(['primary', '#ff0000', 'unknown'])('returns false for "%s"', (value) => {
     expect(isNamedColor(value)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateColorPalette
+// ---------------------------------------------------------------------------
+
+describe('generateColorPalette', () => {
+  it('returns an object with bg, fg, border, accent', () => {
+    const palette = generateColorPalette('#3b82f6');
+    expect(palette).toHaveProperty('bg');
+    expect(palette).toHaveProperty('fg');
+    expect(palette).toHaveProperty('border');
+    expect(palette).toHaveProperty('accent');
+  });
+
+  it('accent is the original color', () => {
+    const palette = generateColorPalette('#3b82f6');
+    expect(palette.accent).toBe('#3b82f6');
+  });
+
+  it('bg is lighter than the accent', () => {
+    const palette = generateColorPalette('#3b82f6');
+    // Light bg should have higher RGB values (closer to white)
+    const bgR = parseInt(palette.bg.slice(1, 3), 16);
+    const accentR = parseInt(palette.accent.slice(1, 3), 16);
+    expect(bgR).toBeGreaterThan(accentR);
+  });
+
+  it('border is between bg and accent in brightness', () => {
+    const palette = generateColorPalette('#3b82f6');
+    const bgR = parseInt(palette.bg.slice(1, 3), 16);
+    const borderR = parseInt(palette.border.slice(1, 3), 16);
+    const accentR = parseInt(palette.accent.slice(1, 3), 16);
+    expect(borderR).toBeLessThanOrEqual(bgR);
+    expect(borderR).toBeGreaterThanOrEqual(accentR);
+  });
+
+  it('returns valid 7-char HEX for all fields', () => {
+    const palette = generateColorPalette('#ef4444');
+    const hexPattern = /^#[0-9a-f]{6}$/;
+    expect(palette.bg).toMatch(hexPattern);
+    expect(palette.fg).toMatch(hexPattern);
+    expect(palette.border).toMatch(hexPattern);
+    expect(palette.accent).toMatch(hexPattern);
+  });
+
+  it('works with dark colors', () => {
+    const palette = generateColorPalette('#1a1a2e');
+    expect(palette.bg).not.toBe(palette.accent);
+    expect(palette.border).not.toBe(palette.accent);
+  });
+
+  it('works with light colors (e.g. yellow)', () => {
+    const palette = generateColorPalette('#fbbf24');
+    // For light colors, fg should be darkened for readability
+    const fgR = parseInt(palette.fg.slice(1, 3), 16);
+    expect(fgR).toBeLessThan(251); // darker than original #fb
   });
 });

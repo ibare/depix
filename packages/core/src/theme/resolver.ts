@@ -12,6 +12,7 @@
 
 import type { IRShadow } from '../ir/types.js';
 import type {
+  ColorPalette,
   DepixTheme,
   NamedColor,
   SemanticBorderWidth,
@@ -214,4 +215,57 @@ export function resolveBorderWidth(value: string | number, theme: DepixTheme): n
     return theme.borderWidth[value as SemanticBorderWidth];
   }
   return Number(value) || 0;
+}
+
+// ---------------------------------------------------------------------------
+// Color palette generation
+// ---------------------------------------------------------------------------
+
+type RGB = [number, number, number];
+
+function hexToRgb(hex: string): RGB {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.substring(0, 2), 16),
+    parseInt(h.substring(2, 4), 16),
+    parseInt(h.substring(4, 6), 16),
+  ];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (v: number) => Math.round(Math.max(0, Math.min(255, v)));
+  return '#' + [r, g, b].map(v => clamp(v).toString(16).padStart(2, '0')).join('');
+}
+
+function mix(c1: RGB, c2: RGB, weight: number): RGB {
+  return [
+    c1[0] + (c2[0] - c1[0]) * weight,
+    c1[1] + (c2[1] - c1[1]) * weight,
+    c1[2] + (c2[2] - c1[2]) * weight,
+  ];
+}
+
+function luminance(r: number, g: number, b: number): number {
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/**
+ * Generate a color palette from a single HEX base color.
+ *
+ * Produces a light background, readable foreground, medium border,
+ * and keeps the original color as accent.
+ */
+export function generateColorPalette(hex: string): ColorPalette {
+  const rgb = hexToRgb(hex);
+  const white: RGB = [255, 255, 255];
+  const black: RGB = [30, 30, 30];
+
+  const bg = rgbToHex(...mix(rgb, white, 0.85));
+  const border = rgbToHex(...mix(rgb, white, 0.55));
+  const lum = luminance(...rgb);
+  const fg = lum > 0.6
+    ? rgbToHex(...mix(rgb, black, 0.6))
+    : hex;
+
+  return { bg, fg, border, accent: hex };
 }

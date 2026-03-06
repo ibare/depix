@@ -53,6 +53,22 @@ export type SemanticRadius = 'none' | 'sm' | 'md' | 'lg' | 'full';
 export type SemanticBorderWidth = 'thin' | 'medium' | 'thick';
 
 // ---------------------------------------------------------------------------
+// Color palette (generated from a single base color)
+// ---------------------------------------------------------------------------
+
+/** A derived color palette generated from a single base HEX color. */
+export interface ColorPalette {
+  /** Light background color. */
+  bg: string;
+  /** Foreground/text color (readable on bg). */
+  fg: string;
+  /** Border color (between bg and accent). */
+  border: string;
+  /** The original base color. */
+  accent: string;
+}
+
+// ---------------------------------------------------------------------------
 // Theme node/edge defaults
 // ---------------------------------------------------------------------------
 

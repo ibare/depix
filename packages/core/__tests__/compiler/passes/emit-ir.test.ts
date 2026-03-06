@@ -385,6 +385,63 @@ describe('emitIR — box element', () => {
     expect(el.id).toBe('box1');
     expect(el.children.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('emits title text from box label (P1)', () => {
+    const box = makeElement('box', {
+      id: 'box1',
+      label: 'Hello Depix',
+    });
+    const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
+
+    const el = ir.scenes[0].elements[0] as IRContainer;
+    expect(el.type).toBe('container');
+    const titleChild = el.children.find(c => c.type === 'text' && (c as IRText).content === 'Hello Depix') as IRText;
+    expect(titleChild).toBeDefined();
+    expect(titleChild.fontWeight).toBe('bold');
+    expect(titleChild.fontSize).toBeGreaterThan(0);
+  });
+
+  it('emits subtitle text from box props.subtitle (P2)', () => {
+    const box = makeElement('box', {
+      id: 'box2',
+      label: 'Title',
+      props: { subtitle: 'A subtitle' },
+    });
+    const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
+
+    const el = ir.scenes[0].elements[0] as IRContainer;
+    const texts = el.children.filter(c => c.type === 'text') as IRText[];
+    expect(texts.length).toBeGreaterThanOrEqual(2);
+    expect(texts[0].content).toBe('Title');
+    expect(texts[1].content).toBe('A subtitle');
+    expect(texts[1].fontSize).toBeLessThanOrEqual(texts[0].fontSize);
+  });
+
+  it('emits box with only subtitle (no label)', () => {
+    const box = makeElement('box', {
+      id: 'box3',
+      props: { subtitle: 'Just subtitle' },
+    });
+    const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
+
+    const el = ir.scenes[0].elements[0] as IRContainer;
+    const texts = el.children.filter(c => c.type === 'text') as IRText[];
+    expect(texts).toHaveLength(1);
+    expect(texts[0].content).toBe('Just subtitle');
+  });
+
+  it('emits title before other children', () => {
+    const box = makeElement('box', {
+      id: 'box4',
+      label: 'Box Title',
+      children: [makeElement('label', { id: 'l1', label: 'Child' })],
+    });
+    const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
+
+    const el = ir.scenes[0].elements[0] as IRContainer;
+    expect(el.children.length).toBeGreaterThanOrEqual(2);
+    expect((el.children[0] as IRText).content).toBe('Box Title');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -417,6 +417,81 @@ describe('resolveTheme — edges', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Color palette expansion for container elements
+// ---------------------------------------------------------------------------
+
+describe('resolveTheme — color palette expansion', () => {
+  it('expands color to background/border/color for box element', () => {
+    const ast = makeDoc(makeElement({ elementType: 'box', style: { color: 'primary' } }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    // background should be set (palette.bg)
+    expect(style.background).toBeDefined();
+    expect(typeof style.background).toBe('string');
+    expect((style.background as string).startsWith('#')).toBe(true);
+    // border should be set (palette.border)
+    expect(style.border).toBeDefined();
+    // color should still be a HEX string (palette.fg)
+    expect(typeof style.color).toBe('string');
+    expect((style.color as string).startsWith('#')).toBe(true);
+  });
+
+  it('expands color for cell element', () => {
+    const ast = makeDoc(makeElement({ elementType: 'cell', style: { color: 'accent' } }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    expect(style.background).toBeDefined();
+    expect(style.border).toBeDefined();
+  });
+
+  it('does NOT expand color for node element', () => {
+    const ast = makeDoc(makeElement({ elementType: 'node', style: { color: 'primary' } }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    // node gets default fill from applyNodeDefaults, not from palette
+    expect(style.background).toBe(lightTheme.node.fill);
+    // color should be the resolved HEX, not a palette fg
+    expect(style.color).toBe(lightTheme.colors.primary);
+  });
+
+  it('does NOT expand when background is explicitly set', () => {
+    const ast = makeDoc(makeElement({
+      elementType: 'box',
+      style: { color: 'primary', background: '#ff0000' },
+    }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    // background keeps user value
+    expect(style.background).toBe('#ff0000');
+    // color stays as resolved semantic
+    expect(style.color).toBe(lightTheme.colors.primary);
+  });
+
+  it('does NOT overwrite explicit border during expansion', () => {
+    const ast = makeDoc(makeElement({
+      elementType: 'box',
+      style: { color: 'danger', border: '#000000' },
+    }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    // border keeps user value
+    expect(style.border).toBe('#000000');
+    // background should be palette.bg
+    expect(style.background).toBeDefined();
+    expect(style.background).not.toBe('#ffffff');
+  });
+
+  it('palette bg is lighter than the original color', () => {
+    const ast = makeDoc(makeElement({ elementType: 'box', style: { color: 'primary' } }));
+    const resolved = resolveTheme(ast, lightTheme);
+    const style = (firstChild(resolved) as ASTElement).style;
+    const bgR = parseInt((style.background as string).slice(1, 3), 16);
+    const primaryR = parseInt(lightTheme.colors.primary.slice(1, 3), 16);
+    expect(bgR).toBeGreaterThan(primaryR);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Multiple scenes & directives
 // ---------------------------------------------------------------------------
 

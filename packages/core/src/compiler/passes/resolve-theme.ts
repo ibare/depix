@@ -22,6 +22,7 @@ import {
   resolveShadow,
   resolveRadius,
   resolveBorderWidth,
+  generateColorPalette,
 } from '../../theme/resolver.js';
 import type {
   ASTDocument,
@@ -89,6 +90,11 @@ function resolveBlock(block: ASTBlock, theme: DepixTheme): ASTBlock {
 
 function resolveElement(element: ASTElement, theme: DepixTheme): ASTElement {
   const style = resolveStyleProps({ ...element.style }, theme);
+
+  // Expand color → palette (background, border, color) for container elements
+  if (isContainerLikeElement(element.elementType)) {
+    expandColorPalette(style);
+  }
 
   // Apply theme node defaults for unstyled nodes
   if (isNodeLikeElement(element.elementType)) {
@@ -169,6 +175,25 @@ function resolveStyleProps(
 
 function isNodeLikeElement(type: string): boolean {
   return type === 'node' || type === 'box' || type === 'cell';
+}
+
+function isContainerLikeElement(type: string): boolean {
+  return type === 'box' || type === 'cell';
+}
+
+function expandColorPalette(style: Record<string, string | number>): void {
+  if (!('color' in style) || typeof style.color !== 'string') return;
+  if ('background' in style) return; // user explicitly set background
+
+  const hex = style.color as string;
+  if (!hex.startsWith('#')) return; // only expand resolved HEX colors
+
+  const palette = generateColorPalette(hex);
+  style['background'] = palette.bg;
+  if (!('border' in style)) {
+    style['border'] = palette.border;
+  }
+  style['color'] = palette.fg;
 }
 
 function applyNodeDefaults(
