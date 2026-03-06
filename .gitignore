@@ -36,6 +36,7 @@ packages/*/vitest.config.d.ts
 packages/*/vitest.config.d.ts.map
 packages/*/__tests__/**/*.js
 packages/*/__tests__/**/*.js.map
+packages/*/__tests__/**/*.js.snap
 packages/*/__tests__/**/*.d.ts
 packages/*/__tests__/**/*.d.ts.map
 examples/**/*.js
