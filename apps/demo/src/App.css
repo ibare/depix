@@ -253,7 +253,6 @@ body {
   position: relative;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 .live-example__errors {
@@ -476,7 +475,6 @@ body {
 }
 
 .playground__live {
-  height: 100%;
 }
 
 .playground__live .live-example__code {

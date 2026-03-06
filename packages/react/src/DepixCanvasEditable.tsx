@@ -597,10 +597,6 @@ export const DepixCanvasEditable = forwardRef<
     containerRef.current?.parentElement?.requestFullscreen();
   }, []);
 
-  const exitFullscreen = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen();
-  }, []);
-
   // ---- Edit mode management ----------------------------------------------
 
   const enterEditMode = useCallback(() => {
@@ -823,7 +819,7 @@ export const DepixCanvasEditable = forwardRef<
   // ---- Determine if we show edit-mode UI ---------------------------------
 
   const showEditUI = isEditActive;
-  const showReadModeEditButton = !showEditUI && !readOnly && !toolProp;
+  const showReadModeEditButton = !showEditUI && !readOnly && !toolProp && !isFullscreen;
 
   // ---- Calculate panel positions relative to canvas ----------------------
 
@@ -924,54 +920,29 @@ export const DepixCanvasEditable = forwardRef<
               >
                 Edit
               </button>
-              {!isFullscreen && (
-                <button
-                  type="button"
-                  style={{
-                    ...fullscreenBtnStyle,
-                    bottom: '8px',
-                    right: '8px',
-                    opacity: isHovered ? 1 : 0,
-                    pointerEvents: isHovered ? 'auto' : 'none',
-                  }}
-                  onClick={enterFullscreen}
-                  title="Fullscreen"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="8.5,1 13,1 13,5.5" />
-                    <polyline points="5.5,13 1,13 1,8.5" />
-                    <line x1="13" y1="1" x2="8.5" y2="5.5" />
-                    <line x1="1" y1="13" x2="5.5" y2="8.5" />
-                  </svg>
-                </button>
-              )}
+              <button
+                type="button"
+                style={{
+                  ...fullscreenBtnStyle,
+                  bottom: '8px',
+                  right: '8px',
+                  opacity: isHovered ? 1 : 0,
+                  pointerEvents: isHovered ? 'auto' : 'none',
+                }}
+                onClick={enterFullscreen}
+                title="Fullscreen"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="8.5,1 13,1 13,5.5" />
+                  <polyline points="5.5,13 1,13 1,8.5" />
+                  <line x1="13" y1="1" x2="8.5" y2="5.5" />
+                  <line x1="1" y1="13" x2="5.5" y2="8.5" />
+                </svg>
+              </button>
             </div>
           </div>
         );
       })()}
-
-      {/* Fullscreen close button */}
-      {isFullscreen && (
-        <button
-          type="button"
-          style={{
-            ...fullscreenBtnStyle,
-            top: '16px',
-            right: '16px',
-            opacity: 0.7,
-            pointerEvents: 'auto',
-          }}
-          onClick={exitFullscreen}
-          title="Exit fullscreen (ESC)"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="5.5,1 1,1 1,5.5" />
-            <polyline points="8.5,13 13,13 13,8.5" />
-            <line x1="1" y1="1" x2="5.5" y2="5.5" />
-            <line x1="13" y1="13" x2="8.5" y2="8.5" />
-          </svg>
-        </button>
-      )}
 
       {/* Edit mode: floating panels */}
       {showEditUI && showToolbar && panelPositions && (
