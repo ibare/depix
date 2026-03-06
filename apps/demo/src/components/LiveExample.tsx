@@ -44,6 +44,7 @@ export function LiveExample({
   const [canvasSize, setCanvasSize] = useState({ width, height });
   const [isCanvasHovered, setIsCanvasHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const savedSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   const theme: DepixTheme = themeName === 'dark' ? darkTheme : lightTheme;
 
@@ -87,15 +88,21 @@ export function LiveExample({
   // Sync isFullscreen state with browser Fullscreen API events
   useEffect(() => {
     const onChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const entering = !!document.fullscreenElement;
+      setIsFullscreen(entering);
+      if (!entering && savedSizeRef.current) {
+        setCanvasSize(savedSizeRef.current);
+        savedSizeRef.current = null;
+      }
     };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
   const enterFullscreen = useCallback(() => {
+    savedSizeRef.current = { ...canvasSize };
     containerRef.current?.requestFullscreen();
-  }, []);
+  }, [canvasSize]);
 
   const exitFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -118,7 +125,7 @@ export function LiveExample({
       )}
       <div
         ref={containerRef}
-        className={`live-example__canvas${isFullscreen ? ' live-example__canvas--fullscreen' : ''}`}
+        className="live-example__canvas"
         onMouseEnter={() => setIsCanvasHovered(true)}
         onMouseLeave={() => setIsCanvasHovered(false)}
       >
