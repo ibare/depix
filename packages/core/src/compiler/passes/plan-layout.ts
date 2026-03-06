@@ -95,14 +95,17 @@ export function planScene(scene: ASTScene, theme: DepixTheme): SceneLayoutPlan {
 
 /**
  * Recursively plan a single AST node (block or element).
+ *
+ * @param parentId — parent plan node's ID, used as prefix to ensure global uniqueness
  */
 export function planNode(
   node: ASTBlock | ASTElement,
   theme: DepixTheme,
   indexHint: number = 0,
+  parentId: string = '',
 ): LayoutPlanNode {
   const nodeType = classifyNode(node);
-  const id = getNodeId(node, indexHint);
+  const id = getNodeId(node, indexHint, parentId);
   const edges: ASTEdge[] = [];
   const childPlans: LayoutPlanNode[] = [];
 
@@ -112,7 +115,7 @@ export function planNode(
       if (child.kind === 'edge') {
         edges.push(child);
       } else {
-        childPlans.push(planNode(child, theme, i));
+        childPlans.push(planNode(child, theme, i, id));
       }
     }
   } else if (node.children.length > 0) {
@@ -121,7 +124,7 @@ export function planNode(
       if (child.kind === 'edge') {
         edges.push(child);
       } else {
-        childPlans.push(planNode(child, theme, i));
+        childPlans.push(planNode(child, theme, i, id));
       }
     }
   }
@@ -271,8 +274,9 @@ export function computeIntrinsicSize(
 // ID extraction (mirrors emit-ir getNodeId)
 // ---------------------------------------------------------------------------
 
-function getNodeId(node: ASTNode, index: number): string {
-  if (node.kind === 'block') return node.id ?? `block-${index}`;
-  if (node.kind === 'element') return node.id ?? `el-${index}`;
-  return `edge-${index}`;
+function getNodeId(node: ASTNode, index: number, parentId: string = ''): string {
+  const prefix = parentId ? `${parentId}/` : '';
+  if (node.kind === 'block') return node.id ?? `${prefix}block-${index}`;
+  if (node.kind === 'element') return node.id ?? `${prefix}el-${index}`;
+  return `${prefix}edge-${index}`;
 }

@@ -91,8 +91,8 @@ function resolveBlock(block: ASTBlock, theme: DepixTheme): ASTBlock {
 function resolveElement(element: ASTElement, theme: DepixTheme): ASTElement {
   const style = resolveStyleProps({ ...element.style }, theme);
 
-  // Expand color → palette (background, border, color) for container elements
-  if (isContainerLikeElement(element.elementType)) {
+  // Expand color → palette (background, border, color) for supported elements
+  if (isColorPaletteElement(element.elementType)) {
     expandColorPalette(style);
   }
 
@@ -177,8 +177,8 @@ function isNodeLikeElement(type: string): boolean {
   return type === 'node' || type === 'box' || type === 'cell';
 }
 
-function isContainerLikeElement(type: string): boolean {
-  return type === 'box' || type === 'cell';
+function isColorPaletteElement(type: string): boolean {
+  return type === 'box' || type === 'cell' || type === 'badge';
 }
 
 function expandColorPalette(style: Record<string, string | number>): void {
