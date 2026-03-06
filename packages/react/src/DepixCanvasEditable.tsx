@@ -133,6 +133,23 @@ const editBtnStyle: React.CSSProperties = {
   zIndex: 10,
 };
 
+const fullscreenBtnStyle: React.CSSProperties = {
+  position: 'absolute',
+  padding: '6px',
+  borderRadius: '6px',
+  border: '1px solid rgba(255,255,255,0.2)',
+  backgroundColor: 'rgba(30,30,30,0.85)',
+  color: '#ddd',
+  cursor: 'pointer',
+  opacity: 0,
+  transition: 'opacity 0.2s',
+  zIndex: 10,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 0,
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -171,6 +188,7 @@ export const DepixCanvasEditable = forwardRef<
 
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [isHovered, setIsHovered] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const snapshotRef = useRef<DepixIR | null>(null);
 
   // ---- Internal tool state (used only in self-managed edit mode) ----------
@@ -565,6 +583,24 @@ export const DepixCanvasEditable = forwardRef<
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [readOnly, ir, onIRChange, isEditing, toolProp, currentSceneIndex]);
 
+  // ---- Fullscreen management ----------------------------------------------
+
+  useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const enterFullscreen = useCallback(() => {
+    containerRef.current?.parentElement?.requestFullscreen();
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen();
+  }, []);
+
   // ---- Edit mode management ----------------------------------------------
 
   const enterEditMode = useCallback(() => {
@@ -859,7 +895,7 @@ export const DepixCanvasEditable = forwardRef<
         data-readonly={readOnly || undefined}
       />
 
-      {/* Read mode: edit button overlay — sized to match the fitted canvas */}
+      {/* Read mode: overlay buttons — sized to match the fitted canvas */}
       {showReadModeEditButton && (() => {
         const fitted = fitToAspectRatio(width, height, ir.meta.aspectRatio);
         return (
@@ -888,10 +924,54 @@ export const DepixCanvasEditable = forwardRef<
               >
                 Edit
               </button>
+              {!isFullscreen && (
+                <button
+                  type="button"
+                  style={{
+                    ...fullscreenBtnStyle,
+                    bottom: '8px',
+                    right: '8px',
+                    opacity: isHovered ? 1 : 0,
+                    pointerEvents: isHovered ? 'auto' : 'none',
+                  }}
+                  onClick={enterFullscreen}
+                  title="Fullscreen"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="8.5,1 13,1 13,5.5" />
+                    <polyline points="5.5,13 1,13 1,8.5" />
+                    <line x1="13" y1="1" x2="8.5" y2="5.5" />
+                    <line x1="1" y1="13" x2="5.5" y2="8.5" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         );
       })()}
+
+      {/* Fullscreen close button */}
+      {isFullscreen && (
+        <button
+          type="button"
+          style={{
+            ...fullscreenBtnStyle,
+            top: '16px',
+            right: '16px',
+            opacity: 0.7,
+            pointerEvents: 'auto',
+          }}
+          onClick={exitFullscreen}
+          title="Exit fullscreen (ESC)"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="5.5,1 1,1 1,5.5" />
+            <polyline points="8.5,13 13,13 13,8.5" />
+            <line x1="1" y1="1" x2="5.5" y2="5.5" />
+            <line x1="13" y1="13" x2="8.5" y2="8.5" />
+          </svg>
+        </button>
+      )}
 
       {/* Edit mode: floating panels */}
       {showEditUI && showToolbar && panelPositions && (

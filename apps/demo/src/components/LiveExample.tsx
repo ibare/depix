@@ -41,10 +41,7 @@ export function LiveExample({
   const [ir, setIr] = useState<DepixIR | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasSize, setCanvasSize] = useState({ width, height });
-  const [isCanvasHovered, setIsCanvasHovered] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const savedSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const [containerWidth, setContainerWidth] = useState(width);
 
   const theme: DepixTheme = themeName === 'dark' ? darkTheme : lightTheme;
 
@@ -65,16 +62,19 @@ export function LiveExample({
     }
   }, [dsl, theme]);
 
-  // Observe canvas container size for responsive rendering
+  // Compute canvas size from container width + IR aspect ratio (no letterbox)
+  const ar = ir?.meta.aspectRatio ?? { width: 16, height: 9 };
+  const canvasWidth = Math.floor(containerWidth);
+  const canvasHeight = Math.floor(containerWidth * (ar.height / ar.width));
+
+  // Observe container width only
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { width: w, height: h } = entry.contentRect;
-        if (w > 0 && h > 0) {
-          setCanvasSize({ width: Math.floor(w), height: Math.floor(h) });
-        }
+        const w = entry.contentRect.width;
+        if (w > 0) setContainerWidth(w);
       }
     });
     observer.observe(el);
@@ -83,29 +83,6 @@ export function LiveExample({
 
   const handleIRChange = useCallback((newIr: DepixIR) => {
     setIr(newIr);
-  }, []);
-
-  // Sync isFullscreen state with browser Fullscreen API events
-  useEffect(() => {
-    const onChange = () => {
-      const entering = !!document.fullscreenElement;
-      setIsFullscreen(entering);
-      if (!entering && savedSizeRef.current) {
-        setCanvasSize(savedSizeRef.current);
-        savedSizeRef.current = null;
-      }
-    };
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-
-  const enterFullscreen = useCallback(() => {
-    savedSizeRef.current = { ...canvasSize };
-    containerRef.current?.requestFullscreen();
-  }, [canvasSize]);
-
-  const exitFullscreen = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen();
   }, []);
 
   return (
@@ -126,49 +103,16 @@ export function LiveExample({
       <div
         ref={containerRef}
         className="live-example__canvas"
-        onMouseEnter={() => setIsCanvasHovered(true)}
-        onMouseLeave={() => setIsCanvasHovered(false)}
       >
         {ir ? (
           <DepixCanvasEditable
             ir={ir}
             onIRChange={handleIRChange}
-            width={canvasSize.width}
-            height={canvasSize.height}
+            width={canvasWidth}
+            height={canvasHeight}
           />
         ) : (
           <span className="text-muted">No preview</span>
-        )}
-        {ir && !isFullscreen && (
-          <button
-            type="button"
-            className="live-example__fullscreen-btn"
-            style={{ opacity: isCanvasHovered ? 1 : 0 }}
-            onClick={enterFullscreen}
-            title="전체 화면"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="8.5,1 13,1 13,5.5" />
-              <polyline points="5.5,13 1,13 1,8.5" />
-              <line x1="13" y1="1" x2="8.5" y2="5.5" />
-              <line x1="1" y1="13" x2="5.5" y2="8.5" />
-            </svg>
-          </button>
-        )}
-        {isFullscreen && (
-          <button
-            type="button"
-            className="live-example__fullscreen-close"
-            onClick={exitFullscreen}
-            title="전체 화면 종료 (ESC)"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="5.5,1 1,1 1,5.5" />
-              <polyline points="8.5,13 13,13 13,8.5" />
-              <line x1="1" y1="1" x2="5.5" y2="5.5" />
-              <line x1="13" y1="13" x2="8.5" y2="8.5" />
-            </svg>
-          </button>
         )}
       </div>
     </div>
