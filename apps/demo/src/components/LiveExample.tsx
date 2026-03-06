@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { compile } from '@depix/core';
 import type { DepixIR, DepixTheme } from '@depix/core';
 import { lightTheme, darkTheme } from '@depix/core';
@@ -45,7 +44,6 @@ export function LiveExample({
   const [canvasSize, setCanvasSize] = useState({ width, height });
   const [isCanvasHovered, setIsCanvasHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenSize, setFullscreenSize] = useState({ width: 0, height: 0 });
 
   const theme: DepixTheme = themeName === 'dark' ? darkTheme : lightTheme;
 
@@ -86,25 +84,22 @@ export function LiveExample({
     setIr(newIr);
   }, []);
 
-  // Fullscreen: compute canvas size to fill viewport with padding
-  const enterFullscreen = useCallback(() => {
-    const pad = 48;
-    setFullscreenSize({
-      width: window.innerWidth - pad * 2,
-      height: window.innerHeight - pad * 2,
-    });
-    setIsFullscreen(true);
+  // Sync isFullscreen state with browser Fullscreen API events
+  useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
-  // Fullscreen: close on ESC
-  useEffect(() => {
-    if (!isFullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsFullscreen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isFullscreen]);
+  const enterFullscreen = useCallback(() => {
+    containerRef.current?.requestFullscreen();
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen();
+  }, []);
 
   return (
     <div className={`live-example live-example--${layout} ${className ?? ''}`}>
@@ -123,7 +118,7 @@ export function LiveExample({
       )}
       <div
         ref={containerRef}
-        className="live-example__canvas"
+        className={`live-example__canvas${isFullscreen ? ' live-example__canvas--fullscreen' : ''}`}
         onMouseEnter={() => setIsCanvasHovered(true)}
         onMouseLeave={() => setIsCanvasHovered(false)}
       >
@@ -137,7 +132,7 @@ export function LiveExample({
         ) : (
           <span className="text-muted">No preview</span>
         )}
-        {ir && (
+        {ir && !isFullscreen && (
           <button
             type="button"
             className="live-example__fullscreen-btn"
@@ -153,33 +148,22 @@ export function LiveExample({
             </svg>
           </button>
         )}
-      </div>
-
-      {/* Fullscreen overlay */}
-      {isFullscreen && ir && createPortal(
-        <div className="live-example__fullscreen-overlay" onClick={() => setIsFullscreen(false)}>
-          <div
-            className="live-example__fullscreen-canvas"
-            onClick={(e) => e.stopPropagation()}
+        {isFullscreen && (
+          <button
+            type="button"
+            className="live-example__fullscreen-close"
+            onClick={exitFullscreen}
+            title="전체 화면 종료 (ESC)"
           >
-            <DepixCanvasEditable
-              ir={ir}
-              onIRChange={handleIRChange}
-              width={fullscreenSize.width}
-              height={fullscreenSize.height}
-            />
-            <button
-              type="button"
-              className="live-example__fullscreen-close"
-              onClick={() => setIsFullscreen(false)}
-              title="닫기 (ESC)"
-            >
-              ✕
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="5.5,1 1,1 1,5.5" />
+              <polyline points="8.5,13 13,13 13,8.5" />
+              <line x1="1" y1="1" x2="5.5" y2="5.5" />
+              <line x1="13" y1="13" x2="8.5" y2="8.5" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
