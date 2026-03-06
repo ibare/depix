@@ -21,9 +21,28 @@ Thumbs.db
 *.swp
 *.swo
 
+# Stray build artifacts (should only exist under dist/)
+apps/demo/src/**/*.js
+apps/demo/src/**/*.js.map
+apps/demo/src/**/*.d.ts
+apps/demo/src/**/*.d.ts.map
+apps/demo/vite.config.js
+apps/demo/vite.config.js.map
+apps/demo/vite.config.d.ts
+apps/demo/vite.config.d.ts.map
+packages/*/vitest.config.js
+packages/*/vitest.config.js.map
+packages/*/vitest.config.d.ts
+packages/*/vitest.config.d.ts.map
+packages/*/__tests__/**/*.js
+packages/*/__tests__/**/*.js.map
+packages/*/__tests__/**/*.d.ts
+packages/*/__tests__/**/*.d.ts.map
+examples/**/*.js
+examples/**/*.js.map
+examples/**/*.d.ts
+examples/**/*.d.ts.map
+
 # Environment
 .env
 .env.*
-
-# Symlink to original source (not part of this repo)
-original

@@ -10,15 +10,13 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "composite": true,
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "composite": true
   },
+  "files": [],
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/engine" },
     { "path": "./packages/editor" },
     { "path": "./packages/react" }
-  ],
-  "exclude": ["node_modules", "dist"]
+  ]
 }
