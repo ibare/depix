@@ -11,8 +11,9 @@ last_verified: 2026-03-05
 
 ## MUST
 
-- 컴파일러 패스는 정해진 순서를 따른다: `tokenize → parse → resolveTheme → planLayout → createScaleContext → allocateBounds → layout → routeEdges → emitIR`
+- 컴파일러 패스는 정해진 순서를 따른다: `tokenize → parse → flattenHierarchy → resolveTheme → planLayout → createScaleContext → allocateBounds → layout → routeEdges → emitIR`
   각 패스는 이전 패스의 출력만을 입력으로 받는다. 순서를 바꾸거나 패스를 건너뛰지 않는다.
+  `flattenHierarchy`는 connection 계열 레이아웃(tree, flow)의 nested element를 flat children + implicit edges로 정규화하는 AST 변환 패스이다.
 
 - 새 레이아웃 알고리즘은 `packages/core/src/compiler/layout/` 에 독립 파일로 추가한다. `emit-ir.ts` 내부에 인라인으로 작성하지 않는다.
 

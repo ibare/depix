@@ -11,6 +11,7 @@ import type { DepixIR } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
 import type { ASTDocument, ParseError } from './ast.js';
 import { parse } from './parser.js';
+import { flattenHierarchy } from './passes/flatten-hierarchy.js';
 import { resolveTheme } from './passes/resolve-theme.js';
 import { emitIR } from './passes/emit-ir.js';
 import { lightTheme } from '../theme/builtin-themes.js';
@@ -57,10 +58,13 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 1. Parse DSL → AST
   const { ast, errors } = parse(dsl);
 
-  // 2. Resolve theme (semantic tokens → concrete values)
-  const resolvedAST = resolveTheme(ast, theme);
+  // 2. Flatten hierarchy (nested elements → flat + edges for tree/flow)
+  const flatAST = flattenHierarchy(ast);
 
-  // 3. Emit IR (layout + edge routing + element conversion)
+  // 3. Resolve theme (semantic tokens → concrete values)
+  const resolvedAST = resolveTheme(flatAST, theme);
+
+  // 4. Emit IR (layout + edge routing + element conversion)
   const ir = emitIR(resolvedAST, theme);
 
   return { ir, errors };
