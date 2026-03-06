@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { compile } from '@depix/core';
 import type { DepixIR, DepixTheme } from '@depix/core';
 import { lightTheme, darkTheme } from '@depix/core';
@@ -42,6 +43,9 @@ export function LiveExample({
   const [errors, setErrors] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width, height });
+  const [isCanvasHovered, setIsCanvasHovered] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenSize, setFullscreenSize] = useState({ width: 0, height: 0 });
 
   const theme: DepixTheme = themeName === 'dark' ? darkTheme : lightTheme;
 
@@ -82,6 +86,26 @@ export function LiveExample({
     setIr(newIr);
   }, []);
 
+  // Fullscreen: compute canvas size to fill viewport with padding
+  const enterFullscreen = useCallback(() => {
+    const pad = 48;
+    setFullscreenSize({
+      width: window.innerWidth - pad * 2,
+      height: window.innerHeight - pad * 2,
+    });
+    setIsFullscreen(true);
+  }, []);
+
+  // Fullscreen: close on ESC
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isFullscreen]);
+
   return (
     <div className={`live-example live-example--${layout} ${className ?? ''}`}>
       {showCode && (
@@ -97,7 +121,12 @@ export function LiveExample({
           )}
         </div>
       )}
-      <div ref={containerRef} className="live-example__canvas">
+      <div
+        ref={containerRef}
+        className="live-example__canvas"
+        onMouseEnter={() => setIsCanvasHovered(true)}
+        onMouseLeave={() => setIsCanvasHovered(false)}
+      >
         {ir ? (
           <DepixCanvasEditable
             ir={ir}
@@ -108,7 +137,49 @@ export function LiveExample({
         ) : (
           <span className="text-muted">No preview</span>
         )}
+        {ir && (
+          <button
+            type="button"
+            className="live-example__fullscreen-btn"
+            style={{ opacity: isCanvasHovered ? 1 : 0 }}
+            onClick={enterFullscreen}
+            title="전체 화면"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="8.5,1 13,1 13,5.5" />
+              <polyline points="5.5,13 1,13 1,8.5" />
+              <line x1="13" y1="1" x2="8.5" y2="5.5" />
+              <line x1="1" y1="13" x2="5.5" y2="8.5" />
+            </svg>
+          </button>
+        )}
       </div>
+
+      {/* Fullscreen overlay */}
+      {isFullscreen && ir && createPortal(
+        <div className="live-example__fullscreen-overlay" onClick={() => setIsFullscreen(false)}>
+          <div
+            className="live-example__fullscreen-canvas"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DepixCanvasEditable
+              ir={ir}
+              onIRChange={handleIRChange}
+              width={fullscreenSize.width}
+              height={fullscreenSize.height}
+            />
+            <button
+              type="button"
+              className="live-example__fullscreen-close"
+              onClick={() => setIsFullscreen(false)}
+              title="닫기 (ESC)"
+            >
+              ✕
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
