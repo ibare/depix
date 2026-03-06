@@ -142,11 +142,21 @@ function allocateLeaf(
     const mParent = measureMap?.get(plan.id);
     const padding = mParent ? mParent.padding : (scaleCtx ? computePadding(scaleCtx.baseUnit) : 2);
     const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
+
+    // Reserve space for title and subtitle (box/layer elements)
+    let headerOffset = 0;
+    if (mParent?.titleHeight) {
+      headerOffset += mParent.titleHeight + childGap;
+    }
+    if (mParent?.subtitleHeight) {
+      headerOffset += mParent.subtitleHeight + childGap;
+    }
+
     const innerBounds: IRBounds = {
       x: bounds.x + padding,
-      y: bounds.y + padding,
+      y: bounds.y + padding + headerOffset,
       w: Math.max(bounds.w - padding * 2, 1),
-      h: Math.max(bounds.h - padding * 2, 1),
+      h: Math.max(bounds.h - padding * 2 - headerOffset, 1),
     };
     const childCount = plan.children.length;
     const childUsable = innerBounds.h - childGap * Math.max(childCount - 1, 0);
@@ -229,11 +239,21 @@ function allocateBlock(
         const mParent = measureMap?.get(childPlan.id);
         const padding = mParent ? mParent.padding : (scaleCtx ? computePadding(scaleCtx.baseUnit) : 2);
         const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
+
+        // Reserve space for title and subtitle
+        let headerOffset = 0;
+        if (mParent?.titleHeight) {
+          headerOffset += mParent.titleHeight + childGap;
+        }
+        if (mParent?.subtitleHeight) {
+          headerOffset += mParent.subtitleHeight + childGap;
+        }
+
         const innerBounds: IRBounds = {
           x: finalBounds.x + padding,
-          y: finalBounds.y + padding,
+          y: finalBounds.y + padding + headerOffset,
           w: Math.max(finalBounds.w - padding * 2, 1),
-          h: Math.max(finalBounds.h - padding * 2, 1),
+          h: Math.max(finalBounds.h - padding * 2 - headerOffset, 1),
         };
         const gcCount = childPlan.children.length;
         const gcUsable = innerBounds.h - childGap * Math.max(gcCount - 1, 0);
