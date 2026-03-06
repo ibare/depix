@@ -195,7 +195,7 @@ describe('computeFontSize', () => {
 
   it('clamps to maximum for huge container', () => {
     const fs = computeFontSize(100, 'innerLabel');
-    expect(fs).toBe(3.2); // FONT_SIZE_MAX
+    expect(fs).toBe(10.0); // FONT_SIZE_MAX
   });
 
   it('edgeLabel has highest ratio', () => {

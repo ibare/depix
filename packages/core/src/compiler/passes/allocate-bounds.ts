@@ -24,6 +24,7 @@ import type {
   TreeNode,
 } from '../layout/types.js';
 import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { MeasureMap } from './measure.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
 
@@ -48,6 +49,7 @@ export function allocateScene(
   canvasBounds: IRBounds,
   _theme: DepixTheme,
   scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
 ): BoundsMap {
   const boundsMap: BoundsMap = new Map();
 
@@ -56,19 +58,31 @@ export function allocateScene(
   const gap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'sectionGap') : 3;
   const usableHeight = canvasBounds.h - gap * (plan.children.length - 1);
 
-  let currentY = canvasBounds.y;
+  // When measureMap is available, enforce minimum heights from measurements.
+  // First pass: compute weight-based heights, then clamp to minHeight.
+  const rawHeights: number[] = [];
+  const minHeights: number[] = [];
   for (const child of plan.children) {
     const fraction = plan.totalWeight > 0 ? child.weight / plan.totalWeight : 1 / plan.children.length;
-    const childH = usableHeight * fraction;
+    rawHeights.push(usableHeight * fraction);
+    const m = measureMap?.get(child.id);
+    minHeights.push(m ? m.minHeight : 0);
+  }
+
+  // Redistribute: clamp each child to its minHeight, then redistribute surplus
+  const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usableHeight);
+
+  let currentY = canvasBounds.y;
+  for (let i = 0; i < plan.children.length; i++) {
     const childBounds: IRBounds = {
       x: canvasBounds.x,
       y: currentY,
       w: canvasBounds.w,
-      h: childH,
+      h: finalHeights[i],
     };
 
-    allocateNode(child, childBounds, boundsMap, scaleCtx);
-    currentY += childH + gap;
+    allocateNode(plan.children[i], childBounds, boundsMap, scaleCtx, measureMap);
+    currentY += finalHeights[i] + gap;
   }
 
   return boundsMap;
@@ -83,11 +97,12 @@ function allocateNode(
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
 ): void {
   if (plan.astNode.kind === 'block') {
-    allocateBlock(plan, availBounds, boundsMap, scaleCtx);
+    allocateBlock(plan, availBounds, boundsMap, scaleCtx, measureMap);
   } else {
-    allocateLeaf(plan, availBounds, boundsMap, scaleCtx);
+    allocateLeaf(plan, availBounds, boundsMap, scaleCtx, measureMap);
   }
 }
 
@@ -102,46 +117,62 @@ function allocateLeaf(
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
 ): void {
   const node = plan.astNode;
   const hasExplicitW = node.kind === 'element' && typeof node.props.width === 'number';
   const hasExplicitH = node.kind === 'element' && typeof node.props.height === 'number';
 
+  // Use measure minimums as lower bounds
+  const m = measureMap?.get(plan.id);
+  const minW = m ? m.minWidth : 0;
+  const minH = m ? m.minHeight : 0;
+
   const bounds: IRBounds = {
     x: availBounds.x,
     y: availBounds.y,
-    w: hasExplicitW ? plan.intrinsicSize.width : availBounds.w,
-    h: hasExplicitH ? plan.intrinsicSize.height : availBounds.h,
+    w: hasExplicitW ? plan.intrinsicSize.width : Math.max(availBounds.w, minW),
+    h: hasExplicitH ? plan.intrinsicSize.height : Math.max(availBounds.h, minH),
   };
 
   boundsMap.set(plan.id, bounds);
 
   // Handle children of box/layer/shape-with-children
   if (plan.children.length > 0) {
-    const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
+    const mParent = measureMap?.get(plan.id);
+    const padding = mParent ? mParent.padding : (scaleCtx ? computePadding(scaleCtx.baseUnit) : 2);
+    const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
     const innerBounds: IRBounds = {
       x: bounds.x + padding,
       y: bounds.y + padding,
       w: Math.max(bounds.w - padding * 2, 1),
       h: Math.max(bounds.h - padding * 2, 1),
     };
-    const childGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1;
     const childCount = plan.children.length;
     const childUsable = innerBounds.h - childGap * Math.max(childCount - 1, 0);
-    const totalChildWeight = plan.children.reduce((s, c) => s + c.weight, 0);
 
-    let childY = innerBounds.y;
+    // Collect min heights and weight-based heights, then redistribute
+    const rawHeights: number[] = [];
+    const childMinHeights: number[] = [];
+    const totalChildWeight = plan.children.reduce((s, c) => s + c.weight, 0);
     for (const child of plan.children) {
       const fraction = totalChildWeight > 0 ? child.weight / totalChildWeight : 1 / childCount;
-      const childH = childUsable * fraction;
+      rawHeights.push(childUsable * fraction);
+      const cm = measureMap?.get(child.id);
+      childMinHeights.push(cm ? cm.minHeight : 0);
+    }
+    const finalHeights = redistributeWithMinimums(rawHeights, childMinHeights, childUsable);
+
+    let childY = innerBounds.y;
+    for (let i = 0; i < plan.children.length; i++) {
       const childBounds: IRBounds = {
         x: innerBounds.x,
         y: childY,
         w: innerBounds.w,
-        h: childH,
+        h: finalHeights[i],
       };
-      boundsMap.set(child.id, childBounds);
-      childY += childH + childGap;
+      boundsMap.set(plan.children[i].id, childBounds);
+      childY += finalHeights[i] + childGap;
     }
   }
 }
@@ -151,6 +182,7 @@ function allocateBlock(
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
 ): void {
   const block = plan.astNode;
   if (block.kind !== 'block') return;
@@ -159,7 +191,7 @@ function allocateBlock(
   const props = block.props;
 
   // Build LayoutChild[] with sizes proportional to available bounds
-  const layoutChildren = computeLayoutChildren(plan, availBounds, scaleCtx);
+  const layoutChildren = computeLayoutChildren(plan, availBounds, scaleCtx, measureMap);
 
   // Run the appropriate layout algorithm
   const layoutResult = runLayout(
@@ -180,37 +212,54 @@ function allocateBlock(
     const childBounds = layoutResult.childBounds[i];
 
     if (childPlan.astNode.kind === 'block') {
-      allocateNode(childPlan, childBounds, boundsMap, scaleCtx);
+      allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap);
     } else {
-      // For leaf elements inside a layout, use the bounds from the layout algorithm
-      boundsMap.set(childPlan.id, childBounds);
+      // For leaf elements inside a layout, enforce measure minimums
+      const cm = measureMap?.get(childPlan.id);
+      const finalBounds: IRBounds = cm ? {
+        x: childBounds.x,
+        y: childBounds.y,
+        w: Math.max(childBounds.w, cm.minWidth),
+        h: Math.max(childBounds.h, cm.minHeight),
+      } : childBounds;
+      boundsMap.set(childPlan.id, finalBounds);
 
       // Handle nested children (box/layer elements with children)
       if (childPlan.children.length > 0) {
-        const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
+        const mParent = measureMap?.get(childPlan.id);
+        const padding = mParent ? mParent.padding : (scaleCtx ? computePadding(scaleCtx.baseUnit) : 2);
+        const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
         const innerBounds: IRBounds = {
-          x: childBounds.x + padding,
-          y: childBounds.y + padding,
-          w: Math.max(childBounds.w - padding * 2, 1),
-          h: Math.max(childBounds.h - padding * 2, 1),
+          x: finalBounds.x + padding,
+          y: finalBounds.y + padding,
+          w: Math.max(finalBounds.w - padding * 2, 1),
+          h: Math.max(finalBounds.h - padding * 2, 1),
         };
-        const childGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1;
         const gcCount = childPlan.children.length;
         const gcUsable = innerBounds.h - childGap * Math.max(gcCount - 1, 0);
-        const gcTotalWeight = childPlan.children.reduce((s, c) => s + c.weight, 0);
 
-        let childY = innerBounds.y;
+        // Redistribute grandchild heights with measure minimums
+        const gcRawHeights: number[] = [];
+        const gcMinHeights: number[] = [];
+        const gcTotalWeight = childPlan.children.reduce((s, c) => s + c.weight, 0);
         for (const grandchild of childPlan.children) {
           const fraction = gcTotalWeight > 0 ? grandchild.weight / gcTotalWeight : 1 / gcCount;
-          const gcH = gcUsable * fraction;
+          gcRawHeights.push(gcUsable * fraction);
+          const gm = measureMap?.get(grandchild.id);
+          gcMinHeights.push(gm ? gm.minHeight : 0);
+        }
+        const gcFinalHeights = redistributeWithMinimums(gcRawHeights, gcMinHeights, gcUsable);
+
+        let childY = innerBounds.y;
+        for (let j = 0; j < childPlan.children.length; j++) {
           const gcBounds: IRBounds = {
             x: innerBounds.x,
             y: childY,
             w: innerBounds.w,
-            h: gcH,
+            h: gcFinalHeights[j],
           };
-          boundsMap.set(grandchild.id, gcBounds);
-          childY += gcH + childGap;
+          boundsMap.set(childPlan.children[j].id, gcBounds);
+          childY += gcFinalHeights[j] + childGap;
         }
       }
     }
@@ -236,6 +285,7 @@ export function computeLayoutChildren(
   plan: LayoutPlanNode,
   bounds: IRBounds,
   scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
 ): LayoutChild[] {
   const block = plan.astNode;
   if (block.kind !== 'block') return [];
@@ -253,24 +303,36 @@ export function computeLayoutChildren(
       const dir = (props.direction as string) ?? 'col';
       if (dir === 'row') {
         const usable = bounds.w - gap * Math.max(n - 1, 0);
-        return plan.children.map(c => {
+        const rawWidths = plan.children.map(c => {
           const hasExplicitW = c.astNode.kind === 'element' && typeof c.astNode.props.width === 'number';
-          return {
-            id: c.id,
-            width: hasExplicitW ? c.intrinsicSize.width : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n),
-            height: bounds.h,
-          };
+          return hasExplicitW ? c.intrinsicSize.width : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n);
         });
+        const minWidths = plan.children.map(c => {
+          const m = measureMap?.get(c.id);
+          return m ? m.minWidth : 0;
+        });
+        const finalWidths = redistributeWithMinimums(rawWidths, minWidths, usable);
+        return plan.children.map((c, i) => ({
+          id: c.id,
+          width: finalWidths[i],
+          height: bounds.h,
+        }));
       } else {
         const usable = bounds.h - gap * Math.max(n - 1, 0);
-        return plan.children.map(c => {
+        const rawHeights = plan.children.map(c => {
           const hasExplicitH = c.astNode.kind === 'element' && typeof c.astNode.props.height === 'number';
-          return {
-            id: c.id,
-            width: bounds.w,
-            height: hasExplicitH ? c.intrinsicSize.height : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n),
-          };
+          return hasExplicitH ? c.intrinsicSize.height : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n);
         });
+        const minHeights = plan.children.map(c => {
+          const m = measureMap?.get(c.id);
+          return m ? m.minHeight : 0;
+        });
+        const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usable);
+        return plan.children.map((c, i) => ({
+          id: c.id,
+          width: bounds.w,
+          height: finalHeights[i],
+        }));
       }
     }
 
@@ -540,4 +602,59 @@ export function buildTreeNodes(
   }
 
   return treeNodes;
+}
+
+// ---------------------------------------------------------------------------
+// Height/width redistribution with minimum constraints
+// ---------------------------------------------------------------------------
+
+/**
+ * Redistribute sizes so that each item is at least its minimum.
+ *
+ * Items below their minimum are clamped up; the excess is taken
+ * proportionally from items that have surplus above their minimum.
+ * If total minimums exceed available space, each gets its minimum
+ * (may overflow — the measure pass should prevent this in practice).
+ */
+function redistributeWithMinimums(
+  raw: number[],
+  mins: number[],
+  _total: number,
+): number[] {
+  const n = raw.length;
+  if (n === 0) return [];
+
+  const result = raw.slice();
+
+  // Clamp up to minimums
+  let deficit = 0;
+  for (let i = 0; i < n; i++) {
+    if (result[i] < mins[i]) {
+      deficit += mins[i] - result[i];
+      result[i] = mins[i];
+    }
+  }
+
+  if (deficit <= 0) return result;
+
+  // Collect surplus from items above their minimum
+  let totalSurplus = 0;
+  for (let i = 0; i < n; i++) {
+    const surplus = result[i] - mins[i];
+    if (surplus > 0) totalSurplus += surplus;
+  }
+
+  if (totalSurplus <= 0) return result;
+
+  // Take proportionally from surplus items
+  const take = Math.min(deficit, totalSurplus);
+  for (let i = 0; i < n; i++) {
+    const surplus = result[i] - mins[i];
+    if (surplus > 0) {
+      const reduction = take * (surplus / totalSurplus);
+      result[i] -= reduction;
+    }
+  }
+
+  return result;
 }

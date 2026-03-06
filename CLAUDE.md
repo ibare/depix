@@ -7,6 +7,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 이 프로젝트는 Baden 모니터링 하에 운영된다. 모든 행동에 대해 해당하는 baden MCP 도구를 호출하라.
 
+### Rule Guard
+1. 수정 계획 수립 후, 실행 전 → 사전 검토 (PASS 시 수정 진행)
+2. 수정 완료 후 → 사후 검증 (PASS 시 다음 작업)
+
+### Rule Guard 흐름
+- 작업 에이전트: 수정 계획 수립
+  → rule-guard 호출 (사전 검토, **반드시 현재 taskId를 프롬프트에 포함**)
+  → ISSUE면 계획 수정 → 다시 호출
+  → PASS면 수정 실행
+- 작업 에이전트: 수정 완료
+  → rule-guard 호출 (사후 검증, **반드시 현재 taskId를 프롬프트에 포함**)
+  → ISSUE면 재수정 → 다시 호출
+  → PASS면 다음 작업
+
+> **주의**: rule-guard는 서브에이전트이므로 MCP 도구(`baden_*`)에 접근할 수 없다.
+> Baden 보고를 위해 taskId가 필요하므로, 호출 시 프롬프트에 `taskId: "..."` 형태로 전달한다.
+
 ### 사용자 지시 수신
 사용자가 새로운 지시를 내리면, **작업을 시작하기 전에** `baden_start_task`를 호출하라.
 이후 같은 작업의 모든 도구 호출에 반환된 `taskId`를 사용하라.
@@ -31,105 +48,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 필수 구현 원칙
 - 코드를 수정하는 모든 작업은 Rule Guard 에이전트의 검증 하에 수행한다.
 
-### Rule Guard
-1. 수정 계획 수립 후, 실행 전 → 사전 검토 (PASS 시 수정 진행)
-2. 수정 완료 후 → 사후 검증 (PASS 시 다음 작업)
+### 1. 기본은 계획 모드
+- 사소하지 않은 모든 작업은 계획 모드로 시작 (3단계 이상이거나 구조적 결정이 필요한 경우)
+- 뭔가 잘못되면 즉시 멈추고 다시 계획 세우기 — 그냥 밀어붙이지 말 것
+- 계획 모드는 개발할 때만이 아니라 검증 단계에서도 활용
+- 모호함을 줄이려면 처음부터 상세 스펙을 작성할 것
 
-### Rule Guard 흐름
-- 작업 에이전트: 수정 계획 수립
-  → rule-guard 호출 (사전 검토, **반드시 현재 taskId를 프롬프트에 포함**)
-  → ISSUE면 계획 수정 → 다시 호출
-  → PASS면 수정 실행
-- 작업 에이전트: 수정 완료
-  → rule-guard 호출 (사후 검증, **반드시 현재 taskId를 프롬프트에 포함**)
-  → ISSUE면 재수정 → 다시 호출
-  → PASS면 다음 작업
+### 2. 서브에이전트 활용
+- 메인 컨텍스트 창을 깔끔하게 유지하려면 서브에이전트를 적극적으로 활용
+- 조사, 탐색, 병렬 분석은 서브에이전트에 맡길 것
+- 복잡한 문제일수록 서브에이전트를 더 많이 투입
+- 서브에이전트 하나당 하나의 작업만 — 집중 실행을 위해
 
-> **주의**: rule-guard는 서브에이전트이므로 MCP 도구(`baden_*`)에 접근할 수 없다.
-> Baden 보고를 위해 taskId가 필요하므로, 호출 시 프롬프트에 `taskId: "..."` 형태로 전달한다.
+### 3. 자기개선 루프
+- 사용자에게 수정을 받을 때마다: 해당 패턴을 `tasks/lessons.md`에 기록
+- 같은 실수를 반복하지 않도록 스스로 규칙을 작성
+- 실수율이 낮아질 때까지 이 교훈들을 반복해서 다듬을 것
+- 세션 시작 시 해당 프로젝트의 교훈 목록을 먼저 검토
 
-## Build & Development Commands
+### 4. 완료 전 반드시 검증
+- 스스로에게 물어볼 것: "시니어 엔지니어가 이걸 승인할까?"
+- 테스트 실행, 로그 확인, 정확성 입증
 
-```bash
-pnpm build            # Build all packages (tsc)
-pnpm test             # Run all tests
-pnpm test:coverage    # Run tests with coverage
-pnpm lint             # ESLint across monorepo
-pnpm typecheck        # tsc -b composite check
+### 5. 우아함을 추구할 것 (균형 있게)
+- 사소하지 않은 변경이라면: 잠깐 멈추고 "더 우아한 방법이 있지 않을까?" 자문
+- 수정이 어설프게 느껴진다면: "지금 내가 아는 모든 걸 바탕으로, 우아한 해결책을 구현해"
+- 단순하고 명백한 수정엔 이 과정을 생략 — 오버엔지니어링 금지
+- 결과물을 내놓기 전에 스스로 검토
 
-# Single package
-pnpm --filter @depix/core test
-pnpm --filter @depix/react test
+### 핵심 원칙
+- **단순함 우선**: 모든 변경은 최대한 단순하게. 건드리는 코드는 최소화.
+- **게으름 금지**: 근본 원인을 찾을 것. 임시방편 없음. 시니어 개발자 기준으로.
+- **최소 영향**: 꼭 필요한 부분만 수정. 새로운 버그를 만들지 말 것.
 
-# Single test file
-pnpm --filter @depix/core exec vitest run __tests__/compiler/tokenizer.test.ts
 
-# Watch mode
-pnpm --filter @depix/core test:watch
-
-# Demo app
-pnpm --filter @depix/demo dev
-```
-
-## Architecture
-
-**3-layer pipeline:** DSL v2 → Compiler → DepixIR → Renderer
-
-```
-DSL v2 Text
-    ↓  Tokenizer → Parser (packages/core/src/compiler/)
-AST
-    ↓  Theme resolution → Layout → Edge routing
-DepixIR  (fully resolved: all coordinates, colors, paths computed)
-    ↓  CoordinateTransform → Konva nodes (packages/engine/)
-Canvas
-```
-
-**DepixIR is the central data structure.** It contains scenes, each with positioned elements. The compiler produces it; the engine renders it; the editor mutates it. IR is immutable in the pipeline — editor operations return new cloned IR objects.
-
-### Package Dependency Graph
-
-```
-@depix/core          ← no internal deps (DSL, IR types, compiler, theme, layouts)
-@depix/engine        ← core (Konva renderer, coordinate transform, PNG export)
-@depix/editor        ← core, engine (selection, history, handles, snap, IR operations)
-@depix/react         ← core, engine, editor (React components, hooks, TipTap integration)
-```
-
-### Key Subsystems
-
-- **Compiler** (`core/src/compiler/`): tokenizer → parser → AST → theme resolver → layout pass → edge routing → IR emit. Layout algorithms: stack, grid, flow, tree, group, layers, canvas.
-- **DepixEngine** (`engine/src/depix-engine.ts`): Renders IR to Konva Stage. `load()` resets scene to 0 (new document); `update()` preserves scene index (editing). `fitToAspectRatio()` auto-fits stage within available space.
-- **Editor managers** (`editor/src/`): SelectionManager, HistoryManager, HandleManager, SnapGuideManager — each is a standalone class with event subscriptions, instantiated by React components.
-- **IR operations** (`editor/src/operations/`): Pure functions that clone and mutate IR: moveElement, resizeElement, addElement, removeElement, updateStyle. Semantic operations for flow/stack/grid/tree editing.
-
-### IR Element Types
-
-7 discriminated types via `element.type`: `shape`, `text`, `line`, `edge`, `container`, `image`, `path`. Each has `id`, `bounds` (x/y/width/height in 0-100 relative coords), `style`, and type-specific fields.
-
-## Monorepo Structure
-
-- `packages/core/` — Pure logic, no DOM dependency. Test env: `node`
-- `packages/engine/` — Konva rendering. Test env: `happy-dom`. Konva cannot fully run in happy-dom, so tests mock or test pure functions.
-- `packages/editor/` — IR manipulation. Test env: `happy-dom`
-- `packages/react/` — React components/hooks. Test env: `happy-dom`. DepixEngine is mocked in tests.
-- `apps/demo/` — Vite + React demo app
-- `docs/` — Architecture docs, IR spec, DSL grammar, TODO tracking
-
-## Testing Conventions
-
-- **Vitest** with per-package `vitest.config.ts`
-- `core` has custom matchers in `__tests__/setup.ts` (e.g., `toHaveBoundsCloseTo`)
-- Test fixtures in `__tests__/fixtures/` (DSL strings, AST snapshots, IR JSON)
-- Layout algorithm tests use invariant helpers from `__tests__/helpers/layout-assertions.ts`
-- React component tests mock `@depix/engine` (DepixEngine constructor) and `@depix/editor` (all managers) via `vi.hoisted()` + `vi.mock()`
-
-## Code Conventions
-
-- **ESM with `.js` extensions** in imports: `import { foo } from './module.js'`
-- **Type-only imports**: `import type { SomeType } from './types.js'`
-- **Immutable IR pattern**: operations clone the IR, never mutate in place
-- **Coordinates**: IR uses 0-100 relative system; CoordinateTransform converts to pixels
-- **Formatting**: Single quotes, semicolons, trailing commas, 100 char width
-- **Unused vars**: prefix with `_` (ESLint configured)
-- **한국어 커뮤니케이션**: User prefers Korean for all communication

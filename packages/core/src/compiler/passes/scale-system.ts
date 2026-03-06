@@ -57,7 +57,7 @@ const TEXT_ROLE_RATIO: Record<TextRole, number> = {
 };
 
 const FONT_SIZE_MIN = 0.6;
-const FONT_SIZE_MAX = 3.2;
+const FONT_SIZE_MAX = 10.0;
 
 // ---------------------------------------------------------------------------
 // Public API

@@ -62,6 +62,13 @@ export const lightTheme: DepixTheme = {
     xl: 1.8,
     '2xl': 2.4,
     '3xl': 3.2,
+    '4xl': 4.0,
+    '5xl': 5.0,
+    '6xl': 6.0,
+    '7xl': 7.0,
+    '8xl': 8.0,
+    '9xl': 9.0,
+    '10xl': 10.0,
   },
 
   shadow: {
@@ -157,6 +164,13 @@ export const darkTheme: DepixTheme = {
     xl: 1.8,
     '2xl': 2.4,
     '3xl': 3.2,
+    '4xl': 4.0,
+    '5xl': 5.0,
+    '6xl': 6.0,
+    '7xl': 7.0,
+    '8xl': 8.0,
+    '9xl': 9.0,
+    '10xl': 10.0,
   },
 
   shadow: {

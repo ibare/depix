@@ -41,7 +41,7 @@ export type NamedColor =
 export type SemanticSpacing = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 /** Semantic font size tokens. */
-export type SemanticFontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+export type SemanticFontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | '8xl' | '9xl' | '10xl';
 
 /** Semantic shadow tokens. */
 export type SemanticShadow = 'none' | 'sm' | 'md' | 'lg';
