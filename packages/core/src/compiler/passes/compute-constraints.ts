@@ -13,6 +13,7 @@ import type { NodeConstraint, ConstraintMap } from './budget-types.js';
 import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
+import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -222,8 +223,9 @@ function computeBlockConstraint(
     case 'group':
       return computeGroupConstraint(node, gap, scaleCtx, props, constraints);
     case 'tree':
+      return computeTreeConstraint(node, gap, scaleCtx, constraints);
     case 'flow':
-      return computeIntrinsicFallbackConstraint(node);
+      return computeFlowConstraint(node, gap, scaleCtx, constraints);
     default:
       return computeStackColConstraint(node, gap, constraints);
   }
@@ -373,13 +375,102 @@ function computeGroupConstraint(
 }
 
 // ---------------------------------------------------------------------------
-// Tree/flow fallback: use intrinsicSize
+// Tree: level-based constraint
 // ---------------------------------------------------------------------------
 
-function computeIntrinsicFallbackConstraint(
+function computeTreeConstraint(
   node: LayoutPlanNode,
+  gap: number,
+  scaleCtx: ScaleContext,
+  constraints: ConstraintMap,
 ): NodeConstraint {
-  const w = node.intrinsicSize.width || 4;
-  const h = node.intrinsicSize.height || 3;
-  return { minWidth: w, maxWidth: Infinity, minHeight: h, maxHeight: Infinity };
+  const n = node.children.length;
+  if (n === 0) return { minWidth: 0, maxWidth: Infinity, minHeight: 0, maxHeight: Infinity };
+
+  const props = node.astNode.kind === 'block' ? node.astNode.props : {};
+  const dir = (props.direction as string) ?? 'down';
+  const isHorizontal = dir === 'right' || dir === 'left';
+
+  const edges = node.edges;
+  const nodeIds = node.children.map(c => c.id);
+  const levelInfo = computeTreeLevelInfo(nodeIds, edges);
+
+  // Find max child minW and minH
+  let maxChildMinW = 0;
+  let maxChildMinH = 0;
+  for (const child of node.children) {
+    const cc = constraints.get(child.id);
+    if (cc) {
+      if (cc.minWidth > maxChildMinW) maxChildMinW = cc.minWidth;
+      if (cc.minHeight > maxChildMinH) maxChildMinH = cc.minHeight;
+    }
+  }
+
+  const levelGap = typeof props.gap === 'number' ? props.gap : computeGap(scaleCtx.baseUnit, 'connectorGap');
+  const siblingGap = computeGap(scaleCtx.baseUnit, 'siblingGap');
+  const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
+
+  if (isHorizontal) {
+    return {
+      minWidth: levelInfo.numLevels * maxChildMinW + (levelInfo.numLevels - 1) * levelGap,
+      maxWidth: Infinity,
+      minHeight: maxNodesPerLevel * maxChildMinH + (maxNodesPerLevel - 1) * siblingGap,
+      maxHeight: Infinity,
+    };
+  }
+  return {
+    minWidth: maxNodesPerLevel * maxChildMinW + (maxNodesPerLevel - 1) * siblingGap,
+    maxWidth: Infinity,
+    minHeight: levelInfo.numLevels * maxChildMinH + (levelInfo.numLevels - 1) * levelGap,
+    maxHeight: Infinity,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Flow: layer-based constraint
+// ---------------------------------------------------------------------------
+
+function computeFlowConstraint(
+  node: LayoutPlanNode,
+  gap: number,
+  scaleCtx: ScaleContext,
+  constraints: ConstraintMap,
+): NodeConstraint {
+  const n = node.children.length;
+  if (n === 0) return { minWidth: 0, maxWidth: Infinity, minHeight: 0, maxHeight: Infinity };
+
+  const props = node.astNode.kind === 'block' ? node.astNode.props : {};
+  const dir = (props.direction as string) ?? 'right';
+  const isHorizontal = dir === 'right' || dir === 'left';
+
+  const edges = node.edges;
+  const nodeIds = node.children.map(c => c.id);
+  const layerInfo = computeFlowLayerInfo(nodeIds, edges);
+
+  let maxChildMinW = 0;
+  let maxChildMinH = 0;
+  for (const child of node.children) {
+    const cc = constraints.get(child.id);
+    if (cc) {
+      if (cc.minWidth > maxChildMinW) maxChildMinW = cc.minWidth;
+      if (cc.minHeight > maxChildMinH) maxChildMinH = cc.minHeight;
+    }
+  }
+
+  const maxNodesPerLayer = Math.max(...layerInfo.nodesPerLayer, 1);
+
+  if (isHorizontal) {
+    return {
+      minWidth: layerInfo.layerCount * maxChildMinW + (layerInfo.layerCount - 1) * gap,
+      maxWidth: Infinity,
+      minHeight: maxNodesPerLayer * maxChildMinH + (maxNodesPerLayer - 1) * gap,
+      maxHeight: Infinity,
+    };
+  }
+  return {
+    minWidth: maxNodesPerLayer * maxChildMinW + (maxNodesPerLayer - 1) * gap,
+    maxWidth: Infinity,
+    minHeight: layerInfo.layerCount * maxChildMinH + (layerInfo.layerCount - 1) * gap,
+    maxHeight: Infinity,
+  };
 }

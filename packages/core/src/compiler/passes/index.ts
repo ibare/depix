@@ -7,5 +7,7 @@ export type { BoundsMap } from './allocate-bounds.js';
 export { computeConstraints } from './compute-constraints.js';
 export { allocateBudgets } from './allocate-budgets.js';
 export type { NodeConstraint, ConstraintMap, NodeBudget, BudgetMap } from './budget-types.js';
+export { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
+export type { TreeLevelInfo, FlowLayerInfo } from './layout-analysis.js';
 export { createScaleContext, computeBaseUnit, computeGap, computeFontSize, computePadding, countElements } from './scale-system.js';
 export type { ScaleContext, GapType, TextRole } from './scale-system.js';

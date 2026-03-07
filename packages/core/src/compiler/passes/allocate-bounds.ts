@@ -27,6 +27,7 @@ import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { MeasureMap } from './measure.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
+import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -370,67 +371,52 @@ export function computeLayoutChildren(
 
     case 'flow': {
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
-      const baseFlowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
+      const flowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
       const dir = (props.direction as string) ?? 'right';
       const isHorizontal = dir === 'right' || dir === 'left';
       const mainAxis = isHorizontal ? bounds.w : bounds.h;
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
-      // Edge-aware gap: proportional to available space when edges exist
-      const flowGap = plan.edges.length > 0
-        ? Math.max(baseFlowGap, mainAxis / (2 * n))
-        : baseFlowGap;
-      const gapCount = Math.min(plan.edges.length, n - 1);
-      const reservedForEdges = gapCount * flowGap;
-      const availableMain = Math.max(mainAxis - reservedForEdges, mainAxis * 0.3);
-      // Cross-axis cap: compact nodes, don't fill the entire cross dimension
-      const maxNodeCross = crossAxis * 0.4;
-      const totalArea = availableMain * maxNodeCross;
-      const maxNodeMain = availableMain / n * 1.5;
+      const nodeIds = plan.children.map(c => c.id);
+      const layerInfo = computeFlowLayerInfo(nodeIds, plan.edges);
+      const layerMainSize = (mainAxis - flowGap * Math.max(layerInfo.layerCount - 1, 0)) / Math.max(layerInfo.layerCount, 1);
 
       return plan.children.map(c => {
-        const frac = totalWeight > 0 ? c.weight / totalWeight : 1 / n;
-        const area = totalArea * frac;
-        const aspect = 1.5;
-        const w = isHorizontal
-          ? Math.min(Math.sqrt(area * aspect), maxNodeMain)
-          : Math.min(Math.sqrt(area * aspect), maxNodeCross);
-        const h = isHorizontal
-          ? Math.min(area / Math.max(w, 1), maxNodeCross)
-          : Math.min(area / Math.max(w, 1), maxNodeMain);
-        return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
+        const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
+        const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
+        const nodeCross = (crossAxis - flowGap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
+        const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAxis * 0.6) : nodeCross;
+
+        if (isHorizontal) {
+          return { id: c.id, width: Math.max(layerMainSize, 4), height: Math.max(cappedCross, 3) };
+        }
+        return { id: c.id, width: Math.max(cappedCross, 4), height: Math.max(layerMainSize, 3) };
       });
     }
 
     case 'tree': {
       const defaultLevelGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
-      const baseLevelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
+      const levelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
+      const siblingGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
       const dir = (props.direction as string) ?? 'down';
       const isHorizontal = dir === 'right' || dir === 'left';
       const mainAxis = isHorizontal ? bounds.w : bounds.h;
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
-      // Edge-aware gap: proportional to available space when edges exist
-      const levelGap = plan.edges.length > 0
-        ? Math.max(baseLevelGap, mainAxis / (2 * n))
-        : baseLevelGap;
-      const gapCount = Math.min(plan.edges.length, n - 1);
-      const reservedForEdges = gapCount * levelGap;
-      const availableMain = Math.max(mainAxis - reservedForEdges, mainAxis * 0.3);
-      const totalArea = availableMain * crossAxis;
-      const maxNodeMain = availableMain / n * 1.5;
+      const nodeIds = plan.children.map(c => c.id);
+      const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
+      const levelHeight = (mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
 
       return plan.children.map(c => {
-        const frac = totalWeight > 0 ? c.weight / totalWeight : 1 / n;
-        const area = totalArea * frac;
-        const aspect = 1.5;
-        const w = isHorizontal
-          ? Math.min(Math.sqrt(area * aspect), maxNodeMain)
-          : Math.min(Math.sqrt(area * aspect), crossAxis * 0.4);
-        const h = isHorizontal
-          ? Math.min(area / Math.max(w, 1), crossAxis * 0.4)
-          : Math.min(area / Math.max(w, 1), maxNodeMain);
-        return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
+        const level = levelInfo.nodeLevel.get(c.id) ?? 0;
+        const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
+        const nodeWidth = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
+        const cappedWidth = Math.min(nodeWidth, crossAxis * 0.5);
+
+        if (isHorizontal) {
+          return { id: c.id, width: Math.max(levelHeight, 4), height: Math.max(cappedWidth, 3) };
+        }
+        return { id: c.id, width: Math.max(cappedWidth, 4), height: Math.max(levelHeight, 3) };
       });
     }
 

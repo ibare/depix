@@ -98,13 +98,7 @@ export function layoutFlow(
   const crossAvail = isHorizontal ? bounds.h : bounds.w;
 
   const totalLayerGap = gap * (layerCount - 1);
-  const maxMainSize = Math.max(
-    ...children.map((c) => (isHorizontal ? c.width : c.height)),
-  );
-  const layerMainSize = Math.min(
-    maxMainSize,
-    (mainAvail - totalLayerGap) / layerCount,
-  );
+  const layerMainSize = (mainAvail - totalLayerGap) / layerCount;
 
   const childBounds: IRBounds[] = new Array(children.length);
 
@@ -113,39 +107,35 @@ export function layoutFlow(
     const nodes = layerGroups[layer];
     const mainOffset = l * (layerMainSize + gap);
 
-    // Position nodes within this layer
+    // Position nodes within this layer — space-filling cross-axis
     const totalNodeGap = gap * (nodes.length - 1);
-    const maxCrossSize = Math.max(
-      ...nodes.map((i) => (isHorizontal ? children[i].height : children[i].width)),
-    );
-    const nodesCrossTotal =
-      nodes.reduce((sum, i) => sum + (isHorizontal ? children[i].height : children[i].width), 0) +
-      totalNodeGap;
+    const nodeCrossSize = (crossAvail - totalNodeGap) / Math.max(nodes.length, 1);
+    // Cap single-node layers to prevent excessive cross-axis size
+    const cappedCross = nodes.length === 1
+      ? Math.min(nodeCrossSize, crossAvail * 0.6)
+      : nodeCrossSize;
 
-    // Center the layer content
+    const nodesCrossTotal = nodes.length * cappedCross + totalNodeGap;
     const layerCrossStart = (crossAvail - nodesCrossTotal) / 2;
     let crossCursor = Math.max(0, layerCrossStart);
 
     for (const nodeIdx of nodes) {
-      const child = children[nodeIdx];
-
       if (isHorizontal) {
         childBounds[nodeIdx] = {
           x: bounds.x + mainOffset,
           y: bounds.y + crossCursor,
           w: layerMainSize,
-          h: child.height,
+          h: cappedCross,
         };
-        crossCursor += child.height + gap;
       } else {
         childBounds[nodeIdx] = {
           x: bounds.x + crossCursor,
           y: bounds.y + mainOffset,
-          w: child.width,
+          w: cappedCross,
           h: layerMainSize,
         };
-        crossCursor += child.width + gap;
       }
+      crossCursor += cappedCross + gap;
     }
   }
 

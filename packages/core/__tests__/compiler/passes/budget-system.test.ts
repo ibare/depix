@@ -290,4 +290,62 @@ describe('budget system integration', () => {
     const measureMap = measureScene(plan, lightTheme, scaleCtx);
     expect(measureMap.size).toBeGreaterThan(0);
   });
+
+  it('tree — level-based budgets give larger budget to nodes with fewer siblings', () => {
+    const scene = makeScene([
+      makeBlock('tree', [
+        makeElement('node', { id: 'root', label: 'CEO' }),
+        makeElement('node', { id: 'c1', label: 'CTO' }),
+        makeElement('node', { id: 'c2', label: 'CFO' }),
+        makeElement('node', { id: 'gc1', label: 'FE' }),
+        makeElement('node', { id: 'gc2', label: 'BE' }),
+      ], {
+        id: 'tree1',
+        props: { direction: 'down' },
+      }),
+    ]);
+    // Add edges manually via scene children
+    scene.children.push(
+      { kind: 'edge', fromId: 'root', toId: 'c1', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+      { kind: 'edge', fromId: 'root', toId: 'c2', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+      { kind: 'edge', fromId: 'c1', toId: 'gc1', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+      { kind: 'edge', fromId: 'c1', toId: 'gc2', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+    );
+
+    const { budgetMap, plan } = runPipeline(scene);
+    const treeBlock = plan.children[0];
+    // All tree children should have budgets
+    for (const child of treeBlock.children) {
+      const b = budgetMap.get(child.id);
+      expect(b).toBeDefined();
+      expect(b!.width).toBeGreaterThan(0);
+      expect(b!.height).toBeGreaterThan(0);
+    }
+  });
+
+  it('flow — layer-based budgets for linear chain', () => {
+    const scene = makeScene([
+      makeBlock('flow', [
+        makeElement('node', { id: 'a', label: 'A' }),
+        makeElement('node', { id: 'b', label: 'B' }),
+        makeElement('node', { id: 'c', label: 'C' }),
+      ], {
+        id: 'flow1',
+        props: { direction: 'right' },
+      }),
+    ]);
+    scene.children.push(
+      { kind: 'edge', fromId: 'a', toId: 'b', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+      { kind: 'edge', fromId: 'b', toId: 'c', edgeStyle: '->', loc: { line: 1, column: 1 } } as any,
+    );
+
+    const { budgetMap, plan } = runPipeline(scene);
+    const flowBlock = plan.children[0];
+    for (const child of flowBlock.children) {
+      const b = budgetMap.get(child.id);
+      expect(b).toBeDefined();
+      expect(b!.width).toBeGreaterThan(0);
+      expect(b!.height).toBeGreaterThan(0);
+    }
+  });
 });

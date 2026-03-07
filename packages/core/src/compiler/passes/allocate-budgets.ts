@@ -14,6 +14,7 @@ import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
 import { redistributeWithMinimums } from './allocate-bounds.js';
+import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -50,17 +51,22 @@ export function allocateBudgets(
     const parentBudget = budgetMap.get(node.id);
     if (!parentBudget) continue;
 
-    const info = getNodeLayoutInfo(node, scaleCtx);
-    allocateChildBudgets(
-      node.children,
-      node.children.reduce((s, c) => s + c.weight, 0),
-      parentBudget,
-      info.direction,
-      info.gap,
-      constraints,
-      budgetMap,
-      info.padding,
-    );
+    const blockType = node.astNode.kind === 'block' ? node.astNode.blockType : '';
+    if (blockType === 'tree' || blockType === 'flow') {
+      allocateTreeFlowBudgets(node, parentBudget, constraints, scaleCtx, budgetMap);
+    } else {
+      const info = getNodeLayoutInfo(node, scaleCtx);
+      allocateChildBudgets(
+        node.children,
+        node.children.reduce((s, c) => s + c.weight, 0),
+        parentBudget,
+        info.direction,
+        info.gap,
+        constraints,
+        budgetMap,
+        info.padding,
+      );
+    }
 
     for (const child of node.children) {
       queue.push(child);
@@ -209,7 +215,7 @@ function getNodeLayoutInfo(
       }
       case 'tree':
       case 'flow':
-        // Fallback: use column layout for budget distribution
+        // Handled separately by allocateTreeFlowBudgets
         return { direction: 'col', gap, padding: 0 };
       default:
         return { direction: 'col', gap, padding: 0 };
@@ -217,4 +223,69 @@ function getNodeLayoutInfo(
   }
 
   return { direction: 'col', gap: 0, padding: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Tree / Flow — level/layer-based budget allocation
+// ---------------------------------------------------------------------------
+
+function allocateTreeFlowBudgets(
+  node: LayoutPlanNode,
+  parentBudget: NodeBudget,
+  _constraints: ConstraintMap,
+  scaleCtx: ScaleContext,
+  budgetMap: BudgetMap,
+): void {
+  const astNode = node.astNode;
+  if (astNode.kind !== 'block') return;
+
+  const props = astNode.props;
+  const dir = (props.direction as string) ?? (astNode.blockType === 'tree' ? 'down' : 'right');
+  const isHorizontal = dir === 'right' || dir === 'left';
+  const defaultGap = computeGap(scaleCtx.baseUnit, 'connectorGap');
+  const gap = typeof props.gap === 'number' ? props.gap : defaultGap;
+  const siblingGap = computeGap(scaleCtx.baseUnit, 'siblingGap');
+
+  const nodeIds = node.children.map(c => c.id);
+  const edges = node.edges;
+
+  const mainAvail = isHorizontal ? parentBudget.width : parentBudget.height;
+  const crossAvail = isHorizontal ? parentBudget.height : parentBudget.width;
+
+  if (astNode.blockType === 'tree') {
+    const levelInfo = computeTreeLevelInfo(nodeIds, edges);
+    const levelHeight = (mainAvail - gap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
+    const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
+
+    for (const child of node.children) {
+      const level = levelInfo.nodeLevel.get(child.id) ?? 0;
+      const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
+      const nodeWidth = (crossAvail - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
+      const cappedWidth = Math.min(nodeWidth, crossAvail * 0.5);
+
+      if (isHorizontal) {
+        budgetMap.set(child.id, { width: levelHeight, height: cappedWidth });
+      } else {
+        budgetMap.set(child.id, { width: cappedWidth, height: levelHeight });
+      }
+    }
+  } else {
+    // Flow
+    const layerInfo = computeFlowLayerInfo(nodeIds, edges);
+    const layerMainSize = (mainAvail - gap * Math.max(layerInfo.layerCount - 1, 0)) / Math.max(layerInfo.layerCount, 1);
+
+    for (const child of node.children) {
+      const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
+      const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
+      const nodeCross = (crossAvail - gap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
+      // Cap for single-node layers to prevent excessive size
+      const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAvail * 0.6) : nodeCross;
+
+      if (isHorizontal) {
+        budgetMap.set(child.id, { width: layerMainSize, height: cappedCross });
+      } else {
+        budgetMap.set(child.id, { width: cappedCross, height: layerMainSize });
+      }
+    }
+  }
 }
