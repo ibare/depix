@@ -636,7 +636,7 @@ export function buildTreeNodes(
  * If total minimums exceed available space, each gets its minimum
  * (may overflow — the measure pass should prevent this in practice).
  */
-function redistributeWithMinimums(
+export function redistributeWithMinimums(
   raw: number[],
   mins: number[],
   _total: number,

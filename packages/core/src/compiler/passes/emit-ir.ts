@@ -46,6 +46,8 @@ import type { ScaleContext } from './scale-system.js';
 import { createScaleContext, computeFontSize, computePadding } from './scale-system.js';
 import { measureScene } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
+import { computeConstraints } from './compute-constraints.js';
+import { allocateBudgets } from './allocate-budgets.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -60,7 +62,9 @@ export function emitIR(ast: ASTDocument, theme: DepixTheme): DepixIR {
   const scenes = ast.scenes.map((scene, i) => {
     const plan = planScene(scene, theme);
     const scaleCtx = createScaleContext(plan, canvasBounds);
-    const mMap = measureScene(plan, theme, scaleCtx);
+    const constraints = computeConstraints(plan, scaleCtx);
+    const budgetMap = allocateBudgets(plan, canvasBounds, constraints, scaleCtx);
+    const mMap = measureScene(plan, theme, scaleCtx, budgetMap);
     const boundsMap = allocateScene(plan, canvasBounds, theme, scaleCtx, mMap);
     return emitSceneFromPlan(scene, plan, boundsMap, i, theme, scaleCtx, mMap);
   });

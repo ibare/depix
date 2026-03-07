@@ -13,6 +13,7 @@ import type { ASTBlock, ASTElement } from '../ast.js';
 import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeFontSize, computePadding, computeGap } from './scale-system.js';
+import type { BudgetMap } from './budget-types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,11 +64,12 @@ export function measureScene(
   plan: SceneLayoutPlan,
   theme: DepixTheme,
   scaleCtx?: ScaleContext,
+  budgetMap?: BudgetMap,
 ): MeasureMap {
   const measureMap: MeasureMap = new Map();
 
   for (const child of plan.children) {
-    measureNode(child, theme, scaleCtx, measureMap);
+    measureNode(child, theme, scaleCtx, measureMap, budgetMap);
   }
 
   return measureMap;
@@ -82,10 +84,11 @@ function measureNode(
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
   // Measure children first (bottom-up)
   for (const child of plan.children) {
-    measureNode(child, theme, scaleCtx, measureMap);
+    measureNode(child, theme, scaleCtx, measureMap, budgetMap);
   }
 
   const node = plan.astNode;
@@ -94,7 +97,7 @@ function measureNode(
   if (node.kind === 'block') {
     result = measureBlock(plan, theme, scaleCtx, measureMap);
   } else {
-    result = measureElement(node, plan, theme, scaleCtx, measureMap);
+    result = measureElement(node, plan, theme, scaleCtx, measureMap, budgetMap);
   }
 
   measureMap.set(plan.id, result);
@@ -153,30 +156,31 @@ function measureElement(
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
   switch (element.elementType) {
     case 'box':
     case 'layer':
-      return measureBox(element, plan, theme, scaleCtx, measureMap);
+      return measureBox(element, plan, theme, scaleCtx, measureMap, budgetMap);
     case 'list':
-      return measureList(element, plan, theme, scaleCtx);
+      return measureList(element, plan, theme, scaleCtx, budgetMap);
     case 'label':
     case 'text':
-      return measureText(element, plan, theme, scaleCtx);
+      return measureText(element, plan, theme, scaleCtx, budgetMap);
     case 'node':
     case 'cell':
     case 'rect':
     case 'circle':
     case 'badge':
     case 'icon':
-      return measureShape(element, plan, theme, scaleCtx);
+      return measureShape(element, plan, theme, scaleCtx, budgetMap);
     case 'divider':
     case 'line':
       return measureDivider();
     case 'image':
       return measureImage(element);
     default:
-      return measureShape(element, plan, theme, scaleCtx);
+      return measureShape(element, plan, theme, scaleCtx, budgetMap);
   }
 }
 
@@ -189,8 +193,9 @@ function measureText(
   plan: LayoutPlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'standaloneText');
+  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'standaloneText', budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const textHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
 
@@ -209,8 +214,9 @@ function measureShape(
   plan: LayoutPlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel');
+  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel', budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const labelHeight = element.label ? fontSize * TEXT_BLOCK_MULTIPLIER : 0;
   const minW = typeof element.props.width === 'number' ? element.props.width : theme.node.minWidth;
@@ -232,18 +238,19 @@ function measureBox(
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
   const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
   const childGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1;
 
   // Title
-  const titleFontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel');
+  const titleFontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel', budgetMap);
   const titleHeight = element.label ? titleFontSize * TEXT_BLOCK_MULTIPLIER : 0;
 
   // Subtitle
   const hasSubtitle = typeof element.props.subtitle === 'string';
   const subtitleFontSize = hasSubtitle
-    ? resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem')
+    ? resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem', budgetMap)
     : 0;
   const subtitleHeight = hasSubtitle ? subtitleFontSize * TEXT_BLOCK_MULTIPLIER : 0;
 
@@ -295,8 +302,9 @@ function measureList(
   plan: LayoutPlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
+  budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem');
+  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem', budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const items = element.items ?? [];
   const itemHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
@@ -357,15 +365,19 @@ function resolveElementFontSize(
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   role: TextRole,
+  budgetMap?: BudgetMap,
 ): number {
   // Priority 1: user-specified
   if (typeof element.style['font-size'] === 'number') {
     return element.style['font-size'];
   }
 
-  // Priority 2: scale system
+  // Priority 2: scale system (budget-aware)
   if (scaleCtx) {
-    const shortSide = Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
+    const budget = budgetMap?.get(plan.id);
+    const shortSide = budget
+      ? Math.min(budget.width, budget.height)
+      : Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
     if (shortSide > 0) {
       return computeFontSize(shortSide, role);
     }
