@@ -355,6 +355,51 @@ describe('budget system integration', () => {
     expect(measureMap.size).toBeGreaterThan(0);
   });
 
+  it('tree — subtreeSpan-proportional budget: CTO(3 leaves) > CFO(2 leaves)', () => {
+    const edges = [
+      { kind: 'edge' as const, fromId: 'ceo', toId: 'cto', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'ceo', toId: 'cfo', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'cto', toId: 'fe', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'cto', toId: 'be', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'cto', toId: 'infra', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'cfo', toId: 'acc', edgeStyle: '->' as const, loc: loc() },
+      { kind: 'edge' as const, fromId: 'cfo', toId: 'fin', edgeStyle: '->' as const, loc: loc() },
+    ];
+    const scene = makeScene([
+      makeBlock('tree', [
+        makeElement('node', { id: 'ceo', label: 'CEO' }),
+        makeElement('node', { id: 'cto', label: 'CTO' }),
+        makeElement('node', { id: 'cfo', label: 'CFO' }),
+        makeElement('node', { id: 'fe', label: 'FE' }),
+        makeElement('node', { id: 'be', label: 'BE' }),
+        makeElement('node', { id: 'infra', label: 'Infra' }),
+        makeElement('node', { id: 'acc', label: 'Accounting' }),
+        makeElement('node', { id: 'fin', label: 'Finance' }),
+        ...edges,
+      ] as any, {
+        id: 'tree1',
+        props: { direction: 'down' },
+      }),
+    ]);
+
+    const { budgetMap, plan } = runPipeline(scene);
+    const treeBlock = plan.children[0];
+
+    // Find budgets by original id matching
+    const ctoBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'cto')!.id)!;
+    const cfoBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'cfo')!.id)!;
+    const leafBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'fe')!.id)!;
+
+    // CTO (subtreeSpan=3) should get wider budget than CFO (subtreeSpan=2)
+    expect(ctoBudget.width).toBeGreaterThan(cfoBudget.width);
+    // CFO (subtreeSpan=2) should get wider budget than leaf (subtreeSpan=1)
+    expect(cfoBudget.width).toBeGreaterThan(leafBudget.width);
+    // Ratio should be approximately 3:2 for CTO:CFO
+    const ratio = ctoBudget.width / cfoBudget.width;
+    expect(ratio).toBeGreaterThan(1.3);
+    expect(ratio).toBeLessThan(1.7);
+  });
+
   it('tree — level-based budgets give larger budget to nodes with fewer siblings', () => {
     const scene = makeScene([
       makeBlock('tree', [

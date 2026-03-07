@@ -14,7 +14,7 @@ import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
 import { redistributeWithMinimums } from './allocate-bounds.js';
-import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
+import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -291,18 +291,21 @@ function allocateTreeFlowBudgets(
   if (astNode.blockType === 'tree') {
     const levelInfo = computeTreeLevelInfo(nodeIds, edges);
     const levelHeight = (mainAvail - gap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
-    const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
+
+    // Subtree-span proportional cross-axis allocation
+    const spanInfo = computeSubtreeSpans(nodeIds, edges);
+    const rootSpan = spanInfo.roots.reduce(
+      (max, r) => Math.max(max, spanInfo.nodeSpan.get(r) ?? 1), 1,
+    );
 
     for (const child of node.children) {
-      const level = levelInfo.nodeLevel.get(child.id) ?? 0;
-      const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
-      const nodeWidth = (crossAvail - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
-      const cappedWidth = Math.min(nodeWidth, crossAvail * 0.5);
+      const span = spanInfo.nodeSpan.get(child.id) ?? 1;
+      const nodeCross = crossAvail * (span / rootSpan);
 
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: levelHeight, height: cappedWidth });
+        budgetMap.set(child.id, { width: levelHeight, height: nodeCross });
       } else {
-        budgetMap.set(child.id, { width: cappedWidth, height: levelHeight });
+        budgetMap.set(child.id, { width: nodeCross, height: levelHeight });
       }
     }
   } else {

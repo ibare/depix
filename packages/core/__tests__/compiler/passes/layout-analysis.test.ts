@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTreeLevelInfo, computeFlowLayerInfo } from '../../../src/compiler/passes/layout-analysis.js';
+import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from '../../../src/compiler/passes/layout-analysis.js';
 
 // ---------------------------------------------------------------------------
 // computeTreeLevelInfo
@@ -53,6 +53,67 @@ describe('computeTreeLevelInfo', () => {
     expect(result.numLevels).toBe(1);
     // All are roots
     expect(result.nodesPerLevel).toEqual([3]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeSubtreeSpans
+// ---------------------------------------------------------------------------
+
+describe('computeSubtreeSpans', () => {
+  it('returns empty for no nodes', () => {
+    const result = computeSubtreeSpans([], []);
+    expect(result.nodeSpan.size).toBe(0);
+    expect(result.roots).toEqual([]);
+  });
+
+  it('single node → span 1', () => {
+    const result = computeSubtreeSpans(['root'], []);
+    expect(result.nodeSpan.get('root')).toBe(1);
+    expect(result.roots).toEqual(['root']);
+  });
+
+  it('root with 3 leaf children → root span 3', () => {
+    const result = computeSubtreeSpans(
+      ['root', 'a', 'b', 'c'],
+      [
+        { fromId: 'root', toId: 'a' },
+        { fromId: 'root', toId: 'b' },
+        { fromId: 'root', toId: 'c' },
+      ],
+    );
+    expect(result.nodeSpan.get('root')).toBe(3);
+    expect(result.nodeSpan.get('a')).toBe(1);
+    expect(result.nodeSpan.get('b')).toBe(1);
+    expect(result.nodeSpan.get('c')).toBe(1);
+  });
+
+  it('org chart — subtree spans match leaf counts', () => {
+    const result = computeSubtreeSpans(
+      ['ceo', 'cto', 'cfo', 'fe', 'be', 'infra', 'acc', 'fin'],
+      [
+        { fromId: 'ceo', toId: 'cto' },
+        { fromId: 'ceo', toId: 'cfo' },
+        { fromId: 'cto', toId: 'fe' },
+        { fromId: 'cto', toId: 'be' },
+        { fromId: 'cto', toId: 'infra' },
+        { fromId: 'cfo', toId: 'acc' },
+        { fromId: 'cfo', toId: 'fin' },
+      ],
+    );
+    expect(result.nodeSpan.get('ceo')).toBe(5); // 5 leaves total
+    expect(result.nodeSpan.get('cto')).toBe(3); // 3 leaves: fe, be, infra
+    expect(result.nodeSpan.get('cfo')).toBe(2); // 2 leaves: acc, fin
+    expect(result.nodeSpan.get('fe')).toBe(1);
+    expect(result.roots).toEqual(['ceo']);
+  });
+
+  it('disconnected nodes → all span 1, all roots', () => {
+    const result = computeSubtreeSpans(['a', 'b', 'c'], []);
+    expect(result.nodeSpan.get('a')).toBe(1);
+    expect(result.nodeSpan.get('b')).toBe(1);
+    expect(result.nodeSpan.get('c')).toBe(1);
+    expect(result.roots).toEqual(['a', 'b', 'c']);
   });
 });
 

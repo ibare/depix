@@ -417,16 +417,15 @@ export function computeLayoutChildren(
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
       const levelHeight = (mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
 
-      return plan.children.map(c => {
-        const level = levelInfo.nodeLevel.get(c.id) ?? 0;
-        const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
-        const nodeWidth = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
-        const cappedWidth = Math.min(nodeWidth, crossAxis * 0.5);
+      // Uniform width based on widest level — all nodes same cross-axis size
+      const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
+      const uniformWidth = (crossAxis - siblingGap * Math.max(maxNodesPerLevel - 1, 0)) / Math.max(maxNodesPerLevel, 1);
 
+      return plan.children.map(c => {
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(levelHeight, 4), height: Math.max(cappedWidth, 3) };
+          return { id: c.id, width: Math.max(levelHeight, 4), height: Math.max(uniformWidth, 3) };
         }
-        return { id: c.id, width: Math.max(cappedWidth, 4), height: Math.max(levelHeight, 3) };
+        return { id: c.id, width: Math.max(uniformWidth, 4), height: Math.max(levelHeight, 3) };
       });
     }
 

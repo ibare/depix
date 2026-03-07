@@ -87,6 +87,90 @@ export function computeTreeLevelInfo(
 }
 
 // ---------------------------------------------------------------------------
+// Tree Subtree Span Analysis
+// ---------------------------------------------------------------------------
+
+export interface SubtreeSpanInfo {
+  /** Leaf-count based subtreeSpan for each node (leaf = 1) */
+  nodeSpan: Map<string, number>;
+  /** Parent→children adjacency */
+  childrenOf: Map<string, string[]>;
+  /** Root node IDs (nodes without parents) */
+  roots: string[];
+}
+
+/**
+ * Compute the subtreeSpan (number of leaf descendants) for each node
+ * in a tree defined by flat node IDs and edges.
+ * Uses 2-stack iterative post-order traversal (no recursion).
+ */
+export function computeSubtreeSpans(
+  nodeIds: string[],
+  edges: { fromId: string; toId: string }[],
+): SubtreeSpanInfo {
+  if (nodeIds.length === 0) {
+    return { nodeSpan: new Map(), childrenOf: new Map(), roots: [] };
+  }
+
+  const idSet = new Set(nodeIds);
+  const childrenOf = new Map<string, string[]>();
+  const hasParent = new Set<string>();
+
+  for (const id of nodeIds) {
+    childrenOf.set(id, []);
+  }
+
+  for (const e of edges) {
+    if (idSet.has(e.fromId) && idSet.has(e.toId)) {
+      childrenOf.get(e.fromId)!.push(e.toId);
+      hasParent.add(e.toId);
+    }
+  }
+
+  // Find roots (nodes without parents)
+  const roots: string[] = [];
+  for (const id of nodeIds) {
+    if (!hasParent.has(id)) roots.push(id);
+  }
+  if (roots.length === 0) roots.push(nodeIds[0]);
+
+  // 2-stack iterative post-order
+  const stack1: string[] = [...roots];
+  const stack2: string[] = [];
+
+  while (stack1.length > 0) {
+    const id = stack1.pop()!;
+    stack2.push(id);
+    for (const child of childrenOf.get(id) ?? []) {
+      stack1.push(child);
+    }
+  }
+
+  // Process in reverse (children before parents)
+  const nodeSpan = new Map<string, number>();
+  for (let i = stack2.length - 1; i >= 0; i--) {
+    const id = stack2[i];
+    const children = childrenOf.get(id) ?? [];
+    if (children.length === 0) {
+      nodeSpan.set(id, 1);
+    } else {
+      let total = 0;
+      for (const child of children) {
+        total += nodeSpan.get(child) ?? 1;
+      }
+      nodeSpan.set(id, total);
+    }
+  }
+
+  // Assign span 1 to any unvisited nodes
+  for (const id of nodeIds) {
+    if (!nodeSpan.has(id)) nodeSpan.set(id, 1);
+  }
+
+  return { nodeSpan, childrenOf, roots };
+}
+
+// ---------------------------------------------------------------------------
 // Flow Layer Analysis
 // ---------------------------------------------------------------------------
 
