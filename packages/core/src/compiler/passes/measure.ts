@@ -304,9 +304,12 @@ function measureList(
   scaleCtx: ScaleContext | undefined,
   budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem', budgetMap);
-  const lineHeight = DEFAULT_LINE_HEIGHT;
   const items = element.items ?? [];
+  const itemCount = Math.max(items.length, 1);
+
+  // Use per-item effective height so fontSize scales with item count
+  const fontSize = resolveListFontSize(element, plan, theme, scaleCtx, itemCount, budgetMap);
+  const lineHeight = DEFAULT_LINE_HEIGHT;
   const itemHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
   const itemGap = fontSize * 0.3;
   const totalHeight = items.length > 0
@@ -321,6 +324,39 @@ function measureList(
     minWidth: fontSize * 4,
     minHeight: totalHeight,
   };
+}
+
+/**
+ * Resolve fontSize for a list element, accounting for item count.
+ * Uses per-item height as the effective short side so that more items → smaller font.
+ */
+function resolveListFontSize(
+  element: ASTElement,
+  plan: LayoutPlanNode,
+  theme: DepixTheme,
+  scaleCtx: ScaleContext | undefined,
+  itemCount: number,
+  budgetMap?: BudgetMap,
+): number {
+  // Priority 1: user-specified
+  if (typeof element.style['font-size'] === 'number') {
+    return element.style['font-size'];
+  }
+
+  // Priority 2: budget-aware with per-item height
+  if (scaleCtx) {
+    const budget = budgetMap?.get(plan.id);
+    const totalH = budget ? budget.height : plan.intrinsicSize.height;
+    const perItemH = totalH / itemCount;
+    const width = budget ? budget.width : plan.intrinsicSize.width;
+    const shortSide = Math.min(width, perItemH);
+    if (shortSide > 0) {
+      return computeFontSize(shortSide, 'listItem');
+    }
+  }
+
+  // Priority 3: theme fallback
+  return theme.fontSize.sm;
 }
 
 function measureDivider(): MeasureResult {

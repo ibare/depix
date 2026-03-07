@@ -138,7 +138,13 @@ export function countElements(plan: SceneLayoutPlan): number {
 // ---------------------------------------------------------------------------
 
 function countNodeLeaves(node: LayoutPlanNode): number {
-  if (node.children.length === 0) return 1;
+  if (node.children.length === 0) {
+    // List items are visually distinct elements that contribute to density
+    if (node.astNode.kind === 'element' && node.astNode.elementType === 'list') {
+      return Math.max(node.astNode.items?.length ?? 1, 1);
+    }
+    return 1;
+  }
   let count = 0;
   for (const child of node.children) {
     count += countNodeLeaves(child);

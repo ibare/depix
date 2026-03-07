@@ -12,7 +12,7 @@ import type { IRBounds } from '../../ir/types.js';
 import type { NodeBudget, BudgetMap, ConstraintMap } from './budget-types.js';
 import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
-import { computeGap, computePadding } from './scale-system.js';
+import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
 
@@ -56,10 +56,17 @@ export function allocateBudgets(
       allocateTreeFlowBudgets(node, parentBudget, constraints, scaleCtx, budgetMap);
     } else {
       const info = getNodeLayoutInfo(node, scaleCtx);
+
+      // Reserve title/subtitle space for box/layer elements with labels
+      const titleRes = estimateTitleReservation(node, parentBudget, info.padding, info.gap);
+      const adjustedBudget = titleRes > 0
+        ? { width: parentBudget.width, height: Math.max(parentBudget.height - titleRes, 1) }
+        : parentBudget;
+
       allocateChildBudgets(
         node.children,
         node.children.reduce((s, c) => s + c.weight, 0),
-        parentBudget,
+        adjustedBudget,
         info.direction,
         info.gap,
         constraints,
@@ -202,6 +209,44 @@ function allocateChildBudgets(
       break;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Title/subtitle reservation for box elements
+// ---------------------------------------------------------------------------
+
+const TEXT_BLOCK_MULTIPLIER = 1.8;
+
+function estimateTitleReservation(
+  node: LayoutPlanNode,
+  parentBudget: NodeBudget,
+  padding: number,
+  gap: number,
+): number {
+  const astNode = node.astNode;
+  if (astNode.kind !== 'element') return 0;
+
+  const innerShort = Math.min(
+    parentBudget.width - padding * 2,
+    parentBudget.height - padding * 2,
+  );
+  if (innerShort <= 0) return 0;
+
+  let reservation = 0;
+
+  // Title
+  if (astNode.label) {
+    const titleFontSize = computeFontSize(innerShort, 'innerLabel');
+    reservation += titleFontSize * TEXT_BLOCK_MULTIPLIER + gap;
+  }
+
+  // Subtitle
+  if (typeof astNode.props.subtitle === 'string') {
+    const subtitleFontSize = computeFontSize(innerShort, 'listItem');
+    reservation += subtitleFontSize * TEXT_BLOCK_MULTIPLIER + gap;
+  }
+
+  return reservation;
 }
 
 // ---------------------------------------------------------------------------
