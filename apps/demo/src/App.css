@@ -255,6 +255,11 @@ body {
   min-width: 0;
 }
 
+.live-example__canvas .konvajs-content {
+  outline: 1px solid var(--border-color);
+  border-radius: var(--radius);
+}
+
 .live-example__errors {
   padding: 6px 12px;
   background: #fff5f5;
