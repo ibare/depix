@@ -166,4 +166,106 @@ flow direction:right {
   #b -> #db
 }`,
   },
+  {
+    id: 'microservices',
+    title: 'Microservices with Groups',
+    description: 'flow 안에 group을 중첩하여 서비스 클러스터와 연결을 한 번에 표현한다.',
+    ascii: `[Client]
+    |
+[  API Gateway  ]
+   /          \\
+[Auth Svc]  [User Svc]
+   \\          /
+   [  Database  ]`,
+    dsl: `@page 16:9
+
+flow direction:down {
+  node "Client" #client { color: muted }
+
+  group "Gateway" #gw {
+    label "API Gateway"
+    badge "Rate Limit" { color: warning }
+  }
+
+  group "Services" #svc {
+    label "Auth Service"
+    label "User Service"
+  }
+
+  node "Database" #db { shape: diamond, color: success }
+
+  #client -> #gw
+  #gw -> #svc
+  #svc -> #db
+}`,
+  },
+  {
+    id: 'cloud-infra',
+    title: 'Cloud Infrastructure',
+    description: 'layers와 box를 중첩하여 인프라 계층별 서비스를 구조화한다.',
+    ascii: `===== Client Tier =====
+  Browser | Mobile App
+===== App Tier =======
+  LB | Web | API
+===== Data Tier ======
+  Postgres | Redis | S3`,
+    dsl: `@page 16:9
+
+layers {
+  box "Client Tier" {
+    color: primary
+    node "Browser"
+    node "Mobile App"
+  }
+  box "Application Tier" {
+    color: info
+    node "Load Balancer"
+    node "Web Server"
+    node "API Server"
+  }
+  box "Data Tier" {
+    color: success
+    node "PostgreSQL"
+    node "Redis Cache"
+    node "Object Storage"
+  }
+}`,
+  },
+  {
+    id: 'product-overview',
+    title: 'Product Overview',
+    description: 'tree로 팀 구조를, grid로 기술 매트릭스를 나란히 배치하여 프로젝트 전체를 조감한다.',
+    ascii: `     PM
+    / \\
+  FE   BE        | FE  | BE  |
+  /\\    |    +   -+-----+-----+
+ R  V  Node      | TS  | Go  |`,
+    dsl: `@page 16:9
+
+tree direction:down {
+  node "Project Manager" {
+    node "Frontend" {
+      node "React"
+      node "Vue"
+    }
+    node "Backend" {
+      node "Node.js"
+    }
+  }
+}
+
+grid cols:3 {
+  cell "" { header }
+  cell "Frontend" { header }
+  cell "Backend" { header }
+
+  cell "Language" { header }
+  cell "TypeScript" { color: primary }
+  cell "Go" { color: info }
+
+  cell "Deploy" { header }
+  cell "Vercel" { color: success }
+  cell "AWS" { color: warning }
+}`,
+  },
 ];
