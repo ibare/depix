@@ -207,6 +207,70 @@ describe('allocateBudgets', () => {
       expect(b.height).toBeGreaterThan(0);
     }
   });
+
+  it('pinned height — explicit height reserves fixed budget', () => {
+    const scene = makeScene([
+      makeBlock('stack', [
+        makeElement('node', { id: 'pinned', props: { height: 20 } }),
+        makeElement('node', { id: 'flex1' }),
+        makeElement('node', { id: 'flex2' }),
+      ], { id: 's1' }),
+    ]);
+    const plan = planScene(scene, lightTheme);
+    const scaleCtx = createScaleContext(plan, CANVAS);
+    const constraints = computeConstraints(plan, scaleCtx);
+    const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
+
+    const block = plan.children[0];
+    const pinnedBudget = budgetMap.get(block.children[0].id)!;
+    const flex1Budget = budgetMap.get(block.children[1].id)!;
+    const flex2Budget = budgetMap.get(block.children[2].id)!;
+
+    // Pinned node should get at least its pinned height
+    expect(pinnedBudget.height).toBeGreaterThanOrEqual(20);
+    // Flexible nodes should share remaining space equally
+    expect(Math.abs(flex1Budget.height - flex2Budget.height)).toBeLessThan(1);
+    // Flexible nodes should each get less than the pinned node
+    expect(flex1Budget.height).toBeGreaterThan(0);
+    expect(flex2Budget.height).toBeGreaterThan(0);
+  });
+
+  it('pinned width — explicit width reserves fixed budget in row stack', () => {
+    const scene = makeScene([
+      makeBlock('stack', [
+        makeElement('node', { id: 'pinned', props: { width: 30 } }),
+        makeElement('node', { id: 'flex1' }),
+      ], { id: 's1', props: { direction: 'row' } }),
+    ]);
+    const plan = planScene(scene, lightTheme);
+    const scaleCtx = createScaleContext(plan, CANVAS);
+    const constraints = computeConstraints(plan, scaleCtx);
+    const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
+
+    const block = plan.children[0];
+    const pinnedBudget = budgetMap.get(block.children[0].id)!;
+    const flexBudget = budgetMap.get(block.children[1].id)!;
+
+    // Pinned node should get at least its pinned width
+    expect(pinnedBudget.width).toBeGreaterThanOrEqual(30);
+    // Flexible node gets remaining space
+    expect(flexBudget.width).toBeGreaterThan(0);
+  });
+
+  it('constraint pinnedHeight flag is set for explicit height', () => {
+    const scene = makeScene([
+      makeElement('node', { id: 'n1', props: { height: 15 } }),
+    ]);
+    const plan = planScene(scene, lightTheme);
+    const scaleCtx = createScaleContext(plan, CANVAS);
+    const constraints = computeConstraints(plan, scaleCtx);
+
+    const c = constraints.get(plan.children[0].id)!;
+    expect(c.pinnedHeight).toBe(true);
+    expect(c.pinnedWidth).toBe(false);
+    expect(c.minHeight).toBe(15);
+    expect(c.maxHeight).toBe(15);
+  });
 });
 
 // ---------------------------------------------------------------------------

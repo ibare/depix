@@ -11,6 +11,10 @@ export interface NodeConstraint {
   maxWidth: number;
   minHeight: number;
   maxHeight: number;
+  /** True when width was explicitly set by the user (props.width). */
+  pinnedWidth?: boolean;
+  /** True when height was explicitly set by the user (props.height). */
+  pinnedHeight?: boolean;
 }
 
 export type ConstraintMap = Map<string, NodeConstraint>;

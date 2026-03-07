@@ -101,10 +101,28 @@ function allocateChildBudgets(
   switch (direction) {
     case 'col': {
       // Vertical: split height, full width
+      // Reserve pinned heights first, distribute remainder to non-pinned
       const usableH = innerH - gap * Math.max(n - 1, 0);
-      const rawHeights = children.map(c =>
-        totalWeight > 0 ? usableH * (c.weight / totalWeight) : usableH / n,
-      );
+      let pinnedTotal = 0;
+      let unpinnedWeight = 0;
+      const pinnedH: (number | null)[] = [];
+
+      for (const c of children) {
+        const cc = constraints.get(c.id);
+        if (cc?.pinnedHeight) {
+          pinnedH.push(cc.minHeight);
+          pinnedTotal += cc.minHeight;
+        } else {
+          pinnedH.push(null);
+          unpinnedWeight += c.weight;
+        }
+      }
+
+      const remainder = Math.max(usableH - pinnedTotal, 0);
+      const rawHeights = children.map((c, i) => {
+        if (pinnedH[i] !== null) return pinnedH[i]!;
+        return unpinnedWeight > 0 ? remainder * (c.weight / unpinnedWeight) : remainder / Math.max(n - pinnedH.filter(p => p !== null).length, 1);
+      });
       const minHeights = children.map(c => {
         const cc = constraints.get(c.id);
         return cc ? cc.minHeight : 0;
@@ -122,10 +140,28 @@ function allocateChildBudgets(
 
     case 'row': {
       // Horizontal: split width, full height
+      // Reserve pinned widths first, distribute remainder to non-pinned
       const usableW = innerW - gap * Math.max(n - 1, 0);
-      const rawWidths = children.map(c =>
-        totalWeight > 0 ? usableW * (c.weight / totalWeight) : usableW / n,
-      );
+      let pinnedTotal = 0;
+      let unpinnedWeight = 0;
+      const pinnedW: (number | null)[] = [];
+
+      for (const c of children) {
+        const cc = constraints.get(c.id);
+        if (cc?.pinnedWidth) {
+          pinnedW.push(cc.minWidth);
+          pinnedTotal += cc.minWidth;
+        } else {
+          pinnedW.push(null);
+          unpinnedWeight += c.weight;
+        }
+      }
+
+      const remainder = Math.max(usableW - pinnedTotal, 0);
+      const rawWidths = children.map((c, i) => {
+        if (pinnedW[i] !== null) return pinnedW[i]!;
+        return unpinnedWeight > 0 ? remainder * (c.weight / unpinnedWeight) : remainder / Math.max(n - pinnedW.filter(p => p !== null).length, 1);
+      });
       const minWidths = children.map(c => {
         const cc = constraints.get(c.id);
         return cc ? cc.minWidth : 0;

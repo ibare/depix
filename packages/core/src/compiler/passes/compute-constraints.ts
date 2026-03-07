@@ -154,6 +154,8 @@ function computeLeafConstraint(node: LayoutPlanNode): NodeConstraint {
     maxWidth: explicitW ?? Infinity,
     minHeight: explicitH ?? minH,
     maxHeight: explicitH ?? Infinity,
+    pinnedWidth: hasExplicitW,
+    pinnedHeight: hasExplicitH,
   };
 }
 
