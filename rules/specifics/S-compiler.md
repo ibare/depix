@@ -1,6 +1,6 @@
 ---
 version: 1
-last_verified: 2026-03-05
+last_verified: 2026-03-07
 ---
 
 # 컴파일러 S-compiler
@@ -25,6 +25,20 @@ last_verified: 2026-03-05
 - `emitIR` 패스는 IR 요소를 생성만 한다. 레이아웃 계산, 색상 해석, 경로 라우팅을 emitIR 내부에서 직접 수행하지 않는다. 이미 완료된 `BoundsMap`과 `ScaleContext`를 사용한다.
 
 - `ScaleContext`의 `baseUnit`은 `sqrt(canvasArea / elementCount) * DENSITY_FACTOR(0.55)` 공식으로 산출한다. 임의의 고정값을 사용하지 않는다.
+
+- `computeConstraints`(bottom-up)와 `allocateBudgets`(top-down)의 2-pass 구조로 fontSize↔공간의 순환 의존을 해결한다. 제약 수집이 예산 배분보다 먼저 실행되어야 한다.
+
+- tree 블록의 cross-axis 예산은 `subtreeSpan`(리프 노드 수) 비례로 배분한다. 균등 분배가 아닌 서브트리 크기 비례 분배를 사용한다.
+
+- `countElements()`에서 list 요소의 `items` 배열 길이를 리프 수에 반영한다. list items는 plan tree의 자식이 아니지만 밀도(density) 계산에 포함되어야 한다.
+
+- box/layer 요소에 title/subtitle이 있으면 자식 예산 배분 전 해당 높이를 차감(reserve)한다. 타이틀 공간을 고려하지 않고 자식에게 전체 예산을 배분하지 않는다.
+
+- fontSize 결정 우선순위: (1) 사용자 인라인 스타일(`font-size`) → (2) budget 기반 ScaleSystem(`computeFontSize`) → (3) 테마 폴백. `budgetMap`이 제공되면 `plan.intrinsicSize` 대신 budget의 shortSide를 사용한다.
+
+- `pinnedWidth`/`pinnedHeight`가 설정된 노드는 예산 배분에서 고정 크기로 취급하고 나머지를 다른 노드에 재분배한다.
+
+- 자식들의 minSize 합계가 부모 예산을 초과하면 비례 축소(ratio compression)한다. `redistributeWithMinimums`를 사용하여 최소 크기를 보장하면서 전체를 조정한다.
 
 ## MUST NOT
 

@@ -1,5 +1,6 @@
 # Principles
 
+<!-- last_verified: 2026-03-07 -->
 모든 코드에 항상 적용되는 핵심 원칙.
 
 ---
@@ -27,7 +28,7 @@ IR은 직접 변경하지 않는다. IR을 조작하는 모든 함수는 `struct
 
 ## 3. 컴파일러 패스 순수성
 
-컴파일러의 각 패스(tokenize, parse, resolveTheme, planLayout, allocateBounds, layout, routeEdges, emitIR)는 순수 함수다.
+컴파일러의 각 패스(tokenize, parse, flattenHierarchy, resolveTheme, planLayout, createScaleContext, computeConstraints, allocateBudgets, measure, allocateBounds, layout, routeEdges, emitIR)는 순수 함수다.
 
 - 전역 상태를 읽거나 쓰지 않는다.
 - 파일 I/O, 네트워크, 타이머를 사용하지 않는다.

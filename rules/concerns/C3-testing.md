@@ -1,6 +1,6 @@
 ---
 version: 1
-last_verified: 2026-03-05
+last_verified: 2026-03-07
 ---
 
 # 테스트 원칙 C3
@@ -40,3 +40,4 @@ last_verified: 2026-03-05
 - 경계 케이스(빈 입력, 단일 요소, 최대 깊이)를 항상 테스트한다.
 - `it.each`로 같은 구조의 테스트를 파라미터화한다.
 - 스냅샷 테스트는 AST/IR 전체 구조 확인에만 사용한다. 세부 좌표 검증에는 사용하지 않는다.
+- budget 테스트는 `budget.height > 0`(모든 노드 양수 예산), `sum(budgets) ≤ parentBudget`(예산 초과 금지) 등의 불변식으로 검증한다.
