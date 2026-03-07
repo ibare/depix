@@ -70,6 +70,16 @@ export function allocateScene(
     minHeights.push(m ? m.minHeight : 0);
   }
 
+  // Overflow compression: if total minHeights exceed usable space,
+  // scale down proportionally (safety net for fontSize min clamp scenarios)
+  const totalMin = minHeights.reduce((s, v) => s + v, 0);
+  if (totalMin > usableHeight && totalMin > 0) {
+    const ratio = usableHeight / totalMin;
+    for (let i = 0; i < minHeights.length; i++) {
+      minHeights[i] *= ratio;
+    }
+  }
+
   // Redistribute: clamp each child to its minHeight, then redistribute surplus
   const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usableHeight);
 
