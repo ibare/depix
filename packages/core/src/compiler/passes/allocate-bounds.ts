@@ -30,6 +30,17 @@ import { computeGap, computePadding } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Max width:height ratio for shape elements inside a box (col layout). */
+const MAX_SHAPE_ASPECT = 3.0;
+
+const SHAPE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
+  'node', 'cell', 'rect', 'circle', 'badge', 'icon',
+]);
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -177,13 +188,15 @@ function allocateLeaf(
 
     let childY = innerBounds.y;
     for (let i = 0; i < plan.children.length; i++) {
+      const ch = plan.children[i];
+      const { w: childW, x: childX } = applyShapeAspect(ch, innerBounds, finalHeights[i]);
       const childBounds: IRBounds = {
-        x: innerBounds.x,
+        x: childX,
         y: childY,
-        w: innerBounds.w,
+        w: childW,
         h: finalHeights[i],
       };
-      boundsMap.set(plan.children[i].id, childBounds);
+      boundsMap.set(ch.id, childBounds);
       childY += finalHeights[i] + childGap;
     }
   }
@@ -269,13 +282,15 @@ function allocateBlock(
 
         let childY = innerBounds.y;
         for (let j = 0; j < childPlan.children.length; j++) {
+          const gc = childPlan.children[j];
+          const { w: gcW, x: gcX } = applyShapeAspect(gc, innerBounds, gcFinalHeights[j]);
           const gcBounds: IRBounds = {
-            x: innerBounds.x,
+            x: gcX,
             y: childY,
-            w: innerBounds.w,
+            w: gcW,
             h: gcFinalHeights[j],
           };
-          boundsMap.set(childPlan.children[j].id, gcBounds);
+          boundsMap.set(gc.id, gcBounds);
           childY += gcFinalHeights[j] + childGap;
         }
       }
@@ -665,4 +680,32 @@ export function redistributeWithMinimums(
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Shape aspect-ratio helper
+// ---------------------------------------------------------------------------
+
+/**
+ * For shape elements (node/rect/circle/…) inside a box col layout,
+ * cap width to height × MAX_SHAPE_ASPECT and center horizontally.
+ * Text, list, divider, and other flow elements keep full parent width.
+ */
+function applyShapeAspect(
+  child: LayoutPlanNode,
+  innerBounds: IRBounds,
+  height: number,
+): { w: number; x: number } {
+  const ast = child.astNode;
+  if (
+    ast.kind === 'element' &&
+    SHAPE_ELEMENT_TYPES.has(ast.elementType) &&
+    !('width' in ast.props && typeof ast.props.width === 'number')
+  ) {
+    const maxW = height * MAX_SHAPE_ASPECT;
+    if (maxW < innerBounds.w) {
+      return { w: maxW, x: innerBounds.x + (innerBounds.w - maxW) / 2 };
+    }
+  }
+  return { w: innerBounds.w, x: innerBounds.x };
 }
