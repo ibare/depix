@@ -144,30 +144,113 @@ LLM이 구체적 수치를 몰라도 의도를 표현할 수 있도록 시맨틱
 
 ## 아키텍처
 
-### 파이프라인
+### 컴파일러 파이프라인
 
 ```
 DSL v2 텍스트
-    ↓  Tokenizer → Parser
-   AST
-    ↓  Resolve Theme → Plan Layout → Scale System → Allocate Bounds → Layout → Route Edges
-  DepixIR  (모든 좌표, 색상, 경로가 확정된 JSON)
-    ↓  CoordinateTransform → Konva 노드
-  Canvas
+    │
+    ▼
+┌───────────────────┐
+│  Tokenize + Parse │  텍스트 → AST
+└────────┬──────────┘
+         ▼
+┌───────────────────┐
+│ Flatten Hierarchy  │  중첩 tree/flow → flat children + implicit edges
+└────────┬──────────┘
+         ▼
+┌───────────────────┐
+│  Resolve Theme    │  시맨틱 토큰 → 구체 값 (color: warning → #F59E0B)
+└────────┬──────────┘
+         ▼
+┌───────────────────┐
+│  Plan Layout      │  구조 분석 — 가중치, 깊이, 분기 수 산출
+└────────┬──────────┘
+         ▼
+┌───────────────────┐
+│  Scale System     │  baseUnit = √(캔버스면적 / 요소수) × 0.55
+└────────┬──────────┘
+         ▼  ── 2-pass 예산 시스템 ──
+┌───────────────────┐
+│  Compute          │  ↑ Bottom-up: 자식 → 부모 방향으로
+│  Constraints      │    각 노드의 min/max 크기 제약 수집
+└────────┬──────────┘  ConstraintMap
+         ▼
+┌───────────────────┐
+│  Allocate         │  ↓ Top-down: 캔버스 루트 → 자식 방향으로
+│  Budgets          │    가용 공간을 weight 비례 배분
+└────────┬──────────┘  BudgetMap
+         ▼
+┌───────────────────┐
+│  Measure          │  확정된 예산 기반으로 fontSize, padding,
+│                   │  lineHeight, minWidth, minHeight 결정
+└────────┬──────────┘  MeasureMap
+         ▼  ── 좌표 확정 ──
+┌───────────────────┐
+│  Allocate Bounds  │  measure 제약 + 레이아웃 알고리즘으로 최종 좌표 확정
+└────────┬──────────┘  BoundsMap
+         ▼
+┌───────────────────┐
+│  Route Edges      │  노드 좌표 기반 연결선 경로 계산
+└────────┬──────────┘
+         ▼
+┌───────────────────┐
+│  Emit IR          │  모든 값이 확정된 DepixIR JSON 생성
+└───────────────────┘
+         ▼
+      DepixIR  →  Renderer (Konva)
 ```
 
-#### 컴파일러 패스 순서
+#### 컴파일러 패스 순서 (13패스)
 
-| 단계 | 입력 | 출력 |
-|------|------|------|
-| Parse | DSL 텍스트 | AST |
-| Resolve Theme | AST + Theme | AST (시맨틱 토큰 → 구체값) |
-| Plan Layout | AST | SceneLayoutPlan (가중치, 깊이 분석) |
-| Scale System | Plan + Canvas | ScaleContext (baseUnit = √(면적/요소수) × 0.55) |
-| Allocate Bounds | Plan + ScaleContext | BoundsMap (가중치 비례 공간 배분) |
-| Layout | LayoutChildren + Config | LayoutResult (절대 좌표) |
-| Route Edges | IR 요소들 + 엣지 정의 | IREdge[] (경로 포인트) |
-| Emit IR | AST + BoundsMap + ScaleContext | DepixIR JSON |
+| # | 패스 | 입력 | 출력 | 역할 |
+|---|------|------|------|------|
+| 1 | Tokenize | DSL 텍스트 | Token[] | 어휘 분석 |
+| 2 | Parse | Token[] | AST | 구문 분석 |
+| 3 | Flatten Hierarchy | AST | AST (정규화) | tree/flow의 중첩 요소를 flat children + implicit edges로 변환 |
+| 4 | Resolve Theme | AST + Theme | AST (해결) | 시맨틱 토큰(`primary`, `md`) → HEX/수치 |
+| 5 | Plan Layout | AST | SceneLayoutPlan | 가중치, 깊이, 자식 수, 의도별 타입 분석 |
+| 6 | Scale System | Plan + Canvas | ScaleContext | `baseUnit` 산출, 동적 gap/font/padding 비율 결정 |
+| 7 | Compute Constraints | Plan + ScaleCtx | ConstraintMap | Bottom-up: 각 노드의 min/max 크기 수집 |
+| 8 | Allocate Budgets | Plan + Canvas + Constraints + ScaleCtx | BudgetMap | Top-down: 가용 공간을 weight 비례 배분 |
+| 9 | Measure | Plan + Theme + ScaleCtx + BudgetMap | MeasureMap | 예산 기반 fontSize, padding, minHeight 산출 |
+| 10 | Allocate Bounds | Plan + Canvas + MeasureMap + ScaleCtx | BoundsMap | 레이아웃 알고리즘 실행, 최종 좌표 확정 |
+| 11 | Layout | LayoutChildren + Config | LayoutResult | flow/stack/grid/tree/layers/group 배치 |
+| 12 | Route Edges | BoundsMap + 엣지 정의 | IREdge[] | 연결선 경로 포인트 계산 |
+| 13 | Emit IR | AST + BoundsMap + ScaleCtx + MeasureMap | DepixIR | 완전 해결된 IR JSON 생성 |
+
+> 각 패스는 **순수 함수**다. 전역 상태를 읽지 않고, 같은 입력에 항상 같은 출력을 반환한다.
+
+#### 2-pass 예산 시스템
+
+fontSize를 결정하려면 할당 공간이 필요하고, 공간을 할당하려면 fontSize(→ minHeight)가 필요하다. 이 순환 의존을 2-pass로 해소한다.
+
+```
+Pass 1 — Compute Constraints (Bottom-up)
+  자식이 "나는 최소 X, 최대 Y가 필요해"를 부모에게 보고
+  → ConstraintMap = Map<id, { minWidth, maxWidth, minHeight, maxHeight }>
+
+Pass 2 — Allocate Budgets (Top-down)
+  부모가 제약 안에서 예산을 weight 비례로 배분
+  → BudgetMap = Map<id, { width, height }>
+
+Measure — 확정된 예산으로 fontSize 결정
+  budget의 shortSide(= min(width, height))로 fontSize 산출
+  → 요소가 많을수록 예산 축소 → fontSize 자동 축소 → 오버플로우 방지
+```
+
+의도별 예산 배분 전략:
+
+| 의도 | 배분 축 | 전략 |
+|------|---------|------|
+| `stack col` | height 분할 | weight 비례, width는 부모 전체 |
+| `stack row` | width 분할 | weight 비례, height는 부모 전체 |
+| `grid` | 양축 균등 | `(width / cols)` × `(height / rows)` |
+| `layers` | height 균등 | 모든 레이어에 동일 높이 |
+| `group` | height 분할 | padding 차감 후 weight 비례 |
+| `tree` | main축 레벨, cross축 span | subtreeSpan(리프 수) 비례 cross-axis 배분 |
+| `flow` | main축 레이어 | 콘텐츠 복잡도(measure) 비례 레이어 사이징 |
+
+오버플로우 처리: 자식 min 합계 > 부모 예산일 때, `redistributeWithMinimums`가 비례 축소하여 모든 요소가 캔버스 내에 표시되도록 보장한다.
 
 ### 패키지 의존 구조
 
@@ -327,8 +410,8 @@ const { ir, errors } = compile(dsl, { theme: darkTheme });
 
 | 패키지 | 테스트 수 | 커버리지 목표 |
 |--------|----------|-------------|
-| `@depix/core` | 839 | 90%+ |
-| `@depix/engine` | 102 | 70%+ |
+| `@depix/core` | 1,021 | 90%+ |
+| `@depix/engine` | 120 | 70%+ |
 | `@depix/editor` | 315 | 80%+ |
 | `@depix/react` | 299 | 60%+ |
-| **합계** | **1,555** | |
+| **합계** | **1,755** | |
