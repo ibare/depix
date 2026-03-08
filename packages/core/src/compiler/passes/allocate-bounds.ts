@@ -70,17 +70,8 @@ export function allocateScene(
     minHeights.push(m ? m.minHeight : 0);
   }
 
-  // Overflow compression: if total minHeights exceed usable space,
-  // scale down proportionally (safety net for fontSize min clamp scenarios)
-  const totalMin = minHeights.reduce((s, v) => s + v, 0);
-  if (totalMin > usableHeight && totalMin > 0) {
-    const ratio = usableHeight / totalMin;
-    for (let i = 0; i < minHeights.length; i++) {
-      minHeights[i] *= ratio;
-    }
-  }
-
   // Redistribute: clamp each child to its minHeight, then redistribute surplus
+  // (overflow compression is handled inside redistributeWithMinimums)
   const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usableHeight);
 
   let currentY = canvasBounds.y;
@@ -235,14 +226,9 @@ function allocateBlock(
     if (childPlan.astNode.kind === 'block') {
       allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap);
     } else {
-      // For leaf elements inside a layout, enforce measure minimums
-      const cm = measureMap?.get(childPlan.id);
-      const finalBounds: IRBounds = cm ? {
-        x: childBounds.x,
-        y: childBounds.y,
-        w: Math.max(childBounds.w, cm.minWidth),
-        h: Math.max(childBounds.h, cm.minHeight),
-      } : childBounds;
+      // Layout result already respects measure minimums via
+      // redistributeWithMinimums (with overflow compression).
+      const finalBounds = childBounds;
       boundsMap.set(childPlan.id, finalBounds);
 
       // Handle nested children (box/layer elements with children)
@@ -634,19 +620,26 @@ export function buildTreeNodes(
 export function redistributeWithMinimums(
   raw: number[],
   mins: number[],
-  _total: number,
+  total: number,
 ): number[] {
   const n = raw.length;
   if (n === 0) return [];
+
+  // Overflow compression: when total minimums exceed available space,
+  // scale down minimums proportionally to fit within the budget.
+  const totalMin = mins.reduce((s, v) => s + v, 0);
+  const effectiveMins = totalMin > total && totalMin > 0
+    ? mins.map(m => m * (total / totalMin))
+    : mins;
 
   const result = raw.slice();
 
   // Clamp up to minimums
   let deficit = 0;
   for (let i = 0; i < n; i++) {
-    if (result[i] < mins[i]) {
-      deficit += mins[i] - result[i];
-      result[i] = mins[i];
+    if (result[i] < effectiveMins[i]) {
+      deficit += effectiveMins[i] - result[i];
+      result[i] = effectiveMins[i];
     }
   }
 
@@ -655,7 +648,7 @@ export function redistributeWithMinimums(
   // Collect surplus from items above their minimum
   let totalSurplus = 0;
   for (let i = 0; i < n; i++) {
-    const surplus = result[i] - mins[i];
+    const surplus = result[i] - effectiveMins[i];
     if (surplus > 0) totalSurplus += surplus;
   }
 
@@ -664,7 +657,7 @@ export function redistributeWithMinimums(
   // Take proportionally from surplus items
   const take = Math.min(deficit, totalSurplus);
   for (let i = 0; i < n; i++) {
-    const surplus = result[i] - mins[i];
+    const surplus = result[i] - effectiveMins[i];
     if (surplus > 0) {
       const reduction = take * (surplus / totalSurplus);
       result[i] -= reduction;
