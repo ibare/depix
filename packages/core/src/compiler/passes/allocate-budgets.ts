@@ -354,21 +354,36 @@ function allocateTreeFlowBudgets(
       }
     }
   } else {
-    // Flow
+    // Flow — content-aware layer sizing using constraints
     const layerInfo = computeFlowLayerInfo(nodeIds, edges);
-    const layerMainSize = (mainAvail - gap * Math.max(layerInfo.layerCount - 1, 0)) / Math.max(layerInfo.layerCount, 1);
+    const layerCount = Math.max(layerInfo.layerCount, 1);
+    const mainUsable = mainAvail - gap * Math.max(layerCount - 1, 0);
+
+    // Aggregate constraint-based weights per layer
+    const layerWeights: number[] = new Array(layerCount).fill(0);
+    for (const child of node.children) {
+      const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
+      const cc = _constraints.get(child.id);
+      const mainMin = isHorizontal ? (cc?.minWidth ?? 4) : (cc?.minHeight ?? 3);
+      layerWeights[layer] = Math.max(layerWeights[layer], mainMin);
+    }
+    const totalLayerWeight = layerWeights.reduce((s, w) => s + w, 0);
+    const layerMainSizes = totalLayerWeight > 0
+      ? layerWeights.map(w => mainUsable * (w / totalLayerWeight))
+      : layerWeights.map(() => mainUsable / layerCount);
 
     for (const child of node.children) {
       const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
+      const layerMain = layerMainSizes[layer];
       const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
       const nodeCross = (crossAvail - gap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
       // Cap for single-node layers to prevent excessive size
-      const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAvail * 0.6) : nodeCross;
+      const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAvail * 0.4) : nodeCross;
 
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: layerMainSize, height: cappedCross });
+        budgetMap.set(child.id, { width: layerMain, height: cappedCross });
       } else {
-        budgetMap.set(child.id, { width: cappedCross, height: layerMainSize });
+        budgetMap.set(child.id, { width: cappedCross, height: layerMain });
       }
     }
   }

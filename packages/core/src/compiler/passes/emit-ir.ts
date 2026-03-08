@@ -237,6 +237,12 @@ function emitBlockFromPlan(
   const containerId = block.id ?? generateId();
   const containerStyle = buildStyle(block.style);
 
+  // Group blocks get a default border when no explicit styling is provided
+  if (block.blockType === 'group' && !containerStyle.stroke && !containerStyle.fill) {
+    containerStyle.stroke = theme.border;
+    containerStyle.strokeWidth = 0.3;
+  }
+
   const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
     ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
     : undefined;

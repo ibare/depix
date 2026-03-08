@@ -239,9 +239,11 @@ function allocateBlock(
     if (childPlan.astNode.kind === 'block') {
       allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap);
     } else {
-      // Layout result already respects measure minimums via
-      // redistributeWithMinimums (with overflow compression).
-      const finalBounds = childBounds;
+      // For flow/tree blocks, apply shape aspect ratio to leaf elements
+      const isConnectionBlock = blockType === 'flow' || blockType === 'tree';
+      const finalBounds = isConnectionBlock
+        ? applyShapeAspectToBounds(childPlan, childBounds)
+        : childBounds;
       boundsMap.set(childPlan.id, finalBounds);
 
       // Handle nested children (box/layer elements with children)
@@ -390,18 +392,38 @@ export function computeLayoutChildren(
 
       const nodeIds = plan.children.map(c => c.id);
       const layerInfo = computeFlowLayerInfo(nodeIds, plan.edges);
-      const layerMainSize = (mainAxis - flowGap * Math.max(layerInfo.layerCount - 1, 0)) / Math.max(layerInfo.layerCount, 1);
+      const layerCount = Math.max(layerInfo.layerCount, 1);
+      const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
+
+      // Content-aware layer sizing: aggregate minHeight per layer from measureMap
+      const layerWeights: number[] = new Array(layerCount).fill(0);
+      for (const c of plan.children) {
+        const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
+        const m = measureMap?.get(c.id);
+        const mainMin = isHorizontal ? (m?.minWidth ?? 4) : (m?.minHeight ?? 3);
+        layerWeights[layer] = Math.max(layerWeights[layer], mainMin);
+      }
+      const totalLayerWeight = layerWeights.reduce((s, w) => s + w, 0);
+      const layerMainSizes = totalLayerWeight > 0
+        ? layerWeights.map(w => mainUsable * (w / totalLayerWeight))
+        : layerWeights.map(() => mainUsable / layerCount);
 
       return plan.children.map(c => {
         const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
+        const layerMain = layerMainSizes[layer];
         const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
         const nodeCross = (crossAxis - flowGap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
-        const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAxis * 0.6) : nodeCross;
+
+        // Shape elements: cap cross-axis by aspect ratio instead of fixed 60%
+        const isShape = c.astNode.kind === 'element' && SHAPE_ELEMENT_TYPES.has(c.astNode.elementType);
+        const cappedCross = isShape
+          ? Math.min(nodeCross, layerMain * MAX_SHAPE_ASPECT, crossAxis * 0.4)
+          : (nodesInLayer === 1 ? Math.min(nodeCross, crossAxis * 0.6) : nodeCross);
 
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(layerMainSize, 4), height: Math.max(cappedCross, 3) };
+          return { id: c.id, width: Math.max(layerMain, 4), height: Math.max(cappedCross, 3) };
         }
-        return { id: c.id, width: Math.max(cappedCross, 4), height: Math.max(layerMainSize, 3) };
+        return { id: c.id, width: Math.max(cappedCross, 4), height: Math.max(layerMain, 3) };
       });
     }
 
@@ -708,4 +730,32 @@ function applyShapeAspect(
     }
   }
   return { w: innerBounds.w, x: innerBounds.x };
+}
+
+/**
+ * For shape elements in flow/tree blocks, cap both axes by aspect ratio
+ * and center within the allocated bounds.
+ */
+function applyShapeAspectToBounds(
+  child: LayoutPlanNode,
+  bounds: IRBounds,
+): IRBounds {
+  const ast = child.astNode;
+  if (
+    ast.kind !== 'element' ||
+    !SHAPE_ELEMENT_TYPES.has(ast.elementType) ||
+    ('width' in ast.props && typeof ast.props.width === 'number')
+  ) {
+    return bounds;
+  }
+
+  let { x, y, w, h } = bounds;
+  const maxW = h * MAX_SHAPE_ASPECT;
+
+  if (w > maxW) {
+    x += (w - maxW) / 2;
+    w = maxW;
+  }
+
+  return { x, y, w, h };
 }
