@@ -427,6 +427,32 @@ function computeEdgeBounds(
 // Label placement
 // ---------------------------------------------------------------------------
 
+const LABEL_OFFSET = 1.2;
+
+/**
+ * Offset a label position perpendicular to the edge direction,
+ * so the label doesn't overlap the line.
+ */
+function offsetLabelFromEdge(
+  midpoint: IRPoint,
+  from: IRPoint,
+  to: IRPoint,
+): IRPoint {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return midpoint;
+
+  // Normal vector (perpendicular, pointing "up" or "left")
+  const nx = -dy / len;
+  const ny = dx / len;
+
+  return {
+    x: midpoint.x + nx * LABEL_OFFSET,
+    y: midpoint.y + ny * LABEL_OFFSET,
+  };
+}
+
 /**
  * Compute label position based on the edge path midpoint.
  */
@@ -490,10 +516,11 @@ export function routeEdge(input: RouteEdgeInput): IREdge {
   // 3. Map edge style to arrows and visual style
   const { arrowStart, arrowEnd, style } = mapEdgeStyle(input.edgeStyle);
 
-  // 4. Compute labels
+  // 4. Compute labels with normal offset to avoid overlapping the line
   let labels: IREdgeLabel[] | undefined;
   if (input.label) {
-    const position = computeLabelPosition(anchors.from, anchors.to, path);
+    const midpoint = computeLabelPosition(anchors.from, anchors.to, path);
+    const position = offsetLabelFromEdge(midpoint, anchors.from, anchors.to);
     labels = [
       {
         text: input.label,

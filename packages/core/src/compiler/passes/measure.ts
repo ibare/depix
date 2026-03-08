@@ -389,6 +389,39 @@ function measureImage(element: ASTElement): MeasureResult {
 
 type TextRole = 'innerLabel' | 'standaloneText' | 'listItem' | 'edgeLabel';
 
+const AVG_CHAR_WIDTH_RATIO = 0.55;
+const TEXT_PADDING_H_RATIO = 0.15;
+
+/**
+ * Shrink fontSize if the estimated text width exceeds the available node width.
+ */
+function clampFontToFit(fontSize: number, label: string | undefined, nodeWidth: number): number {
+  if (!label || label.length === 0 || nodeWidth <= 0) return fontSize;
+  const availableWidth = nodeWidth * (1 - TEXT_PADDING_H_RATIO * 2);
+  const estimatedTextWidth = fontSize * label.length * AVG_CHAR_WIDTH_RATIO;
+  if (estimatedTextWidth <= availableWidth) return fontSize;
+  return fontSize * (availableWidth / estimatedTextWidth);
+}
+
+/**
+ * Adjust fontSize based on label text length.
+ * Short text (1-4 chars): reduce to prevent oversized appearance.
+ * Long text (8+ chars): sqrt decay to prevent overflow.
+ */
+function applyTextLengthPenalty(fontSize: number, label?: string): number {
+  if (!label || label.length === 0) return fontSize;
+
+  const len = label.length;
+
+  // Short text penalty: 1→0.70, 2→0.78, 3→0.86, 4→0.95
+  const shortPenalty = len <= 4 ? 0.62 + len * 0.082 : 1.0;
+
+  // Long text decay: sqrt(6 / len) for 8+ chars
+  const longPenalty = len > 7 ? Math.sqrt(6 / len) : 1.0;
+
+  return fontSize * Math.min(shortPenalty, longPenalty);
+}
+
 /**
  * Resolve fontSize for an element following the priority:
  * 1. User-specified inline style (font-size: number)
@@ -408,14 +441,17 @@ function resolveElementFontSize(
     return element.style['font-size'];
   }
 
-  // Priority 2: scale system (budget-aware)
+  // Priority 2: scale system (budget-aware) with text length correction
   if (scaleCtx) {
     const budget = budgetMap?.get(plan.id);
     const shortSide = budget
       ? Math.min(budget.width, budget.height)
       : Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
     if (shortSide > 0) {
-      return computeFontSize(shortSide, role);
+      const base = computeFontSize(shortSide, role);
+      const adjusted = applyTextLengthPenalty(base, element.label);
+      const nodeWidth = budget ? budget.width : plan.intrinsicSize.width;
+      return clampFontToFit(adjusted, element.label, nodeWidth);
     }
   }
 

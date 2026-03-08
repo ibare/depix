@@ -57,7 +57,13 @@ const TEXT_ROLE_RATIO: Record<TextRole, number> = {
 };
 
 const FONT_SIZE_MIN = 0.6;
-const FONT_SIZE_MAX = 10.0;
+
+const FONT_SIZE_MAX_BY_ROLE: Record<TextRole, number> = {
+  innerLabel: 4.0,       // ~22px at 1000×560 viewport
+  standaloneText: 3.5,   // ~20px
+  listItem: 2.5,         // ~14px
+  edgeLabel: 2.0,        // ~11px
+};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -111,7 +117,8 @@ export function computeFontSize(
   textRole: TextRole,
 ): number {
   const ratio = TEXT_ROLE_RATIO[textRole];
-  return clamp(containerShortSide * ratio, FONT_SIZE_MIN, FONT_SIZE_MAX);
+  const max = FONT_SIZE_MAX_BY_ROLE[textRole];
+  return clamp(containerShortSide * ratio, FONT_SIZE_MIN, max);
 }
 
 /**

@@ -36,8 +36,18 @@ import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js
 /** Max width:height ratio for shape elements inside a box (col layout). */
 const MAX_SHAPE_ASPECT = 3.0;
 
+/** Max node size as a fraction of parent short axis (flow/tree). */
+const NODE_SIZE_CAP_RATIO = 0.25;
+
+/** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback. */
+const SHAPE_PREFERRED_RATIO: Readonly<Record<string, number>> = {
+  diamond: 1.6,
+  circle: 1.0,
+  hexagon: 1.15,
+};
+
 const SHAPE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
-  'node', 'cell', 'rect', 'circle', 'badge', 'icon',
+  'node', 'cell', 'rect', 'circle', 'badge', 'icon', 'diamond', 'hexagon',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -408,17 +418,20 @@ export function computeLayoutChildren(
         ? layerWeights.map(w => mainUsable * (w / totalLayerWeight))
         : layerWeights.map(() => mainUsable / layerCount);
 
+      // Uniform cross-axis: use densest layer as reference for all nodes
+      const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
+      const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
+      const maxCrossSize = Math.min(mainAxis, crossAxis) * NODE_SIZE_CAP_RATIO;
+
       return plan.children.map(c => {
         const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
         const layerMain = layerMainSizes[layer];
-        const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
-        const nodeCross = (crossAxis - flowGap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
 
-        // Shape elements: cap cross-axis by aspect ratio instead of fixed 60%
+        // Cap cross-axis: uniform reference + absolute cap
         const isShape = c.astNode.kind === 'element' && SHAPE_ELEMENT_TYPES.has(c.astNode.elementType);
         const cappedCross = isShape
-          ? Math.min(nodeCross, layerMain * MAX_SHAPE_ASPECT, crossAxis * 0.4)
-          : (nodesInLayer === 1 ? Math.min(nodeCross, crossAxis * 0.6) : nodeCross);
+          ? Math.min(referenceCross, layerMain * MAX_SHAPE_ASPECT, maxCrossSize)
+          : Math.min(referenceCross, maxCrossSize);
 
         if (isHorizontal) {
           return { id: c.id, width: Math.max(layerMain, 4), height: Math.max(cappedCross, 3) };
@@ -436,13 +449,16 @@ export function computeLayoutChildren(
       const mainAxis = isHorizontal ? bounds.w : bounds.h;
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
+      const maxCrossSize = Math.min(mainAxis, crossAxis) * NODE_SIZE_CAP_RATIO;
+
       const nodeIds = plan.children.map(c => c.id);
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
       const levelHeight = (mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
 
-      // Uniform width based on widest level — all nodes same cross-axis size
+      // Uniform width based on widest level — all nodes same cross-axis size, capped
       const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
-      const uniformWidth = (crossAxis - siblingGap * Math.max(maxNodesPerLevel - 1, 0)) / Math.max(maxNodesPerLevel, 1);
+      const rawUniformWidth = (crossAxis - siblingGap * Math.max(maxNodesPerLevel - 1, 0)) / Math.max(maxNodesPerLevel, 1);
+      const uniformWidth = Math.min(rawUniformWidth, maxCrossSize);
 
       return plan.children.map(c => {
         if (isHorizontal) {
@@ -733,8 +749,11 @@ function applyShapeAspect(
 }
 
 /**
- * For shape elements in flow/tree blocks, cap both axes by aspect ratio
+ * For shape elements in flow/tree blocks, enforce aspect ratio constraints
  * and center within the allocated bounds.
+ *
+ * Shapes with a preferred ratio (diamond, circle, hexagon) are adjusted on
+ * both axes. Other shapes use the generic MAX_SHAPE_ASPECT width-only cap.
  */
 function applyShapeAspectToBounds(
   child: LayoutPlanNode,
@@ -744,17 +763,34 @@ function applyShapeAspectToBounds(
   if (
     ast.kind !== 'element' ||
     !SHAPE_ELEMENT_TYPES.has(ast.elementType) ||
-    ('width' in ast.props && typeof ast.props.width === 'number')
+    typeof ast.props.width === 'number' ||
+    typeof ast.props.height === 'number'
   ) {
     return bounds;
   }
 
   let { x, y, w, h } = bounds;
-  const maxW = h * MAX_SHAPE_ASPECT;
+  const preferredRatio = SHAPE_PREFERRED_RATIO[ast.elementType];
 
-  if (w > maxW) {
-    x += (w - maxW) / 2;
-    w = maxW;
+  if (preferredRatio) {
+    // Strict ratio: fit within bounds maintaining preferred w:h
+    const currentRatio = w / h;
+    if (currentRatio > preferredRatio) {
+      const newW = h * preferredRatio;
+      x += (w - newW) / 2;
+      w = newW;
+    } else if (currentRatio < preferredRatio) {
+      const newH = w / preferredRatio;
+      y += (h - newH) / 2;
+      h = newH;
+    }
+  } else {
+    // Generic fallback: cap width only
+    const maxW = h * MAX_SHAPE_ASPECT;
+    if (w > maxW) {
+      x += (w - maxW) / 2;
+      w = maxW;
+    }
   }
 
   return { x, y, w, h };

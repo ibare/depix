@@ -595,11 +595,11 @@ describe('Label placement', () => {
     expect(label.text).toBe('connection');
     expect(label.placement).toBe('middle');
 
-    // Label position should be roughly between anchors
+    // Label position should be near the midpoint (with small normal offset from line)
     const midX = (edge.fromAnchor.x + edge.toAnchor.x) / 2;
     const midY = (edge.fromAnchor.y + edge.toAnchor.y) / 2;
-    expect(label.position.x).toBeCloseTo(midX, 1);
-    expect(label.position.y).toBeCloseTo(midY, 1);
+    expect(Math.abs(label.position.x - midX)).toBeLessThan(2);
+    expect(Math.abs(label.position.y - midY)).toBeLessThan(2);
   });
 
   it('places label on polyline path midpoint', () => {

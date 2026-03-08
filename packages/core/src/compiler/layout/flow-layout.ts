@@ -100,6 +100,14 @@ export function layoutFlow(
   const totalLayerGap = gap * (layerCount - 1);
   const layerMainSize = (mainAvail - totalLayerGap) / layerCount;
 
+  // Uniform cross-axis size based on densest layer
+  const maxNodesInAnyLayer = Math.max(...layerGroups.map(g => g.length), 1);
+  const referenceCrossGaps = gap * Math.max(maxNodesInAnyLayer - 1, 0);
+  const referenceCross = Math.min(
+    (crossAvail - referenceCrossGaps) / Math.max(maxNodesInAnyLayer, 1),
+    crossAvail * 0.6,
+  );
+
   const childBounds: IRBounds[] = new Array(children.length);
 
   for (let l = 0; l < layerCount; l++) {
@@ -107,14 +115,8 @@ export function layoutFlow(
     const nodes = layerGroups[layer];
     const mainOffset = l * (layerMainSize + gap);
 
-    // Position nodes within this layer — space-filling cross-axis
+    const cappedCross = referenceCross;
     const totalNodeGap = gap * (nodes.length - 1);
-    const nodeCrossSize = (crossAvail - totalNodeGap) / Math.max(nodes.length, 1);
-    // Cap single-node layers to prevent excessive cross-axis size
-    const cappedCross = nodes.length === 1
-      ? Math.min(nodeCrossSize, crossAvail * 0.6)
-      : nodeCrossSize;
-
     const nodesCrossTotal = nodes.length * cappedCross + totalNodeGap;
     const layerCrossStart = (crossAvail - nodesCrossTotal) / 2;
     let crossCursor = Math.max(0, layerCrossStart);
