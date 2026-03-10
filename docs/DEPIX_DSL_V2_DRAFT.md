@@ -30,7 +30,7 @@ scene "본문" {
 |---|---|---|
 | `@page` | `16:9`, `4:3`, `1:1`, `A4`, `letter` | 캔버스 비율/크기 |
 | `@style` | `default`, `sketch` | 드로잉 스타일 |
-| `@transition` | `fade`, `slide`, `none` | 씬 간 기본 전환 |
+| `@transition` | `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `none` | 씬 간 기본 전환 |
 
 ---
 

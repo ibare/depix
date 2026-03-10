@@ -222,7 +222,7 @@ interface BoundsEntry {
 
 ```typescript
 export function computeConstraints(
-  plan: SceneLayoutPlan,
+  plan: DiagramLayoutPlan,
   pinnedMap: PinnedMap,
   scaleCtx: ScaleContext,
 ): ConstraintMap;
@@ -263,7 +263,7 @@ if (pinnedMap.has(nodeId)) {
 
 ```typescript
 export function allocateBudgets(
-  plan: SceneLayoutPlan,
+  plan: DiagramLayoutPlan,
   canvasBounds: IRBounds,
   constraints: ConstraintMap,
   pinnedMap: PinnedMap,

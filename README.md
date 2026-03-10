@@ -208,7 +208,7 @@ DSL v2 텍스트
 | 2 | Parse | Token[] | AST | 구문 분석 |
 | 3 | Flatten Hierarchy | AST | AST (정규화) | tree/flow의 중첩 요소를 flat children + implicit edges로 변환 |
 | 4 | Resolve Theme | AST + Theme | AST (해결) | 시맨틱 토큰(`primary`, `md`) → HEX/수치 |
-| 5 | Plan Layout | AST | SceneLayoutPlan | 가중치, 깊이, 자식 수, 의도별 타입 분석 |
+| 5 | Plan Layout | AST | DiagramLayoutPlan | 가중치, 깊이, 자식 수, 의도별 타입 분석 |
 | 6 | Scale System | Plan + Canvas | ScaleContext | `baseUnit` 산출, 동적 gap/font/padding 비율 결정 |
 | 7 | Compute Constraints | Plan + ScaleCtx | ConstraintMap | Bottom-up: 각 노드의 min/max 크기 수집 |
 | 8 | Allocate Budgets | Plan + Canvas + Constraints + ScaleCtx | BudgetMap | Top-down: 가용 공간을 weight 비례 배분 |
@@ -410,8 +410,8 @@ const { ir, errors } = compile(dsl, { theme: darkTheme });
 
 | 패키지 | 테스트 수 | 커버리지 목표 |
 |--------|----------|-------------|
-| `@depix/core` | 1,021 | 90%+ |
+| `@depix/core` | 1,100 | 90%+ |
 | `@depix/engine` | 120 | 70%+ |
 | `@depix/editor` | 315 | 80%+ |
 | `@depix/react` | 299 | 60%+ |
-| **합계** | **1,755** | |
+| **합계** | **1,834** | |

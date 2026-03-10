@@ -153,9 +153,8 @@ v2 문법을 위한 새 토크나이저. v1과 문법이 근본적으로 다름.
 토큰 스트림을 문서 구조 AST로 변환.
 
 - [x] `packages/core/src/compiler/ast.ts` — AST 타입:
-  - `ASTDocument { directives, scenes }`
-  - `ASTScene { name, children }`
-  - `ASTBlock { blockType, props, children }`
+  - `ASTDocument { directives, scenes }` (scenes는 `ASTBlock[]`)
+  - `ASTBlock { blockType, props, children }` (scene, flow, stack 등 모든 블록)
   - `ASTElement { elementType, label, id, props, style, flags, children, items }`
   - `ASTEdge { fromId, toId, edgeStyle, label }`
   - `ASTDirective { key, value }`

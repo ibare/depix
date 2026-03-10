@@ -237,7 +237,7 @@ DSL v2 텍스트
 ```
 
 ③~⑧은 `emitIR()` 내부에서 씬 단위로 실행된다:
-`planScene() → createScaleContext() → allocateScene() → emitSceneFromPlan()`
+`planDiagram() → createScaleContext() → allocateDiagram() → emitDiagramFromPlan()`
 
 ### 스케일 시스템 (`passes/scale-system.ts`)
 
@@ -274,7 +274,7 @@ DSL에서 명시적으로 지정한 `gap`, `font-size`, `padding` 값은 항상 
 |------|------|------|----------|
 | Parse | DSL 텍스트 | AST | 토큰화, 구문 분석 |
 | Resolve Theme | AST + Theme | AST (값 해결됨) | 시맨틱 컬러/토큰 → HEX/수치 |
-| Plan Layout | AST (해결됨) | SceneLayoutPlan | 가중치, 깊이, 자식 수 분석 |
+| Plan Layout | AST (해결됨) | DiagramLayoutPlan | 가중치, 깊이, 자식 수 분석 |
 | Scale System | Plan + Canvas | ScaleContext | baseUnit, 요소 수 기반 스케일 팩터 |
 | Allocate Bounds | Plan + ScaleContext | BoundsMap | top-down 가중치 비례 공간 배분 |
 | Layout | LayoutChildren + Props | LayoutResult | 레이아웃 알고리즘 실행 (동적 gap) |
