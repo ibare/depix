@@ -77,8 +77,9 @@ export function getRectBoundaryPoint(
 ): IRPoint {
   const cx = bounds.x + bounds.w / 2;
   const cy = bounds.y + bounds.h / 2;
-  const hw = bounds.w / 2;
-  const hh = bounds.h / 2;
+  // Guard against negative/zero dimensions (e.g. from overly tight layout)
+  const hw = Math.max(Math.abs(bounds.w / 2), 0.1);
+  const hh = Math.max(Math.abs(bounds.h / 2), 0.1);
 
   const dx = target.x - cx;
   const dy = target.y - cy;

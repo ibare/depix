@@ -108,11 +108,17 @@ export function layoutSceneTitle(
     labelY += labelH + config.itemGap;
   }
 
-  // Fill any unassigned children
+  // Fill any unassigned children (e.g. diagram blocks) with remaining space
+  let unassignedCount = 0;
+  for (let i = 0; i < children.length; i++) { if (!childBounds[i]) unassignedCount++; }
+  const remainingH = Math.max((area.y + area.h) - labelY, 0);
+  const perItemH = unassignedCount > 0
+    ? Math.max((remainingH - config.itemGap * (unassignedCount - 1)) / unassignedCount, labelH)
+    : labelH;
   for (let i = 0; i < children.length; i++) {
     if (!childBounds[i]) {
-      childBounds[i] = { x: area.x, y: labelY, w: area.w, h: labelH };
-      labelY += labelH + config.itemGap;
+      childBounds[i] = { x: area.x, y: labelY, w: area.w, h: perItemH };
+      labelY += perItemH + config.itemGap;
     }
   }
 
@@ -153,10 +159,17 @@ export function layoutSceneStatement(
     curY += labelH + gap;
   }
 
+  // Fill any unassigned children (e.g. diagram blocks) with remaining space
+  let unassignedCount = 0;
+  for (let i = 0; i < children.length; i++) { if (!childBounds[i]) unassignedCount++; }
+  const remainingH = Math.max((area.y + area.h) - curY, 0);
+  const perItemH = unassignedCount > 0
+    ? Math.max((remainingH - gap * (unassignedCount - 1)) / unassignedCount, labelH)
+    : labelH;
   for (let i = 0; i < children.length; i++) {
     if (!childBounds[i]) {
-      childBounds[i] = { x: area.x, y: curY, w: area.w, h: labelH };
-      curY += labelH + gap;
+      childBounds[i] = { x: area.x, y: curY, w: area.w, h: perItemH };
+      curY += perItemH + gap;
     }
   }
 
