@@ -25,8 +25,9 @@ export interface ASTDocument {
 }
 
 export interface ASTDirective {
-  key: string; // 'page', 'style', 'transition'
-  value: string; // '16:9', 'dark', 'sketch', 'fade'
+  key: string; // 'page', 'style', 'transition', 'data'
+  value: string; // '16:9', 'dark', 'sketch', 'fade', dataset name
+  body?: ASTNode[]; // @data block body (rows)
   loc: SourceLocation;
 }
 
@@ -57,7 +58,7 @@ export interface ASTBlock {
 
 export interface ASTElement {
   kind: 'element';
-  elementType: string; // 'node', 'box', 'label', etc.
+  elementType: string; // 'node', 'box', 'label', 'row', etc.
   label?: string; // primary text content
   id?: string; // #id
   props: Record<string, string | number>;
@@ -65,6 +66,7 @@ export interface ASTElement {
   flags: string[]; // 'bold', 'italic', 'header', etc.
   children: ASTNode[]; // nested elements (e.g., box can contain labels)
   items?: string[]; // list items for 'list' element
+  values?: (string | number)[]; // row cell values (for table/data rows)
   loc: SourceLocation;
 }
 

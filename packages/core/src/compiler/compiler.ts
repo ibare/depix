@@ -16,6 +16,7 @@ import type { SceneTheme } from '../theme/scene-theme.js';
 import { defaultSceneTheme } from '../theme/scene-theme.js';
 import type { ASTDocument, ParseError } from './ast.js';
 import { parse } from './parser.js';
+import { resolveData } from './data/resolve-data.js';
 import { flattenHierarchy } from './passes/flatten-hierarchy.js';
 import { resolveTheme } from './passes/resolve-theme.js';
 import { emitIR } from './passes/emit-ir.js';
@@ -68,13 +69,16 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 1. Parse DSL → AST
   const { ast, errors } = parse(dsl);
 
-  // 2. Flatten hierarchy (nested elements → flat + edges for tree/flow)
-  const flatAST = flattenHierarchy(ast);
+  // 2. Resolve @data directives (inject rows into table/chart blocks)
+  const dataResolvedAST = resolveData(ast);
 
-  // 3. Resolve theme (semantic tokens → concrete values)
+  // 3. Flatten hierarchy (nested elements → flat + edges for tree/flow)
+  const flatAST = flattenHierarchy(dataResolvedAST);
+
+  // 4. Resolve theme (semantic tokens → concrete values)
   const resolvedAST = resolveTheme(flatAST, theme);
 
-  // 4. Check for presentation mode
+  // 5. Check for presentation mode
   const isPresentation = resolvedAST.directives.some(d => d.key === 'presentation');
 
   if (isPresentation) {
@@ -84,7 +88,7 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
     return { ir, errors };
   }
 
-  // 5. Standard pipeline: diagram layout + edge routing + IR emission
+  // 6. Standard pipeline: diagram layout + edge routing + IR emission
   const ir = emitIR(resolvedAST, theme);
 
   return { ir, errors };

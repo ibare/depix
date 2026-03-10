@@ -126,6 +126,20 @@ class Parser {
     const loc = { line: tok.line, column: tok.column };
     const key = tok.value;
 
+    // @data "name" { ... } — block-body directive
+    if (key === 'data') {
+      let value = '';
+      if (this.check('STRING')) {
+        value = this.advance().value;
+      }
+      this.skipNewlines();
+      let body: ASTNode[] | undefined;
+      if (this.check('BRACE_OPEN')) {
+        body = this.parseDataBody();
+      }
+      return { key, value, body, loc };
+    }
+
     // Collect value tokens until newline or EOF
     const valueParts: string[] = [];
     while (!this.isAtEnd() && !this.check('NEWLINE') && !this.check('EOF')) {
@@ -196,9 +210,16 @@ class Parser {
 
     this.skipNewlines();
 
-    // Scene blocks support both properties and children inside braces
+    // Dispatch block body parsing based on block type
     let children: ASTNode[];
-    if (blockType === 'scene') {
+    if (blockType === 'table' || blockType === 'chart') {
+      // table/chart: brace block parsed as data rows
+      if (this.check('BRACE_OPEN')) {
+        children = this.parseDataBody();
+      } else {
+        children = []; // reference mode: table "sales" (no brace block)
+      }
+    } else if (blockType === 'scene') {
       children = [];
       if (this.check('BRACE_OPEN')) {
         this.parsePropBlock(props, style, [], children);
@@ -342,6 +363,72 @@ class Parser {
     }
 
     return children;
+  }
+
+  // ---- Data body { "col1" "col2" \n val1 val2 \n ... } --------------------
+
+  /**
+   * Parse a data body block: { ... } containing rows of STRING/NUMBER values.
+   * Each line becomes an ASTElement with elementType 'row' and values[].
+   * The first row is automatically marked with props.header = 1.
+   */
+  private parseDataBody(): ASTNode[] {
+    this.advance(); // {
+    this.skipNewlines();
+    const rows: ASTNode[] = [];
+    let isFirstRow = true;
+
+    while (!this.isAtEnd() && !this.check('BRACE_CLOSE')) {
+      const rowValues: (string | number)[] = [];
+      const rowLoc = { line: this.current().line, column: this.current().column };
+
+      // Collect STRING/NUMBER tokens until newline or block end
+      while (
+        !this.isAtEnd() &&
+        !this.check('NEWLINE') &&
+        !this.check('BRACE_CLOSE') &&
+        !this.check('EOF')
+      ) {
+        const t = this.current();
+        if (t.type === 'STRING') {
+          rowValues.push(t.value);
+          this.advance();
+        } else if (t.type === 'NUMBER') {
+          rowValues.push(Number(t.value));
+          this.advance();
+        } else {
+          break;
+        }
+      }
+
+      if (rowValues.length > 0) {
+        const rowProps: Record<string, string | number> = {};
+        if (isFirstRow) {
+          rowProps.header = 1;
+          isFirstRow = false;
+        }
+        rows.push({
+          kind: 'element',
+          elementType: 'row',
+          props: rowProps,
+          style: {},
+          flags: [],
+          children: [],
+          values: rowValues,
+          loc: rowLoc,
+        } as ASTElement);
+      }
+
+      this.skipNewlines();
+    }
+
+    if (this.check('BRACE_CLOSE')) {
+      this.advance();
+    } else {
+      this.error('Unclosed data block', this.current());
+    }
+
+    return rows;
   }
 
   // ---- Property block { key: value, flag, ... } with nested elements ------

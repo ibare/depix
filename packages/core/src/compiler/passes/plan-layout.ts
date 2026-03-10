@@ -23,6 +23,7 @@ import type {
 export type PlanNodeType =
   | 'block-flow' | 'block-stack' | 'block-grid' | 'block-tree'
   | 'block-group' | 'block-layers' | 'block-canvas'
+  | 'block-table' | 'block-chart'
   | 'element-shape' | 'element-text' | 'element-box'
   | 'element-list' | 'element-divider' | 'element-image';
 
@@ -62,6 +63,8 @@ const BASE_WEIGHT: Record<PlanNodeType, number> = {
   'block-group': 2.0,
   'block-layers': 3.0,
   'block-canvas': 2.5,
+  'block-table': 2.5,
+  'block-chart': 3.0,
   'element-shape': 1.0,
   'element-text': 0.6,
   'element-box': 1.5,
@@ -160,6 +163,8 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       case 'canvas': return 'block-canvas';
       case 'scene': return 'block-canvas';
       case 'column': return 'block-stack';
+      case 'table': return 'block-table';
+      case 'chart': return 'block-chart';
       default: return 'block-canvas';
     }
   }
@@ -191,6 +196,7 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
     case 'stat':
     case 'quote':
     case 'step':
+    case 'row':
       return 'element-text';
     default:
       return 'element-shape';

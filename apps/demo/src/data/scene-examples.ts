@@ -348,4 +348,50 @@ scene "closing" {
   }
 }`,
   },
+  {
+    id: 'table-scene',
+    title: 'Table Scene',
+    description: '데이터를 표로 시각화하는 레이아웃. 인라인 데이터를 바로 정의한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "metrics" {
+  layout: bullets
+  heading "Q1 Performance"
+  table {
+    "Metric" "Target" "Actual" "Status"
+    "Revenue" 500 520 "Exceeded"
+    "Users" 10000 9800 "On Track"
+    "NPS" 70 75 "Exceeded"
+    "Churn" 5 4.2 "Exceeded"
+  }
+}`,
+  },
+  {
+    id: 'chart-scene',
+    title: 'Chart Scene',
+    description: '@data로 정의한 데이터를 차트로 시각화한다. 같은 데이터를 표와 차트로 각각 보여준다.',
+    dsl: `@presentation
+@ratio 16:9
+
+@data "revenue" {
+  "Quarter" "Revenue" "Profit"
+  "Q1" 120 45
+  "Q2" 185 62
+  "Q3" 240 89
+  "Q4" 310 115
+}
+
+scene "numbers" {
+  layout: bullets
+  heading "Revenue Overview"
+  table "revenue"
+}
+
+scene "trend" {
+  layout: bullets
+  heading "Revenue Trend"
+  chart "revenue" type:bar x:"Quarter" y:"Revenue"
+}`,
+  },
 ];

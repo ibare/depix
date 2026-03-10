@@ -18,6 +18,8 @@ import { layoutFlow } from '../layout/flow-layout.js';
 import { layoutTree } from '../layout/tree-layout.js';
 import { layoutGroup } from '../layout/group-layout.js';
 import { layoutLayers } from '../layout/layers-layout.js';
+import { layoutTable } from '../layout/table-layout.js';
+import { layoutChart } from '../layout/chart-layout.js';
 import type {
   LayoutChild,
   LayoutResult,
@@ -492,6 +494,35 @@ export function computeLayoutChildren(
       }));
     }
 
+    case 'table': {
+      // Table: all rows get full width, equal height
+      const tableGap = gap * 0.3;
+      const usable = bounds.h - tableGap * Math.max(n - 1, 0);
+      const rowH = usable / n;
+      return plan.children.map(c => ({
+        id: c.id,
+        width: bounds.w,
+        height: rowH,
+      }));
+    }
+
+    case 'chart': {
+      // Chart: children represent bar data points
+      // Height encodes the numeric value for the chart layout algorithm
+      const chartGap = gap * 0.5;
+      const barW = (bounds.w - chartGap * Math.max(n - 1, 0)) / n;
+      return plan.children.map(c => {
+        // Extract numeric value from row element (first non-header numeric cell)
+        const ast = c.astNode;
+        let value = 1;
+        if (ast.kind === 'element' && ast.values) {
+          const numericVal = ast.values.find(v => typeof v === 'number');
+          if (typeof numericVal === 'number') value = numericVal;
+        }
+        return { id: c.id, width: barW, height: value };
+      });
+    }
+
     case 'canvas':
     default: {
       // canvas/default: stack col behaviour
@@ -591,6 +622,21 @@ export function runLayout(
         gap: typeof props.gap === 'number' ? props.gap : defaultLayersGap,
       });
     }
+
+    case 'table': {
+      const headerRows = children.length > 0 ? 1 : 0;
+      return layoutTable(children, {
+        bounds,
+        headerRows,
+        gap: gap * 0.3,
+      });
+    }
+
+    case 'chart':
+      return layoutChart(children, {
+        bounds,
+        gap: gap * 0.5,
+      });
 
     case 'canvas':
     default:

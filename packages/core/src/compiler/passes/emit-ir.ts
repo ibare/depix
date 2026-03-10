@@ -260,7 +260,7 @@ function emitBlockFromPlan(
 }
 
 function isLayoutSourceType(type: string): boolean {
-  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'scene'].includes(type);
+  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'scene', 'table', 'chart'].includes(type);
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +304,8 @@ function emitElement(
       return emitDividerElement(element, id, bounds);
     case 'image':
       return emitImageElement(element, id, bounds);
+    case 'row':
+      return emitRowElement(element, id, bounds, theme, scaleCtx, measured);
     default:
       return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
   }
@@ -717,6 +719,74 @@ function emitImageElement(
     style,
     src,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Row element (table row with cells)
+// ---------------------------------------------------------------------------
+
+function emitRowElement(
+  element: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
+  measured?: MeasureResult,
+): IRContainer {
+  const values = element.values ?? [];
+  const isHeader = element.props.header === 1;
+  const colCount = Math.max(values.length, 1);
+  const cellW = bounds.w / colCount;
+  const fontSize = measured
+    ? measured.fontSize
+    : (scaleCtx ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem') : theme.fontSize.sm);
+
+  const children: IRElement[] = [];
+
+  for (let i = 0; i < values.length; i++) {
+    const cellBounds: IRBounds = {
+      x: bounds.x + i * cellW,
+      y: bounds.y,
+      w: cellW,
+      h: bounds.h,
+    };
+
+    // Cell background
+    const cellBg: IRShape = {
+      id: `${id}-cell-${i}-bg`,
+      type: 'shape',
+      bounds: cellBounds,
+      style: {
+        fill: isHeader ? theme.colors.muted : theme.background,
+        stroke: theme.border,
+        strokeWidth: 0.15,
+      },
+      shape: 'rect',
+    };
+    children.push(cellBg);
+
+    // Cell text
+    const cellText: IRText = {
+      id: `${id}-cell-${i}-text`,
+      type: 'text',
+      bounds: {
+        x: cellBounds.x + 0.5,
+        y: cellBounds.y,
+        w: cellBounds.w - 1,
+        h: cellBounds.h,
+      },
+      style: {},
+      content: String(values[i]),
+      fontSize,
+      color: theme.foreground,
+      align: typeof values[i] === 'number' ? 'right' : 'left',
+      valign: 'middle',
+    };
+    if (isHeader) cellText.fontWeight = 'bold';
+    children.push(cellText);
+  }
+
+  return { id, type: 'container', bounds, style: {}, children };
 }
 
 // ---------------------------------------------------------------------------

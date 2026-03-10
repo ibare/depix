@@ -166,6 +166,9 @@ const ORIGIN_SOURCE_TYPES: ReadonlySet<string> = new Set([
   'group',
   'layers',
   'canvas',
+  'scene',
+  'table',
+  'chart',
 ]);
 
 /** All valid gradient types. */

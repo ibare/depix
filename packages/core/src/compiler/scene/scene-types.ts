@@ -24,6 +24,8 @@ export type SceneContentType =
   | 'image'
   | 'icon'
   | 'step'
+  | 'table'
+  | 'chart'
   | 'unknown';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,8 @@ export function classifySceneLayout(sceneBlock: ASTBlock): SceneLayoutType {
 export function classifySceneContent(node: ASTNode): SceneContentType {
   if (node.kind === 'block') {
     if (node.blockType === 'column') return 'column';
+    if (node.blockType === 'table') return 'table';
+    if (node.blockType === 'chart') return 'chart';
     return 'unknown';
   }
   if (node.kind === 'element') {

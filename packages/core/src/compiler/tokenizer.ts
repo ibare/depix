@@ -68,6 +68,8 @@ export const BLOCK_TYPES = new Set([
   'canvas',
   'scene',
   'column',
+  'table',
+  'chart',
 ]);
 
 export const ELEMENT_TYPES = new Set([
@@ -104,7 +106,7 @@ export const FLAGS = new Set([
   'ordered',
 ]);
 
-const DIRECTIVES = new Set(['page', 'style', 'transition', 'lane', 'presentation', 'theme', 'ratio']);
+const DIRECTIVES = new Set(['page', 'style', 'transition', 'lane', 'presentation', 'theme', 'ratio', 'data']);
 
 // ---------------------------------------------------------------------------
 // Public API

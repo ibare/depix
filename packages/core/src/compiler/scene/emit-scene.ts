@@ -136,8 +136,16 @@ function emitSceneContent(
     }
   }
 
-  if (node.kind === 'block' && node.blockType === 'column') {
-    return emitColumn(node, id, bounds, theme, sceneTheme, baseFontSize);
+  if (node.kind === 'block') {
+    if (node.blockType === 'column') {
+      return emitColumn(node, id, bounds, theme, sceneTheme, baseFontSize);
+    }
+    if (node.blockType === 'table') {
+      return emitSceneTable(node, id, bounds, theme, sceneTheme, baseFontSize);
+    }
+    if (node.blockType === 'chart') {
+      return emitSceneChart(node, id, bounds, theme, sceneTheme, baseFontSize);
+    }
   }
 
   return null;
@@ -378,6 +386,236 @@ function emitColumn(
     children,
     origin,
   };
+}
+
+function emitSceneTable(
+  block: ASTBlock,
+  id: string,
+  bounds: IRBounds,
+  _theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  baseFontSize: number,
+): IRContainer {
+  const children: IRElement[] = [];
+  const rows = block.children.filter(
+    (c): c is ASTElement => c.kind === 'element' && c.elementType === 'row',
+  );
+
+  if (rows.length === 0) {
+    return { id, type: 'container', bounds, style: {}, children };
+  }
+
+  const gap = sceneTheme.layout.itemGap * 0.3;
+  const rowH = (bounds.h - gap * Math.max(rows.length - 1, 0)) / rows.length;
+
+  let curY = bounds.y;
+  for (let ri = 0; ri < rows.length; ri++) {
+    const row = rows[ri];
+    const isHeader = row.props.header === 1;
+    const values = row.values ?? [];
+    const colCount = Math.max(values.length, 1);
+    const cellW = bounds.w / colCount;
+    const rowBounds: IRBounds = { x: bounds.x, y: curY, w: bounds.w, h: rowH };
+    const rowChildren: IRElement[] = [];
+
+    for (let ci = 0; ci < values.length; ci++) {
+      const cellBounds: IRBounds = {
+        x: bounds.x + ci * cellW,
+        y: curY,
+        w: cellW,
+        h: rowH,
+      };
+
+      // Cell background
+      rowChildren.push({
+        id: `${id}-r${ri}-c${ci}-bg`,
+        type: 'shape',
+        bounds: cellBounds,
+        style: {
+          fill: isHeader ? sceneTheme.colors.surface : sceneTheme.colors.background,
+          stroke: sceneTheme.colors.textMuted,
+          strokeWidth: 0.15,
+        },
+        shape: 'rect',
+      });
+
+      // Cell text
+      const cellText: IRText = {
+        id: `${id}-r${ri}-c${ci}-text`,
+        type: 'text',
+        bounds: {
+          x: cellBounds.x + 0.5,
+          y: cellBounds.y,
+          w: cellBounds.w - 1,
+          h: cellBounds.h,
+        },
+        style: {},
+        content: String(values[ci]),
+        fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.9,
+        color: sceneTheme.colors.text,
+        align: typeof values[ci] === 'number' ? 'right' : 'left',
+        valign: 'middle',
+      };
+      if (isHeader) cellText.fontWeight = 'bold';
+      rowChildren.push(cellText);
+    }
+
+    children.push({
+      id: `${id}-row-${ri}`,
+      type: 'container',
+      bounds: rowBounds,
+      style: {},
+      children: rowChildren,
+    } as IRContainer);
+
+    curY += rowH + gap;
+  }
+
+  return { id, type: 'container', bounds, style: {}, children };
+}
+
+function emitSceneChart(
+  block: ASTBlock,
+  id: string,
+  bounds: IRBounds,
+  _theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  baseFontSize: number,
+): IRContainer {
+  const children: IRElement[] = [];
+  const rows = block.children.filter(
+    (c): c is ASTElement => c.kind === 'element' && c.elementType === 'row',
+  );
+
+  // Determine x and y columns from props
+  const xCol = typeof block.props.x === 'string' ? block.props.x : undefined;
+  const yCol = typeof block.props.y === 'string' ? block.props.y : undefined;
+
+  // Extract header and data rows
+  const headerRow = rows.find(r => r.props.header === 1);
+  const dataRows = rows.filter(r => r.props.header !== 1);
+
+  if (dataRows.length === 0) {
+    return { id, type: 'container', bounds, style: {}, children };
+  }
+
+  const columns = headerRow?.values?.map(v => String(v)) ?? [];
+  const xIdx = xCol ? columns.indexOf(xCol) : 0;
+  const yIdx = yCol ? columns.indexOf(yCol) : columns.findIndex((_c, i) => {
+    // First column with numeric data
+    return i > 0 && dataRows.some(r => typeof r.values?.[i] === 'number');
+  });
+  const effectiveYIdx = yIdx >= 0 ? yIdx : 1;
+
+  // Extract values
+  const categories = dataRows.map(r => String(r.values?.[xIdx] ?? ''));
+  const values = dataRows.map(r => {
+    const v = r.values?.[effectiveYIdx];
+    return typeof v === 'number' ? v : 0;
+  });
+  const maxVal = Math.max(...values, 1);
+
+  // Chart area (with margins for axes)
+  const axisMarginLeft = bounds.w * 0.08;
+  const axisMarginBottom = bounds.h * 0.15;
+  const plotBounds: IRBounds = {
+    x: bounds.x + axisMarginLeft,
+    y: bounds.y,
+    w: bounds.w - axisMarginLeft,
+    h: bounds.h - axisMarginBottom,
+  };
+
+  // Y axis
+  children.push({
+    id: `${id}-y-axis`,
+    type: 'line',
+    bounds: { x: plotBounds.x, y: plotBounds.y, w: 0, h: plotBounds.h },
+    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
+    from: { x: plotBounds.x, y: plotBounds.y },
+    to: { x: plotBounds.x, y: plotBounds.y + plotBounds.h },
+  });
+
+  // X axis
+  children.push({
+    id: `${id}-x-axis`,
+    type: 'line',
+    bounds: { x: plotBounds.x, y: plotBounds.y + plotBounds.h, w: plotBounds.w, h: 0 },
+    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
+    from: { x: plotBounds.x, y: plotBounds.y + plotBounds.h },
+    to: { x: plotBounds.x + plotBounds.w, y: plotBounds.y + plotBounds.h },
+  });
+
+  // Bars and labels
+  const barGap = plotBounds.w * 0.05;
+  const totalGap = barGap * Math.max(values.length - 1, 0);
+  const barW = (plotBounds.w - totalGap) / values.length;
+
+  let curX = plotBounds.x;
+  for (let i = 0; i < values.length; i++) {
+    const barH = (values[i] / maxVal) * plotBounds.h;
+    const barBounds: IRBounds = {
+      x: curX,
+      y: plotBounds.y + plotBounds.h - barH,
+      w: barW,
+      h: barH,
+    };
+
+    // Bar
+    children.push({
+      id: `${id}-bar-${i}`,
+      type: 'shape',
+      bounds: barBounds,
+      style: { fill: sceneTheme.colors.accent },
+      shape: 'rect',
+    });
+
+    // X label
+    children.push({
+      id: `${id}-xlabel-${i}`,
+      type: 'text',
+      bounds: {
+        x: curX,
+        y: plotBounds.y + plotBounds.h + axisMarginBottom * 0.1,
+        w: barW,
+        h: axisMarginBottom * 0.7,
+      },
+      style: {},
+      content: categories[i],
+      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.7,
+      color: sceneTheme.colors.textMuted,
+      align: 'center',
+      valign: 'top',
+    } as IRText);
+
+    curX += barW + barGap;
+  }
+
+  // Y labels (max and 0)
+  children.push({
+    id: `${id}-ylabel-max`,
+    type: 'text',
+    bounds: { x: bounds.x, y: plotBounds.y, w: axisMarginLeft * 0.9, h: plotBounds.h * 0.1 },
+    style: {},
+    content: String(maxVal),
+    fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.65,
+    color: sceneTheme.colors.textMuted,
+    align: 'right',
+    valign: 'top',
+  } as IRText);
+
+  children.push({
+    id: `${id}-ylabel-zero`,
+    type: 'text',
+    bounds: { x: bounds.x, y: plotBounds.y + plotBounds.h * 0.9, w: axisMarginLeft * 0.9, h: plotBounds.h * 0.1 },
+    style: {},
+    content: '0',
+    fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.65,
+    color: sceneTheme.colors.textMuted,
+    align: 'right',
+    valign: 'bottom',
+  } as IRText);
+
+  return { id, type: 'container', bounds, style: {}, children };
 }
 
 function emitImage(

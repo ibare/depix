@@ -302,4 +302,52 @@ layers {
   layer "Input Embeddings + Positional Embeddings" { color: muted }
 }`,
   },
+  {
+    id: 'data-table',
+    title: 'Data Table',
+    description: 'ASCII 테이블을 table 블록으로 선언한다. 헤더와 데이터가 자동 구분된다.',
+    ascii: `+----------+--------+-------+
+| Language | GitHub | Trend |
++----------+--------+-------+
+| TypeScript| 95K   | Up    |
+| Python   | 210K   | Up    |
+| Rust     | 45K    | Up    |
+| Go       | 78K    | Stable|
++----------+--------+-------+`,
+    dsl: `@page 16:9
+
+table {
+  "Language" "GitHub Stars" "Trend"
+  "TypeScript" 95000 "Up"
+  "Python" 210000 "Up"
+  "Rust" 45000 "Up"
+  "Go" 78000 "Stable"
+}`,
+  },
+  {
+    id: 'bar-chart',
+    title: 'Bar Chart',
+    description: '@data로 데이터를 정의하고 chart로 막대 그래프를 렌더링한다.',
+    ascii: `Revenue by Quarter
+    |
+310 |            ████
+    |       ████ ████
+240 |       ████ ████
+    |  ████ ████ ████
+185 |  ████ ████ ████
+120 | ████ ████ ████ ████
+    +----+----+----+----+
+      Q1   Q2   Q3   Q4`,
+    dsl: `@page 16:9
+
+@data "revenue" {
+  "Quarter" "Revenue"
+  "Q1" 120
+  "Q2" 185
+  "Q3" 240
+  "Q4" 310
+}
+
+chart "revenue" type:bar x:"Quarter" y:"Revenue"`,
+  },
 ];

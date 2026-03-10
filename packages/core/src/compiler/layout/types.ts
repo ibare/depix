@@ -155,7 +155,9 @@ export type SceneContentType =
   | 'item'
   | 'image'
   | 'icon'
-  | 'step';
+  | 'step'
+  | 'table'
+  | 'chart';
 
 /**
  * Extended layout child for scene content.
@@ -169,6 +171,34 @@ export interface SceneLayoutChild extends LayoutChild {
   /** Number of sub-items (for bullet/column children). */
   itemCount?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Table layout config
+// ---------------------------------------------------------------------------
+
+export interface TableLayoutConfig {
+  /** Available space for the table. */
+  bounds: IRBounds;
+  /** Number of header rows (default 1). */
+  headerRows: number;
+  /** Gap between rows in 0-100 coordinates. */
+  gap: number;
+}
+
+// ---------------------------------------------------------------------------
+// Chart layout config
+// ---------------------------------------------------------------------------
+
+export interface ChartLayoutConfig {
+  /** Available space for the chart. */
+  bounds: IRBounds;
+  /** Gap between bars in 0-100 coordinates. */
+  gap: number;
+}
+
+// ---------------------------------------------------------------------------
+// Scene layout config
+// ---------------------------------------------------------------------------
 
 export interface SceneLayoutConfig {
   /** Available space for the scene content. */
