@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Header, type PageId } from './components/Header';
 import { ShowcasePage } from './pages/ShowcasePage';
+import { SlidePage } from './pages/SlidePage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
 import { ReferencePage } from './pages/ReferencePage';
 import './App.css';
@@ -13,6 +14,7 @@ export default function App() {
       <Header activePage={activePage} onPageChange={setActivePage} />
       <main className="app-main">
         {activePage === 'showcase' && <ShowcasePage />}
+        {activePage === 'slide' && <SlidePage />}
         {activePage === 'playground' && <PlaygroundPage />}
         {activePage === 'reference' && <ReferencePage />}
       </main>

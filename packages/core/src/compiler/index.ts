@@ -27,6 +27,7 @@ export type {
 export * from './routing/index.js';
 export * from './passes/index.js';
 export * from './layout/index.js';
+export * from './slide/index.js';
 
 export { compile } from './compiler.js';
 export type { CompileOptions, CompileResult } from './compiler.js';

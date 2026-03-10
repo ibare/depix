@@ -56,9 +56,13 @@ describe('Directives', () => {
     ]);
   });
 
-  it('rejects @theme as unknown directive', () => {
+  it('accepts @theme as a valid directive', () => {
     const result = tokenize('@theme dark');
-    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors.length).toBe(0);
+    expect(pairs('@theme dark')).toEqual([
+      ['DIRECTIVE', 'theme'],
+      ['IDENTIFIER', 'dark'],
+    ]);
   });
 
   it('tokenizes @style sketch', () => {

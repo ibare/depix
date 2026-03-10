@@ -261,7 +261,7 @@ function emitBlockFromPlan(
 }
 
 function isLayoutSourceType(type: string): boolean {
-  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas'].includes(type);
+  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'slide'].includes(type);
 }
 
 // ---------------------------------------------------------------------------

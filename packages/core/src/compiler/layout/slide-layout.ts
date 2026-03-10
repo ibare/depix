@@ -1,0 +1,421 @@
+/**
+ * Slide Layout Algorithms
+ *
+ * Pure geometry functions for 8 slide layout types.
+ * Each function takes SlideLayoutChild[] + SlideLayoutConfig and returns LayoutResult.
+ * All coordinates are in the 0-100 relative space.
+ */
+
+import type { IRBounds } from '../../ir/types.js';
+import type { LayoutResult, SlideLayoutChild, SlideLayoutConfig } from './types.js';
+
+// ---------------------------------------------------------------------------
+// Layout type
+// ---------------------------------------------------------------------------
+
+export type SlideLayoutType =
+  | 'title'
+  | 'statement'
+  | 'bullets'
+  | 'two-column'
+  | 'three-column'
+  | 'big-number'
+  | 'quote'
+  | 'custom';
+
+// ---------------------------------------------------------------------------
+// Dispatcher
+// ---------------------------------------------------------------------------
+
+/**
+ * Dispatch to the appropriate slide layout function.
+ */
+export function layoutSlide(
+  layoutType: SlideLayoutType,
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  switch (layoutType) {
+    case 'title': return layoutSlideTitle(children, config);
+    case 'statement': return layoutSlideStatement(children, config);
+    case 'bullets': return layoutSlideBullets(children, config);
+    case 'two-column': return layoutSlideTwoColumn(children, config);
+    case 'three-column': return layoutSlideThreeColumn(children, config);
+    case 'big-number': return layoutSlideBigNumber(children, config);
+    case 'quote': return layoutSlideQuote(children, config);
+    case 'custom': return layoutSlideCustom(children, config);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function contentArea(config: SlideLayoutConfig): IRBounds {
+  const p = config.padding;
+  return {
+    x: config.bounds.x + p,
+    y: config.bounds.y + p,
+    w: config.bounds.w - p * 2,
+    h: config.bounds.h - p * 2,
+  };
+}
+
+function findByType(children: SlideLayoutChild[], type: string): number[] {
+  return children.reduce<number[]>((acc, c, i) => {
+    if (c.contentType === type) acc.push(i);
+    return acc;
+  }, []);
+}
+
+// ---------------------------------------------------------------------------
+// 1. Title layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Title slide: centered heading with optional labels below.
+ * Top 30% margin, heading centered, labels below heading, bottom 20% margin.
+ */
+export function layoutSlideTitle(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const labelIdx = findByType(children, 'label');
+
+  // Heading: vertically centered in top 60%
+  const headingY = area.y + area.h * 0.30;
+  const headingH = area.h * 0.15;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: headingY, w: area.w, h: headingH };
+  }
+
+  // Labels: below heading
+  let labelY = headingY + headingH + area.h * 0.04;
+  const labelH = area.h * 0.08;
+  for (const i of labelIdx) {
+    childBounds[i] = { x: area.x + area.w * 0.15, y: labelY, w: area.w * 0.7, h: labelH };
+    labelY += labelH + config.itemGap;
+  }
+
+  // Fill any unassigned children
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: labelY, w: area.w, h: labelH };
+      labelY += labelH + config.itemGap;
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 2. Statement layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Statement slide: vertically centered heading + optional label.
+ */
+export function layoutSlideStatement(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const labelIdx = findByType(children, 'label');
+
+  const totalContent = headingIdx.length + labelIdx.length;
+  const headingH = area.h * 0.18;
+  const labelH = area.h * 0.08;
+  const gap = area.h * 0.03;
+  const totalH = headingH + (labelIdx.length > 0 ? gap + labelH : 0);
+  const startY = area.y + (area.h - totalH) / 2;
+
+  let curY = startY;
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x + area.w * 0.1, y: curY, w: area.w * 0.8, h: headingH };
+    curY += headingH + gap;
+  }
+  for (const i of labelIdx) {
+    childBounds[i] = { x: area.x + area.w * 0.15, y: curY, w: area.w * 0.7, h: labelH };
+    curY += labelH + gap;
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY, w: area.w, h: labelH };
+      curY += labelH + gap;
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 3. Bullets layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Bullets slide: heading at top, bullet items fill remaining space.
+ */
+export function layoutSlideBullets(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const bulletIdx = findByType(children, 'bullet');
+  const labelIdx = findByType(children, 'label');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.itemGap;
+  }
+
+  // Optional label under heading
+  const subLabelH = area.h * 0.06;
+  for (const i of labelIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: subLabelH };
+    curY += subLabelH + config.itemGap;
+  }
+
+  // Bullet area: remaining space
+  const bulletAreaH = area.y + area.h - curY;
+  for (const i of bulletIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: bulletAreaH };
+    curY += bulletAreaH + config.itemGap;
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY, w: area.w, h: 5 };
+      curY += 5 + config.itemGap;
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 4. Two-column layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Two-column slide: heading at top, two equal columns below.
+ */
+export function layoutSlideTwoColumn(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  return layoutSlideColumns(children, config, 2);
+}
+
+// ---------------------------------------------------------------------------
+// 5. Three-column layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Three-column slide: heading at top, three equal columns below.
+ */
+export function layoutSlideThreeColumn(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  return layoutSlideColumns(children, config, 3);
+}
+
+// ---------------------------------------------------------------------------
+// Column layout shared implementation
+// ---------------------------------------------------------------------------
+
+function layoutSlideColumns(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+  colCount: number,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const columnIdx = findByType(children, 'column');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.columnGap;
+  }
+
+  // Column area
+  const colAreaH = area.y + area.h - curY;
+  const totalGap = config.columnGap * (colCount - 1);
+  const colW = (area.w - totalGap) / colCount;
+
+  const actualColumns = columnIdx.length > 0 ? columnIdx : [];
+  for (let c = 0; c < Math.min(actualColumns.length, colCount); c++) {
+    const i = actualColumns[c];
+    childBounds[i] = {
+      x: area.x + c * (colW + config.columnGap),
+      y: curY,
+      w: colW,
+      h: colAreaH,
+    };
+  }
+
+  // Fill unassigned children into remaining column slots
+  let nextCol = actualColumns.length;
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      if (nextCol < colCount) {
+        childBounds[i] = {
+          x: area.x + nextCol * (colW + config.columnGap),
+          y: curY,
+          w: colW,
+          h: colAreaH,
+        };
+        nextCol++;
+      } else {
+        childBounds[i] = { x: area.x, y: curY + colAreaH + config.itemGap, w: area.w, h: 5 };
+      }
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 6. Big-number layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Big-number slide: heading at top, stat cards in a grid below.
+ */
+export function layoutSlideBigNumber(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const statIdx = findByType(children, 'stat');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.columnGap;
+  }
+
+  // Stat grid: distribute stats horizontally, centered vertically
+  const statAreaH = area.y + area.h - curY;
+  const statCount = statIdx.length || 1;
+  const totalGap = config.columnGap * (statCount - 1);
+  const statW = (area.w - totalGap) / statCount;
+  const statH = Math.min(statAreaH * 0.7, statW * 0.8);
+  const statY = curY + (statAreaH - statH) / 2;
+
+  for (let s = 0; s < statIdx.length; s++) {
+    const i = statIdx[s];
+    childBounds[i] = {
+      x: area.x + s * (statW + config.columnGap),
+      y: statY,
+      w: statW,
+      h: statH,
+    };
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY, w: area.w, h: 5 };
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 7. Quote layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Quote slide: vertically centered quote text + attribution below.
+ */
+export function layoutSlideQuote(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const quoteIdx = findByType(children, 'quote');
+  const labelIdx = findByType(children, 'label');
+
+  const quoteH = area.h * 0.25;
+  const labelH = area.h * 0.08;
+  const gap = area.h * 0.04;
+  const totalH = quoteH + (labelIdx.length > 0 ? gap + labelH : 0);
+  const startY = area.y + (area.h - totalH) / 2;
+
+  let curY = startY;
+  for (const i of quoteIdx) {
+    childBounds[i] = { x: area.x + area.w * 0.1, y: curY, w: area.w * 0.8, h: quoteH };
+    curY += quoteH + gap;
+  }
+  for (const i of labelIdx) {
+    childBounds[i] = { x: area.x + area.w * 0.2, y: curY, w: area.w * 0.6, h: labelH };
+    curY += labelH + gap;
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY, w: area.w, h: 5 };
+      curY += 5 + gap;
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 8. Custom layout (passthrough)
+// ---------------------------------------------------------------------------
+
+/**
+ * Custom layout: evenly distribute children vertically.
+ * Actual layout is delegated to the existing pipeline by the compiler.
+ */
+export function layoutSlideCustom(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childH = children.length > 0
+    ? (area.h - config.itemGap * (children.length - 1)) / children.length
+    : area.h;
+  let curY = area.y;
+
+  const childBounds: IRBounds[] = children.map(() => {
+    const b: IRBounds = { x: area.x, y: curY, w: area.w, h: Math.max(childH, 2) };
+    curY += childH + config.itemGap;
+    return b;
+  });
+
+  return { containerBounds: config.bounds, childBounds };
+}

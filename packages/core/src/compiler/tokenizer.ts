@@ -67,6 +67,8 @@ export const BLOCK_TYPES = new Set([
   'group',
   'layers',
   'canvas',
+  'slide',
+  'column',
 ]);
 
 export const ELEMENT_TYPES = new Set([
@@ -84,6 +86,11 @@ export const ELEMENT_TYPES = new Set([
   'circle',
   'line',
   'text',
+  'heading',
+  'bullet',
+  'stat',
+  'quote',
+  'item',
 ]);
 
 export const FLAGS = new Set([
@@ -97,7 +104,7 @@ export const FLAGS = new Set([
   'ordered',
 ]);
 
-const DIRECTIVES = new Set(['page', 'style', 'transition', 'lane']);
+const DIRECTIVES = new Set(['page', 'style', 'transition', 'lane', 'presentation', 'theme', 'ratio']);
 
 // ---------------------------------------------------------------------------
 // Public API

@@ -107,7 +107,8 @@ export interface IROrigin {
     | 'tree'
     | 'group'
     | 'layers'
-    | 'canvas';
+    | 'canvas'
+    | 'slide';
   /** Original DSL properties preserved for re-compilation. */
   sourceProps?: Record<string, unknown>;
 }

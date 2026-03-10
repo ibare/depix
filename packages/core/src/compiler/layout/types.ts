@@ -139,3 +139,43 @@ export interface LayersLayoutConfig {
   /** Gap between layers. */
   gap: number;
 }
+
+// ---------------------------------------------------------------------------
+// Slide layout types
+// ---------------------------------------------------------------------------
+
+/** Content type discriminator for slide layout children. */
+export type SlideContentType =
+  | 'heading'
+  | 'label'
+  | 'bullet'
+  | 'stat'
+  | 'quote'
+  | 'column'
+  | 'item';
+
+/**
+ * Extended layout child for slide content.
+ * Extends LayoutChild with content type information needed by slide layouts.
+ */
+export interface SlideLayoutChild extends LayoutChild {
+  /** Semantic content type for positioning decisions. */
+  contentType: SlideContentType;
+  /** Optional level (e.g., heading level 1 or 2). */
+  level?: number;
+  /** Number of sub-items (for bullet/column children). */
+  itemCount?: number;
+}
+
+export interface SlideLayoutConfig {
+  /** Available space for the slide content. */
+  bounds: IRBounds;
+  /** Padding from slide edges (%). */
+  padding: number;
+  /** Height reserved for heading area (%). */
+  headingHeight: number;
+  /** Gap between columns (%). */
+  columnGap: number;
+  /** Gap between list items (%). */
+  itemGap: number;
+}

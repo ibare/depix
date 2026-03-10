@@ -21,6 +21,10 @@ export type {
 // Re-export built-in themes
 export { darkTheme, lightTheme } from './builtin-themes.js';
 
+// Re-export slide theme
+export type { SlideTheme } from './slide-theme.js';
+export { defaultSlideTheme } from './slide-theme.js';
+
 // Re-export resolver functions
 export {
   isNamedColor,

@@ -209,8 +209,18 @@ class Parser {
 
     this.skipNewlines();
 
-    // Brace block
-    const children = this.parseBraceBlock();
+    // Slide blocks support both properties and children inside braces
+    let children: ASTNode[];
+    if (blockType === 'slide') {
+      children = [];
+      if (this.check('BRACE_OPEN')) {
+        this.parsePropBlock(props, style, [], children);
+      } else {
+        this.error('Expected {', this.current());
+      }
+    } else {
+      children = this.parseBraceBlock();
+    }
 
     return { kind: 'block', blockType, props, children, label, id, style, loc };
   }
@@ -369,8 +379,23 @@ class Parser {
         continue;
       }
 
-      // Nested element
+      // Nested element (or property with element-type name, e.g. `label: "value"`)
       if (tok.type === 'ELEMENT_TYPE') {
+        // Look ahead: if followed by COLON, parse as property key
+        const nextTok = this.tokens[this.pos + 1];
+        if (nextTok && nextTok.type === 'COLON') {
+          const key = this.advance().value;
+          this.advance(); // :
+          const value = this.parsePropertyValue();
+          if (STYLE_KEYS.has(key)) {
+            style[key] = value;
+          } else {
+            props[key] = value;
+          }
+          this.skipComma();
+          this.skipNewlines();
+          continue;
+        }
         children.push(this.parseElement());
         this.skipNewlines();
         continue;

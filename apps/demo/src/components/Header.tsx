@@ -1,6 +1,6 @@
 import { ThemeSwitcher } from './ThemeSwitcher';
 
-export type PageId = 'showcase' | 'playground' | 'reference';
+export type PageId = 'showcase' | 'slide' | 'playground' | 'reference';
 
 interface HeaderProps {
   activePage: PageId;
@@ -9,6 +9,7 @@ interface HeaderProps {
 
 const pages: { id: PageId; label: string }[] = [
   { id: 'showcase', label: 'Showcase' },
+  { id: 'slide', label: 'Slide' },
   { id: 'playground', label: 'Playground' },
   { id: 'reference', label: 'Reference' },
 ];

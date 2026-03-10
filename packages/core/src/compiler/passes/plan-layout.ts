@@ -159,6 +159,8 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       case 'group': return 'block-group';
       case 'layers': return 'block-layers';
       case 'canvas': return 'block-canvas';
+      case 'slide': return 'block-canvas';
+      case 'column': return 'block-stack';
       default: return 'block-canvas';
     }
   }
@@ -173,17 +175,23 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       return 'element-shape';
     case 'label':
     case 'text':
+    case 'heading':
+    case 'item':
       return 'element-text';
     case 'box':
     case 'layer':
       return 'element-box';
     case 'list':
+    case 'bullet':
       return 'element-list';
     case 'divider':
     case 'line':
       return 'element-divider';
     case 'image':
       return 'element-image';
+    case 'stat':
+    case 'quote':
+      return 'element-text';
     default:
       return 'element-shape';
   }

@@ -4,6 +4,7 @@ export { layoutFlow } from './flow-layout.js';
 export { layoutTree } from './tree-layout.js';
 export { layoutGroup } from './group-layout.js';
 export { layoutLayers } from './layers-layout.js';
+export { layoutSlide, type SlideLayoutType } from './slide-layout.js';
 
 export type {
   LayoutChild,
@@ -16,4 +17,7 @@ export type {
   TreeNode,
   GroupLayoutConfig,
   LayersLayoutConfig,
+  SlideLayoutChild,
+  SlideLayoutConfig,
+  SlideContentType,
 } from './types.js';
