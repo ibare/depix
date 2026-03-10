@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../../../src/compiler/compiler.js';
-import type { IRContainer, IRShape, IRText, IRLine, IRElement } from '../../../src/ir/types.js';
+import type { IRContainer, IRPath, IRShape, IRText, IRLine, IRElement } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -233,5 +233,193 @@ describe('E2E: error resilience', () => {
     const { ir, errors } = compile(dsl);
     // Should compile without crash (empty table)
     expect(ir.scenes).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: line chart in diagram mode
+// ---------------------------------------------------------------------------
+
+describe('E2E: line chart (diagram mode)', () => {
+  it('compiles type:line chart → IR with circles and lines', () => {
+    const dsl = `
+@data "revenue" {
+  "Quarter" "Revenue"
+  "Q1" 120
+  "Q2" 185
+  "Q3" 240
+}
+
+chart "revenue" type:line x:"Quarter" y:"Revenue"
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+    expect(ir.scenes).toHaveLength(1);
+
+    const scene = ir.scenes[0];
+    const shapes = findAll(scene.elements, 'shape') as IRShape[];
+    const lines = findAll(scene.elements, 'line') as IRLine[];
+
+    // Should have circle points (3 data points)
+    const circles = shapes.filter(s => s.shape === 'circle');
+    expect(circles.length).toBeGreaterThanOrEqual(3);
+
+    // Should have line segments (2 connecting segments) + 2 axes = 4
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: pie chart in diagram mode
+// ---------------------------------------------------------------------------
+
+describe('E2E: pie chart (diagram mode)', () => {
+  it('compiles type:pie chart → IR with path wedges and labels', () => {
+    const dsl = `
+@data "share" {
+  "Browser" "Share"
+  "Chrome" 65
+  "Firefox" 20
+  "Safari" 15
+}
+
+chart "share" type:pie x:"Browser" y:"Share"
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+    expect(ir.scenes).toHaveLength(1);
+
+    const scene = ir.scenes[0];
+    const paths = findAll(scene.elements, 'path') as IRPath[];
+    const texts = findAll(scene.elements, 'text') as IRText[];
+
+    // Should have 3 wedge paths
+    expect(paths.length).toBeGreaterThanOrEqual(3);
+
+    // Each wedge path should be valid SVG
+    for (const p of paths) {
+      expect(p.d).toMatch(/^M\s/);
+      expect(p.d).toContain('A');
+      expect(p.d).toMatch(/Z$/);
+    }
+
+    // Should have labels with percentage
+    const labelTexts = texts.map(t => t.content);
+    const percentLabels = labelTexts.filter(t => t.includes('%'));
+    expect(percentLabels.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: bar chart per-item colors
+// ---------------------------------------------------------------------------
+
+describe('E2E: bar chart per-item colors', () => {
+  it('each bar has a different fill color', () => {
+    const dsl = `
+chart {
+  "Category" "Value"
+  "A" 10
+  "B" 30
+  "C" 20
+}
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+
+    const scene = ir.scenes[0];
+    const shapes = findAll(scene.elements, 'shape') as IRShape[];
+    const bars = shapes.filter(s => s.shape === 'rect' && s.style.fill);
+
+    // Should have 3 bars with different colors
+    expect(bars.length).toBeGreaterThanOrEqual(3);
+    const fills = bars.map(b => b.style.fill);
+    const uniqueFills = new Set(fills);
+    expect(uniqueFills.size).toBeGreaterThanOrEqual(2); // at least some variety
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: type:bar is default — no explicit type
+// ---------------------------------------------------------------------------
+
+describe('E2E: chart default type is bar', () => {
+  it('chart without type prop renders as bar chart', () => {
+    const dsl = `
+chart {
+  "X" "Y"
+  "A" 10
+  "B" 20
+}
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+
+    const scene = ir.scenes[0];
+    const shapes = findAll(scene.elements, 'shape') as IRShape[];
+    const bars = shapes.filter(s => s.shape === 'rect');
+    expect(bars.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: line chart in scene (presentation mode)
+// ---------------------------------------------------------------------------
+
+describe('E2E: line chart in scene (presentation mode)', () => {
+  it('compiles scene with type:line chart', () => {
+    const dsl = `
+@presentation
+
+@data "metrics" {
+  "Month" "Users"
+  "Jan" 100
+  "Feb" 200
+  "Mar" 350
+}
+
+scene "growth" {
+  heading "User Growth"
+  chart "metrics" type:line x:"Month" y:"Users"
+}
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+    expect(ir.scenes).toHaveLength(1);
+
+    const scene = ir.scenes[0];
+    const shapes = findAll(scene.elements, 'shape') as IRShape[];
+    const circles = shapes.filter(s => s.shape === 'circle');
+    expect(circles.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: pie chart in scene (presentation mode)
+// ---------------------------------------------------------------------------
+
+describe('E2E: pie chart in scene (presentation mode)', () => {
+  it('compiles scene with type:pie chart', () => {
+    const dsl = `
+@presentation
+
+@data "share" {
+  "Type" "Count"
+  "A" 40
+  "B" 60
+}
+
+scene "distribution" {
+  heading "Distribution"
+  chart "share" type:pie x:"Type" y:"Count"
+}
+`;
+    const { ir, errors } = compile(dsl);
+    expect(errors).toHaveLength(0);
+    expect(ir.scenes).toHaveLength(1);
+
+    const scene = ir.scenes[0];
+    const paths = findAll(scene.elements, 'path') as IRPath[];
+    expect(paths.length).toBeGreaterThanOrEqual(2);
   });
 });

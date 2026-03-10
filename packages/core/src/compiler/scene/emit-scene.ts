@@ -13,9 +13,12 @@ import type {
   IRBounds,
   IRContainer,
   IRElement,
+  IRLine,
   IRMeta,
   IROrigin,
+  IRPath,
   IRScene,
+  IRShape,
   IRStyle,
   IRText,
   IRTransition,
@@ -32,6 +35,13 @@ import type {
 import { generateId } from '../../ir/utils.js';
 import { planScene, type ScenePlan } from './plan-scene.js';
 import { emitIR } from '../passes/emit-ir.js';
+import {
+  extractChartData,
+  computeChartPositions,
+  computeLineChartPositions,
+  computePieChartPositions,
+} from '../layout/chart-layout.js';
+import { getChartColor } from '../layout/chart-colors.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -478,144 +488,157 @@ function emitSceneChart(
   block: ASTBlock,
   id: string,
   bounds: IRBounds,
-  _theme: DepixTheme,
+  theme: DepixTheme,
   sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const children: IRElement[] = [];
-  const rows = block.children.filter(
-    (c): c is ASTElement => c.kind === 'element' && c.elementType === 'row',
-  );
+  const data = extractChartData(block);
 
-  // Determine x and y columns from props
-  const xCol = typeof block.props.x === 'string' ? block.props.x : undefined;
-  const yCol = typeof block.props.y === 'string' ? block.props.y : undefined;
-
-  // Extract header and data rows
-  const headerRow = rows.find(r => r.props.header === 1);
-  const dataRows = rows.filter(r => r.props.header !== 1);
-
-  if (dataRows.length === 0) {
+  if (data.length === 0) {
     return { id, type: 'container', bounds, style: {}, children };
   }
 
-  const columns = headerRow?.values?.map(v => String(v)) ?? [];
-  const xIdx = xCol ? columns.indexOf(xCol) : 0;
-  const yIdx = yCol ? columns.indexOf(yCol) : columns.findIndex((_c, i) => {
-    // First column with numeric data
-    return i > 0 && dataRows.some(r => typeof r.values?.[i] === 'number');
-  });
-  const effectiveYIdx = yIdx >= 0 ? yIdx : 1;
+  const chartType = typeof block.props.type === 'string' ? block.props.type : 'bar';
+  const fontSize = baseFontSize * sceneTheme.typography.bodySize;
 
-  // Extract values
-  const categories = dataRows.map(r => String(r.values?.[xIdx] ?? ''));
-  const values = dataRows.map(r => {
-    const v = r.values?.[effectiveYIdx];
-    return typeof v === 'number' ? v : 0;
-  });
-  const maxVal = Math.max(...values, 1);
-
-  // Chart area (with margins for axes)
-  const axisMarginLeft = bounds.w * 0.08;
-  const axisMarginBottom = bounds.h * 0.15;
-  const plotBounds: IRBounds = {
-    x: bounds.x + axisMarginLeft,
-    y: bounds.y,
-    w: bounds.w - axisMarginLeft,
-    h: bounds.h - axisMarginBottom,
-  };
-
-  // Y axis
-  children.push({
-    id: `${id}-y-axis`,
-    type: 'line',
-    bounds: { x: plotBounds.x, y: plotBounds.y, w: 0, h: plotBounds.h },
-    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
-    from: { x: plotBounds.x, y: plotBounds.y },
-    to: { x: plotBounds.x, y: plotBounds.y + plotBounds.h },
-  });
-
-  // X axis
-  children.push({
-    id: `${id}-x-axis`,
-    type: 'line',
-    bounds: { x: plotBounds.x, y: plotBounds.y + plotBounds.h, w: plotBounds.w, h: 0 },
-    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
-    from: { x: plotBounds.x, y: plotBounds.y + plotBounds.h },
-    to: { x: plotBounds.x + plotBounds.w, y: plotBounds.y + plotBounds.h },
-  });
-
-  // Bars and labels
-  const barGap = plotBounds.w * 0.05;
-  const totalGap = barGap * Math.max(values.length - 1, 0);
-  const barW = (plotBounds.w - totalGap) / values.length;
-
-  let curX = plotBounds.x;
-  for (let i = 0; i < values.length; i++) {
-    const barH = (values[i] / maxVal) * plotBounds.h;
-    const barBounds: IRBounds = {
-      x: curX,
-      y: plotBounds.y + plotBounds.h - barH,
-      w: barW,
-      h: barH,
-    };
-
-    // Bar
-    children.push({
-      id: `${id}-bar-${i}`,
-      type: 'shape',
-      bounds: barBounds,
-      style: { fill: sceneTheme.colors.accent },
-      shape: 'rect',
-    });
-
-    // X label
-    children.push({
-      id: `${id}-xlabel-${i}`,
-      type: 'text',
-      bounds: {
-        x: curX,
-        y: plotBounds.y + plotBounds.h + axisMarginBottom * 0.1,
-        w: barW,
-        h: axisMarginBottom * 0.7,
-      },
-      style: {},
-      content: categories[i],
-      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.7,
-      color: sceneTheme.colors.textMuted,
-      align: 'center',
-      valign: 'top',
-    } as IRText);
-
-    curX += barW + barGap;
+  switch (chartType) {
+    case 'line':
+      emitSceneLineChart(children, id, bounds, data, theme, sceneTheme, fontSize);
+      break;
+    case 'pie':
+      emitScenePieChart(children, id, bounds, data, theme, sceneTheme, fontSize);
+      break;
+    default:
+      emitSceneBarChart(children, id, bounds, data, theme, sceneTheme, fontSize);
+      break;
   }
 
-  // Y labels (max and 0)
-  children.push({
-    id: `${id}-ylabel-max`,
-    type: 'text',
-    bounds: { x: bounds.x, y: plotBounds.y, w: axisMarginLeft * 0.9, h: plotBounds.h * 0.1 },
-    style: {},
-    content: String(maxVal),
-    fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.65,
-    color: sceneTheme.colors.textMuted,
-    align: 'right',
-    valign: 'top',
-  } as IRText);
-
-  children.push({
-    id: `${id}-ylabel-zero`,
-    type: 'text',
-    bounds: { x: bounds.x, y: plotBounds.y + plotBounds.h * 0.9, w: axisMarginLeft * 0.9, h: plotBounds.h * 0.1 },
-    style: {},
-    content: '0',
-    fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.65,
-    color: sceneTheme.colors.textMuted,
-    align: 'right',
-    valign: 'bottom',
-  } as IRText);
-
   return { id, type: 'container', bounds, style: {}, children };
+}
+
+function emitSceneChartAxes(
+  children: IRElement[],
+  id: string,
+  axes: { yAxis: { from: { x: number; y: number }; to: { x: number; y: number }; bounds: IRBounds }; xAxis: { from: { x: number; y: number }; to: { x: number; y: number }; bounds: IRBounds }; yLabelMax: { bounds: IRBounds; content: string }; yLabelZero: { bounds: IRBounds } },
+  sceneTheme: SceneTheme,
+  fontSize: number,
+): void {
+  children.push({
+    id: `${id}-y-axis`, type: 'line', bounds: axes.yAxis.bounds,
+    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
+    from: axes.yAxis.from, to: axes.yAxis.to,
+  } as IRLine);
+  children.push({
+    id: `${id}-x-axis`, type: 'line', bounds: axes.xAxis.bounds,
+    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
+    from: axes.xAxis.from, to: axes.xAxis.to,
+  } as IRLine);
+  children.push({
+    id: `${id}-ylabel-max`, type: 'text', bounds: axes.yLabelMax.bounds,
+    style: {}, content: axes.yLabelMax.content,
+    fontSize: fontSize * 0.65, color: sceneTheme.colors.textMuted, align: 'right', valign: 'top',
+  } as IRText);
+  children.push({
+    id: `${id}-ylabel-zero`, type: 'text', bounds: axes.yLabelZero.bounds,
+    style: {}, content: '0',
+    fontSize: fontSize * 0.65, color: sceneTheme.colors.textMuted, align: 'right', valign: 'bottom',
+  } as IRText);
+}
+
+function emitSceneBarChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  fontSize: number,
+): void {
+  const positions = computeChartPositions(bounds, data);
+  emitSceneChartAxes(children, id, positions.axes, sceneTheme, fontSize);
+
+  for (let i = 0; i < positions.bars.length; i++) {
+    const bar = positions.bars[i];
+    children.push({
+      id: `${id}-bar-${i}`, type: 'shape', bounds: bar.barBounds,
+      style: { fill: getChartColor(i, theme) }, shape: 'rect',
+    } as IRShape);
+    children.push({
+      id: `${id}-xlabel-${i}`, type: 'text', bounds: bar.labelBounds,
+      style: {}, content: bar.category,
+      fontSize: fontSize * 0.7, color: sceneTheme.colors.textMuted, align: 'center', valign: 'top',
+    } as IRText);
+  }
+}
+
+function emitSceneLineChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  fontSize: number,
+): void {
+  const positions = computeLineChartPositions(bounds, data);
+  emitSceneChartAxes(children, id, positions.axes, sceneTheme, fontSize);
+
+  for (let i = 0; i < positions.lines.length; i++) {
+    const seg = positions.lines[i];
+    const segBounds: IRBounds = {
+      x: Math.min(seg.from.x, seg.to.x),
+      y: Math.min(seg.from.y, seg.to.y),
+      w: Math.abs(seg.to.x - seg.from.x) || 0.1,
+      h: Math.abs(seg.to.y - seg.from.y) || 0.1,
+    };
+    children.push({
+      id: `${id}-line-${i}`, type: 'line', bounds: segBounds,
+      style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.3 },
+      from: seg.from, to: seg.to,
+    } as IRLine);
+  }
+
+  for (let i = 0; i < positions.points.length; i++) {
+    const pt = positions.points[i];
+    const r = pt.radius;
+    children.push({
+      id: `${id}-point-${i}`, type: 'shape',
+      bounds: { x: pt.center.x - r, y: pt.center.y - r, w: r * 2, h: r * 2 },
+      style: { fill: getChartColor(i, theme) }, shape: 'circle',
+    } as IRShape);
+    children.push({
+      id: `${id}-xlabel-${i}`, type: 'text', bounds: pt.labelBounds,
+      style: {}, content: pt.category,
+      fontSize: fontSize * 0.7, color: sceneTheme.colors.textMuted, align: 'center', valign: 'top',
+    } as IRText);
+  }
+}
+
+function emitScenePieChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  fontSize: number,
+): void {
+  const positions = computePieChartPositions(bounds, data);
+
+  for (let i = 0; i < positions.wedges.length; i++) {
+    const wedge = positions.wedges[i];
+    children.push({
+      id: `${id}-wedge-${i}`, type: 'path', bounds,
+      style: { fill: getChartColor(i, theme), stroke: sceneTheme.colors.background, strokeWidth: 0.3 },
+      d: wedge.pathD, closed: true,
+    } as IRPath);
+    children.push({
+      id: `${id}-label-${i}`, type: 'text', bounds: wedge.labelBounds,
+      style: {}, content: `${wedge.category} ${Math.round(wedge.percentage)}%`,
+      fontSize: fontSize * 0.6, color: sceneTheme.colors.text, align: 'center', valign: 'middle',
+    } as IRText);
+  }
 }
 
 function emitImage(

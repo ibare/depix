@@ -21,6 +21,7 @@ import type {
   IRLine,
   IRMeta,
   IROrigin,
+  IRPath,
   IRScene,
   IRShape,
   IRShapeType,
@@ -47,7 +48,13 @@ import { measureDiagram } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
 import { allocateBudgets } from './allocate-budgets.js';
-import { computeChartPositions, type ChartDataPoint } from '../layout/chart-layout.js';
+import {
+  computeChartPositions,
+  computeLineChartPositions,
+  computePieChartPositions,
+  extractChartData,
+} from '../layout/chart-layout.js';
+import { getChartColor } from '../layout/chart-colors.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -801,7 +808,7 @@ function emitRowElement(
 }
 
 // ---------------------------------------------------------------------------
-// Chart block (bar chart: axes, bars, labels)
+// Chart block (bar / line / pie chart: axes, data elements, labels)
 // ---------------------------------------------------------------------------
 
 function emitChartBlock(
@@ -812,96 +819,30 @@ function emitChartBlock(
   scaleCtx?: ScaleContext,
 ): IRContainer {
   const children: IRElement[] = [];
-
-  // Extract data from AST rows (data reading, not layout)
   const data = extractChartData(block);
 
   if (data.length === 0) {
-    const container: IRContainer = {
+    return {
       id, type: 'container', bounds, style: {}, children,
       origin: { sourceType: 'chart', sourceProps: { ...block.props } },
     };
-    return container;
   }
 
-  // Delegate position computation to layout module
-  const positions = computeChartPositions(bounds, data);
+  const chartType = typeof block.props.type === 'string' ? block.props.type : 'bar';
 
-  const fontSize = scaleCtx
-    ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem')
-    : theme.fontSize.sm;
-
-  // Y axis
-  children.push({
-    id: `${id}-y-axis`,
-    type: 'line',
-    bounds: positions.axes.yAxis.bounds,
-    style: { stroke: theme.border, strokeWidth: 0.2 },
-    from: positions.axes.yAxis.from,
-    to: positions.axes.yAxis.to,
-  } as IRLine);
-
-  // X axis
-  children.push({
-    id: `${id}-x-axis`,
-    type: 'line',
-    bounds: positions.axes.xAxis.bounds,
-    style: { stroke: theme.border, strokeWidth: 0.2 },
-    from: positions.axes.xAxis.from,
-    to: positions.axes.xAxis.to,
-  } as IRLine);
-
-  // Bars and X labels
-  for (let i = 0; i < positions.bars.length; i++) {
-    const bar = positions.bars[i];
-
-    children.push({
-      id: `${id}-bar-${i}`,
-      type: 'shape',
-      bounds: bar.barBounds,
-      style: { fill: theme.colors.accent },
-      shape: 'rect',
-    } as IRShape);
-
-    children.push({
-      id: `${id}-xlabel-${i}`,
-      type: 'text',
-      bounds: bar.labelBounds,
-      style: {},
-      content: bar.category,
-      fontSize: fontSize * 0.8,
-      color: theme.foreground,
-      align: 'center',
-      valign: 'top',
-    } as IRText);
+  switch (chartType) {
+    case 'line':
+      emitLineChart(children, id, bounds, data, theme, scaleCtx);
+      break;
+    case 'pie':
+      emitPieChart(children, id, bounds, data, theme, scaleCtx);
+      break;
+    default: // 'bar'
+      emitBarChart(children, id, bounds, data, theme, scaleCtx);
+      break;
   }
 
-  // Y labels (max and 0)
-  children.push({
-    id: `${id}-ylabel-max`,
-    type: 'text',
-    bounds: positions.axes.yLabelMax.bounds,
-    style: {},
-    content: positions.axes.yLabelMax.content,
-    fontSize: fontSize * 0.7,
-    color: theme.foreground,
-    align: 'right',
-    valign: 'top',
-  } as IRText);
-
-  children.push({
-    id: `${id}-ylabel-zero`,
-    type: 'text',
-    bounds: positions.axes.yLabelZero.bounds,
-    style: {},
-    content: '0',
-    fontSize: fontSize * 0.7,
-    color: theme.foreground,
-    align: 'right',
-    valign: 'bottom',
-  } as IRText);
-
-  const container: IRContainer = {
+  return {
     id,
     type: 'container',
     bounds,
@@ -909,37 +850,143 @@ function emitChartBlock(
     children,
     origin: { sourceType: 'chart', sourceProps: { ...block.props } },
   };
-
-  return container;
 }
 
-/**
- * Extract chart data points from an AST block's row children.
- * Pure data reading — no layout computation.
- */
-function extractChartData(block: ASTBlock): ChartDataPoint[] {
-  const rows = block.children.filter(
-    (c): c is ASTElement => c.kind === 'element' && c.elementType === 'row',
-  );
+function emitChartAxes(
+  children: IRElement[],
+  id: string,
+  axes: { yAxis: { from: { x: number; y: number }; to: { x: number; y: number }; bounds: IRBounds }; xAxis: { from: { x: number; y: number }; to: { x: number; y: number }; bounds: IRBounds }; yLabelMax: { bounds: IRBounds; content: string }; yLabelZero: { bounds: IRBounds } },
+  theme: DepixTheme,
+  fontSize: number,
+): void {
+  children.push({
+    id: `${id}-y-axis`, type: 'line', bounds: axes.yAxis.bounds,
+    style: { stroke: theme.border, strokeWidth: 0.2 },
+    from: axes.yAxis.from, to: axes.yAxis.to,
+  } as IRLine);
 
-  const headerRow = rows.find(r => r.props.header === 1);
-  const dataRows = rows.filter(r => r.props.header !== 1);
+  children.push({
+    id: `${id}-x-axis`, type: 'line', bounds: axes.xAxis.bounds,
+    style: { stroke: theme.border, strokeWidth: 0.2 },
+    from: axes.xAxis.from, to: axes.xAxis.to,
+  } as IRLine);
 
-  if (dataRows.length === 0) return [];
+  children.push({
+    id: `${id}-ylabel-max`, type: 'text', bounds: axes.yLabelMax.bounds,
+    style: {}, content: axes.yLabelMax.content,
+    fontSize: fontSize * 0.7, color: theme.foreground, align: 'right', valign: 'top',
+  } as IRText);
 
-  const xCol = typeof block.props.x === 'string' ? block.props.x : undefined;
-  const yCol = typeof block.props.y === 'string' ? block.props.y : undefined;
-  const columns = headerRow?.values?.map(v => String(v)) ?? [];
-  const xIdx = xCol ? columns.indexOf(xCol) : 0;
-  const yIdx = yCol ? columns.indexOf(yCol) : columns.findIndex((_c, i) => {
-    return i > 0 && dataRows.some(r => typeof r.values?.[i] === 'number');
-  });
-  const effectiveYIdx = yIdx >= 0 ? yIdx : 1;
+  children.push({
+    id: `${id}-ylabel-zero`, type: 'text', bounds: axes.yLabelZero.bounds,
+    style: {}, content: '0',
+    fontSize: fontSize * 0.7, color: theme.foreground, align: 'right', valign: 'bottom',
+  } as IRText);
+}
 
-  return dataRows.map(r => ({
-    category: String(r.values?.[xIdx] ?? ''),
-    value: typeof r.values?.[effectiveYIdx] === 'number' ? r.values[effectiveYIdx] as number : 0,
-  }));
+function emitBarChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
+): void {
+  const positions = computeChartPositions(bounds, data);
+  const fontSize = scaleCtx
+    ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem')
+    : theme.fontSize.sm;
+
+  emitChartAxes(children, id, positions.axes, theme, fontSize);
+
+  for (let i = 0; i < positions.bars.length; i++) {
+    const bar = positions.bars[i];
+    children.push({
+      id: `${id}-bar-${i}`, type: 'shape', bounds: bar.barBounds,
+      style: { fill: getChartColor(i, theme) }, shape: 'rect',
+    } as IRShape);
+    children.push({
+      id: `${id}-xlabel-${i}`, type: 'text', bounds: bar.labelBounds,
+      style: {}, content: bar.category,
+      fontSize: fontSize * 0.8, color: theme.foreground, align: 'center', valign: 'top',
+    } as IRText);
+  }
+}
+
+function emitLineChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
+): void {
+  const positions = computeLineChartPositions(bounds, data);
+  const fontSize = scaleCtx
+    ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem')
+    : theme.fontSize.sm;
+
+  emitChartAxes(children, id, positions.axes, theme, fontSize);
+
+  // Line segments
+  for (let i = 0; i < positions.lines.length; i++) {
+    const seg = positions.lines[i];
+    const segBounds: IRBounds = {
+      x: Math.min(seg.from.x, seg.to.x),
+      y: Math.min(seg.from.y, seg.to.y),
+      w: Math.abs(seg.to.x - seg.from.x) || 0.1,
+      h: Math.abs(seg.to.y - seg.from.y) || 0.1,
+    };
+    children.push({
+      id: `${id}-line-${i}`, type: 'line', bounds: segBounds,
+      style: { stroke: theme.border, strokeWidth: 0.3 },
+      from: seg.from, to: seg.to,
+    } as IRLine);
+  }
+
+  // Points and labels
+  for (let i = 0; i < positions.points.length; i++) {
+    const pt = positions.points[i];
+    const r = pt.radius;
+    children.push({
+      id: `${id}-point-${i}`, type: 'shape',
+      bounds: { x: pt.center.x - r, y: pt.center.y - r, w: r * 2, h: r * 2 },
+      style: { fill: getChartColor(i, theme) }, shape: 'circle',
+    } as IRShape);
+    children.push({
+      id: `${id}-xlabel-${i}`, type: 'text', bounds: pt.labelBounds,
+      style: {}, content: pt.category,
+      fontSize: fontSize * 0.8, color: theme.foreground, align: 'center', valign: 'top',
+    } as IRText);
+  }
+}
+
+function emitPieChart(
+  children: IRElement[],
+  id: string,
+  bounds: IRBounds,
+  data: { category: string; value: number }[],
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
+): void {
+  const positions = computePieChartPositions(bounds, data);
+  const fontSize = scaleCtx
+    ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem')
+    : theme.fontSize.sm;
+
+  for (let i = 0; i < positions.wedges.length; i++) {
+    const wedge = positions.wedges[i];
+    children.push({
+      id: `${id}-wedge-${i}`, type: 'path', bounds,
+      style: { fill: getChartColor(i, theme), stroke: theme.background, strokeWidth: 0.3 },
+      d: wedge.pathD, closed: true,
+    } as IRPath);
+    children.push({
+      id: `${id}-label-${i}`, type: 'text', bounds: wedge.labelBounds,
+      style: {}, content: `${wedge.category} ${Math.round(wedge.percentage)}%`,
+      fontSize: fontSize * 0.7, color: theme.foreground, align: 'center', valign: 'middle',
+    } as IRText);
+  }
 }
 
 // ---------------------------------------------------------------------------

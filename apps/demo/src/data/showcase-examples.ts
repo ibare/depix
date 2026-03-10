@@ -350,4 +350,55 @@ table {
 
 chart "revenue" type:bar x:"Quarter" y:"Revenue"`,
   },
+  {
+    id: 'line-chart',
+    title: 'Line Chart',
+    description: '꺾은선 그래프로 시간에 따른 추세를 시각화한다.',
+    ascii: `Monthly Active Users
+    |          *
+350 |        *
+    |      *
+200 |    *
+    |  *
+100 | *
+    +---+---+---+---+---+
+     Jan Feb Mar Apr May Jun`,
+    dsl: `@page 16:9
+
+@data "users" {
+  "Month" "Users"
+  "Jan" 100
+  "Feb" 150
+  "Mar" 200
+  "Apr" 280
+  "May" 350
+  "Jun" 420
+}
+
+chart "users" type:line x:"Month" y:"Users"`,
+  },
+  {
+    id: 'pie-chart',
+    title: 'Pie Chart',
+    description: '원형 그래프로 구성 비율을 한눈에 파악한다.',
+    ascii: `Browser Market Share
+
+     ╭────────╮
+    ╱ Chrome   ╲
+   │   65%      │
+   │  Firefox   │
+    ╲  20%     ╱
+     ╰────────╯
+      Safari 15%`,
+    dsl: `@page 16:9
+
+@data "browsers" {
+  "Browser" "Share"
+  "Chrome" 65
+  "Firefox" 20
+  "Safari" 15
+}
+
+chart "browsers" type:pie x:"Browser" y:"Share"`,
+  },
 ];
