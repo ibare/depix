@@ -180,6 +180,130 @@ scene "roadmap" {
 }`,
   },
   {
+    id: 'split-title-scene',
+    title: 'Split Title Scene',
+    description: '좌우 반반 표지. 한쪽에 제목, 다른 쪽에 이미지를 배치한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "split-cover" {
+  layout: two-column
+  heading "Depix 2025"
+  column {
+    heading "Next-Gen DSL Engine" { level: 2 }
+    label "Declarative diagrams"
+    label "Presentation mode"
+    label "Real-time collaboration"
+  }
+  column {
+    image "hero-visual.png" { alt: "Hero Visual" }
+  }
+}`,
+  },
+  {
+    id: 'section-divider-scene',
+    title: 'Section Divider Scene',
+    description: '섹션 구분용 슬라이드. 짧은 제목으로 주제 전환을 알린다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "section" {
+  layout: statement
+  heading "Part 2"
+  label "Architecture Deep Dive"
+}`,
+  },
+  {
+    id: 'closing-scene',
+    title: 'Closing Scene',
+    description: '마무리 슬라이드. 감사 인사 또는 연락처를 표시한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "closing" {
+  layout: title
+  heading "Thank You"
+  label "Questions & Discussion"
+  label "team@depix.dev"
+}`,
+  },
+  {
+    id: 'agenda-scene',
+    title: 'Agenda Scene',
+    description: '목차 슬라이드. 발표 순서를 번호로 정리한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "agenda" {
+  layout: bullets
+  heading "Agenda"
+  bullet {
+    item "1. Introduction & Background"
+    item "2. Problem Statement"
+    item "3. Proposed Solution"
+    item "4. Demo & Results"
+    item "5. Q&A"
+  }
+}`,
+  },
+  {
+    id: 'comparison-scene',
+    title: 'Comparison Scene',
+    description: 'Before/After 비교 레이아웃. 변화 전후를 나란히 보여준다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "comparison" {
+  layout: two-column
+  heading "Migration Impact"
+  column {
+    heading "Before" { level: 2 }
+    label "Manual deployments"
+    label "4-hour release cycles"
+    label "Frequent rollbacks"
+    label "No visibility"
+  }
+  column {
+    heading "After" { level: 2 }
+    label "Fully automated CI/CD"
+    label "15-minute releases"
+    label "Zero-downtime deploys"
+    label "Real-time dashboards"
+  }
+}`,
+  },
+  {
+    id: 'process-scene',
+    title: 'Process Scene',
+    description: '번호가 있는 단계별 프로세스. 워크플로우 설명에 적합.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "process" {
+  layout: timeline
+  heading "How It Works"
+  step "1" { label: "Write DSL" }
+  step "2" { label: "Compile to IR" }
+  step "3" { label: "Render Canvas" }
+  step "4" { label: "Export PNG" }
+}`,
+  },
+  {
+    id: 'image-full-scene',
+    title: 'Image Full Scene',
+    description: '전체 이미지 배경 위에 텍스트를 오버레이하는 레이아웃.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "hero" {
+  layout: image-text
+  heading "Built for Scale"
+  image "full-background.png" { alt: "Background" }
+  label "Enterprise-grade performance"
+  label "from day one"
+}`,
+  },
+  {
     id: 'full-presentation',
     title: 'Full Presentation (5 Slides)',
     description: '여러 레이아웃을 조합한 완성된 프레젠테이션 예시. 첫 번째 슬라이드가 렌더링된다.',
