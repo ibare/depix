@@ -221,6 +221,99 @@ flow {
 // Slide-specific features
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// New layout types
+// ---------------------------------------------------------------------------
+
+describe('New slide layouts', () => {
+  it('compiles an image-text slide', () => {
+    const { ir, errors } = compileSlide(`
+@presentation
+
+slide "hero" {
+  layout: image-text
+  heading "Product Overview"
+  image "screenshot.png" { alt: "Product" }
+  label "A powerful tool"
+  label "Easy to use"
+}
+`);
+    expect(errors).toEqual([]);
+    expect(ir.scenes).toHaveLength(1);
+    expect(ir.scenes[0].id).toBe('hero');
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'Product Overview')).toBeDefined();
+    expect(texts.find(t => t.content === 'A powerful tool')).toBeDefined();
+    // Image placeholder should contain alt text
+    expect(texts.find(t => t.content.includes('Product'))).toBeDefined();
+  });
+
+  it('compiles an icon-grid slide', () => {
+    const { ir, errors } = compileSlide(`
+@presentation
+
+slide "features" {
+  layout: icon-grid
+  heading "Key Features"
+  icon "P" { label: "Parse", description: "Fast tokenizer" }
+  icon "C" { label: "Compile", description: "13-pass pipeline" }
+  icon "R" { label: "Render", description: "Canvas output" }
+  icon "E" { label: "Edit", description: "Real-time" }
+}
+`);
+    expect(errors).toEqual([]);
+    expect(ir.scenes).toHaveLength(1);
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'Key Features')).toBeDefined();
+    expect(texts.find(t => t.content === 'P')).toBeDefined();
+    expect(texts.find(t => t.content === 'Parse')).toBeDefined();
+    expect(texts.find(t => t.content === 'Fast tokenizer')).toBeDefined();
+  });
+
+  it('compiles a timeline slide', () => {
+    const { ir, errors } = compileSlide(`
+@presentation
+
+slide "roadmap" {
+  layout: timeline
+  heading "Roadmap"
+  step "Q1" { label: "Research" }
+  step "Q2" { label: "Build" }
+  step "Q3" { label: "Launch" }
+}
+`);
+    expect(errors).toEqual([]);
+    expect(ir.scenes).toHaveLength(1);
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'Roadmap')).toBeDefined();
+    expect(texts.find(t => t.content === 'Q1')).toBeDefined();
+    expect(texts.find(t => t.content === 'Research')).toBeDefined();
+    expect(texts.find(t => t.content === 'Q2')).toBeDefined();
+  });
+
+  it('IR elements from new layouts have valid bounds', () => {
+    const { ir } = compileSlide(`
+@presentation
+slide { layout: image-text heading "T" image "img.png" label "Text" }
+slide { layout: icon-grid heading "T" icon "A" { label: "X" } icon "B" { label: "Y" } }
+slide { layout: timeline heading "T" step "1" { label: "S1" } step "2" { label: "S2" } }
+`);
+    expect(ir.scenes).toHaveLength(3);
+    for (const scene of ir.scenes) {
+      for (const el of scene.elements) {
+        expect(el.bounds.x).toBeGreaterThanOrEqual(0);
+        expect(el.bounds.y).toBeGreaterThanOrEqual(0);
+        expect(el.bounds.x + el.bounds.w).toBeLessThanOrEqual(101);
+        expect(el.bounds.y + el.bounds.h).toBeLessThanOrEqual(101);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slide-specific features
+// ---------------------------------------------------------------------------
+
 describe('Slide features', () => {
   it('generates scene backgrounds', () => {
     const { ir } = compileSlide(`

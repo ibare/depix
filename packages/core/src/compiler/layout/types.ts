@@ -152,7 +152,10 @@ export type SlideContentType =
   | 'stat'
   | 'quote'
   | 'column'
-  | 'item';
+  | 'item'
+  | 'image'
+  | 'icon'
+  | 'step';
 
 /**
  * Extended layout child for slide content.

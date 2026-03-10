@@ -16,6 +16,9 @@ import {
   layoutSlideThreeColumn,
   layoutSlideBigNumber,
   layoutSlideQuote,
+  layoutSlideImageText,
+  layoutSlideIconGrid,
+  layoutSlideTimeline,
   layoutSlideCustom,
 } from '../../../src/compiler/layout/slide-layout.js';
 
@@ -58,8 +61,8 @@ describe('layoutSlide dispatcher', () => {
     expect(result.childBounds).toHaveLength(1);
   });
 
-  it('dispatches all 8 layout types without error', () => {
-    const types = ['title', 'statement', 'bullets', 'two-column', 'three-column', 'big-number', 'quote', 'custom'] as const;
+  it('dispatches all 11 layout types without error', () => {
+    const types = ['title', 'statement', 'bullets', 'two-column', 'three-column', 'big-number', 'quote', 'image-text', 'icon-grid', 'timeline', 'custom'] as const;
     for (const type of types) {
       const result = layoutSlide(type, [child('heading')], defaultConfig());
       expect(result.childBounds).toHaveLength(1);
@@ -242,6 +245,128 @@ describe('layoutSlideQuote', () => {
       defaultConfig(),
     );
     expect(result.childBounds[1].y).toBeGreaterThan(result.childBounds[0].y);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom layout
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Image-text layout
+// ---------------------------------------------------------------------------
+
+describe('layoutSlideImageText', () => {
+  it('positions heading at top, image left, text right', () => {
+    const result = layoutSlideImageText(
+      [child('heading'), child('image'), child('label', 'l1'), child('label', 'l2')],
+      defaultConfig(),
+    );
+    expect(result.childBounds).toHaveLength(4);
+    // Heading above image
+    expect(result.childBounds[0].y).toBeLessThan(result.childBounds[1].y);
+    // Image on left, labels on right
+    expect(result.childBounds[1].x).toBeLessThan(result.childBounds[2].x);
+  });
+
+  it('image and text areas have roughly equal width', () => {
+    const result = layoutSlideImageText(
+      [child('heading'), child('image'), child('label')],
+      defaultConfig(),
+    );
+    const imageW = result.childBounds[1].w;
+    const textW = result.childBounds[2].w;
+    expect(Math.abs(imageW - textW)).toBeLessThan(1);
+  });
+
+  it('all bounds within canvas', () => {
+    const result = layoutSlideImageText(
+      [child('heading'), child('image'), child('label')],
+      defaultConfig(),
+    );
+    for (const b of result.childBounds) {
+      expect(boundsWithin(b, CANVAS)).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Icon-grid layout
+// ---------------------------------------------------------------------------
+
+describe('layoutSlideIconGrid', () => {
+  it('positions heading at top, icons in grid below', () => {
+    const result = layoutSlideIconGrid(
+      [child('heading'), child('icon', 'i1'), child('icon', 'i2'), child('icon', 'i3'), child('icon', 'i4')],
+      defaultConfig(),
+    );
+    expect(result.childBounds).toHaveLength(5);
+    // Heading above icons
+    expect(result.childBounds[0].y).toBeLessThan(result.childBounds[1].y);
+  });
+
+  it('uses 2 columns for ≤4 icons', () => {
+    const result = layoutSlideIconGrid(
+      [child('heading'), child('icon', 'i1'), child('icon', 'i2'), child('icon', 'i3'), child('icon', 'i4')],
+      defaultConfig(),
+    );
+    // First row: i1, i2; second row: i3, i4
+    expect(result.childBounds[1].y).toBeCloseTo(result.childBounds[2].y, 0); // same row
+    expect(result.childBounds[1].x).toBeLessThan(result.childBounds[2].x); // side by side
+    expect(result.childBounds[3].y).toBeCloseTo(result.childBounds[4].y, 0); // same row
+  });
+
+  it('uses 3 columns for >4 icons', () => {
+    const icons = Array.from({ length: 6 }, (_, i) => child('icon', `i${i}`));
+    const result = layoutSlideIconGrid(
+      [child('heading'), ...icons],
+      defaultConfig(),
+    );
+    // First row has 3 icons: i0, i1, i2
+    expect(result.childBounds[1].y).toBeCloseTo(result.childBounds[2].y, 0);
+    expect(result.childBounds[2].y).toBeCloseTo(result.childBounds[3].y, 0);
+    expect(result.childBounds[1].x).toBeLessThan(result.childBounds[2].x);
+    expect(result.childBounds[2].x).toBeLessThan(result.childBounds[3].x);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Timeline layout
+// ---------------------------------------------------------------------------
+
+describe('layoutSlideTimeline', () => {
+  it('positions heading at top, steps horizontally', () => {
+    const result = layoutSlideTimeline(
+      [child('heading'), child('step', 's1'), child('step', 's2'), child('step', 's3')],
+      defaultConfig(),
+    );
+    expect(result.childBounds).toHaveLength(4);
+    // Heading above steps
+    expect(result.childBounds[0].y).toBeLessThan(result.childBounds[1].y);
+    // Steps are side by side
+    expect(result.childBounds[1].x).toBeLessThan(result.childBounds[2].x);
+    expect(result.childBounds[2].x).toBeLessThan(result.childBounds[3].x);
+  });
+
+  it('steps are vertically centered in timeline area', () => {
+    const result = layoutSlideTimeline(
+      [child('heading'), child('step', 's1'), child('step', 's2')],
+      defaultConfig(),
+    );
+    // All steps same y
+    expect(result.childBounds[1].y).toBeCloseTo(result.childBounds[2].y, 0);
+  });
+
+  it('steps have equal width', () => {
+    const result = layoutSlideTimeline(
+      [child('heading'), child('step', 's1'), child('step', 's2'), child('step', 's3')],
+      defaultConfig(),
+    );
+    const w1 = result.childBounds[1].w;
+    const w2 = result.childBounds[2].w;
+    const w3 = result.childBounds[3].w;
+    expect(Math.abs(w1 - w2)).toBeLessThan(0.01);
+    expect(Math.abs(w2 - w3)).toBeLessThan(0.01);
   });
 });
 

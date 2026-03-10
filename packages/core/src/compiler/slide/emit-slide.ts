@@ -135,6 +135,9 @@ function emitSlideContent(
       case 'bullet': return emitBullet(node, id, bounds, slideTheme, baseFontSize);
       case 'stat': return emitStat(node, id, bounds, slideTheme, baseFontSize);
       case 'quote': return emitQuote(node, id, bounds, slideTheme, baseFontSize);
+      case 'image': return emitImage(node, id, bounds, slideTheme, baseFontSize);
+      case 'icon': return emitIcon(node, id, bounds, slideTheme, baseFontSize);
+      case 'step': return emitStep(node, id, bounds, slideTheme, baseFontSize);
       default: return emitLabel(node, id, bounds, slideTheme, baseFontSize);
     }
   }
@@ -381,6 +384,170 @@ function emitColumn(
     children,
     origin,
   };
+}
+
+function emitImage(
+  el: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  slideTheme: SlideTheme,
+  baseFontSize: number,
+): IRContainer {
+  const src = el.label ?? '';
+  const alt = typeof el.props.alt === 'string' ? el.props.alt : src;
+
+  const children: IRElement[] = [
+    {
+      id: `${id}-bg`,
+      type: 'shape',
+      bounds: { ...bounds },
+      style: { fill: slideTheme.colors.surface },
+      shape: 'rect',
+    },
+    {
+      id: `${id}-label`,
+      type: 'text',
+      bounds: { x: bounds.x + 2, y: bounds.y + bounds.h * 0.4, w: bounds.w - 4, h: bounds.h * 0.2 },
+      style: {},
+      content: alt,
+      fontSize: baseFontSize * slideTheme.typography.bodySize * 0.8,
+      color: slideTheme.colors.textMuted,
+      align: 'center',
+      valign: 'middle',
+    } as IRText,
+  ];
+
+  return { id, type: 'container', bounds, style: {}, children };
+}
+
+function emitIcon(
+  el: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  slideTheme: SlideTheme,
+  baseFontSize: number,
+): IRContainer {
+  const iconSymbol = el.label ?? '';
+  const iconLabel = typeof el.props.label === 'string' ? el.props.label : '';
+  const iconDesc = typeof el.props.description === 'string' ? el.props.description : '';
+
+  const iconH = bounds.h * 0.4;
+  const labelH = bounds.h * 0.2;
+  const descH = bounds.h * 0.25;
+  const gap = bounds.h * 0.05;
+
+  const children: IRElement[] = [
+    {
+      id: `${id}-symbol`,
+      type: 'text',
+      bounds: { x: bounds.x, y: bounds.y + bounds.h * 0.05, w: bounds.w, h: iconH },
+      style: {},
+      content: iconSymbol,
+      fontSize: baseFontSize * slideTheme.typography.statSize,
+      color: slideTheme.colors.accent,
+      align: 'center',
+      valign: 'middle',
+    } as IRText,
+  ];
+
+  if (iconLabel) {
+    children.push({
+      id: `${id}-label`,
+      type: 'text',
+      bounds: { x: bounds.x, y: bounds.y + iconH + gap, w: bounds.w, h: labelH },
+      style: {},
+      content: iconLabel,
+      fontSize: baseFontSize * slideTheme.typography.bodySize * 1.1,
+      color: slideTheme.colors.text,
+      fontWeight: 'bold',
+      align: 'center',
+      valign: 'middle',
+    } as IRText);
+  }
+
+  if (iconDesc) {
+    children.push({
+      id: `${id}-desc`,
+      type: 'text',
+      bounds: { x: bounds.x + bounds.w * 0.05, y: bounds.y + iconH + gap + labelH + gap * 0.5, w: bounds.w * 0.9, h: descH },
+      style: {},
+      content: iconDesc,
+      fontSize: baseFontSize * slideTheme.typography.bodySize * 0.85,
+      color: slideTheme.colors.textMuted,
+      align: 'center',
+      valign: 'top',
+    } as IRText);
+  }
+
+  return { id, type: 'container', bounds, style: {}, children };
+}
+
+function emitStep(
+  el: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  slideTheme: SlideTheme,
+  baseFontSize: number,
+): IRContainer {
+  const stepLabel = el.label ?? '';
+  const stepDesc = typeof el.props.label === 'string' ? el.props.label : '';
+
+  const markerH = bounds.h * 0.35;
+  const descH = bounds.h * 0.25;
+  const gap = bounds.h * 0.05;
+
+  const children: IRElement[] = [
+    {
+      id: `${id}-marker`,
+      type: 'shape',
+      bounds: {
+        x: bounds.x + (bounds.w - markerH) / 2,
+        y: bounds.y + bounds.h * 0.05,
+        w: markerH,
+        h: markerH,
+      },
+      style: { fill: slideTheme.colors.accent },
+      shape: 'circle',
+    },
+    {
+      id: `${id}-label`,
+      type: 'text',
+      bounds: {
+        x: bounds.x + (bounds.w - markerH) / 2,
+        y: bounds.y + bounds.h * 0.05,
+        w: markerH,
+        h: markerH,
+      },
+      style: {},
+      content: stepLabel,
+      fontSize: baseFontSize * slideTheme.typography.bodySize * 1.2,
+      color: slideTheme.colors.background,
+      fontWeight: 'bold',
+      align: 'center',
+      valign: 'middle',
+    } as IRText,
+  ];
+
+  if (stepDesc) {
+    children.push({
+      id: `${id}-desc`,
+      type: 'text',
+      bounds: {
+        x: bounds.x,
+        y: bounds.y + markerH + gap * 2,
+        w: bounds.w,
+        h: descH,
+      },
+      style: {},
+      content: stepDesc,
+      fontSize: baseFontSize * slideTheme.typography.bodySize,
+      color: slideTheme.colors.text,
+      align: 'center',
+      valign: 'top',
+    } as IRText);
+  }
+
+  return { id, type: 'container', bounds, style: {}, children };
 }
 
 // ---------------------------------------------------------------------------

@@ -191,6 +191,7 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       return 'element-image';
     case 'stat':
     case 'quote':
+    case 'step':
       return 'element-text';
     default:
       return 'element-shape';

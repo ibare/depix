@@ -91,6 +91,7 @@ export const ELEMENT_TYPES = new Set([
   'stat',
   'quote',
   'item',
+  'step',
 ]);
 
 export const FLAGS = new Set([

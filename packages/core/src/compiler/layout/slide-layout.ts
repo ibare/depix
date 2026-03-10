@@ -21,6 +21,9 @@ export type SlideLayoutType =
   | 'three-column'
   | 'big-number'
   | 'quote'
+  | 'image-text'
+  | 'icon-grid'
+  | 'timeline'
   | 'custom';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +46,9 @@ export function layoutSlide(
     case 'three-column': return layoutSlideThreeColumn(children, config);
     case 'big-number': return layoutSlideBigNumber(children, config);
     case 'quote': return layoutSlideQuote(children, config);
+    case 'image-text': return layoutSlideImageText(children, config);
+    case 'icon-grid': return layoutSlideIconGrid(children, config);
+    case 'timeline': return layoutSlideTimeline(children, config);
     case 'custom': return layoutSlideCustom(children, config);
   }
 }
@@ -394,7 +400,180 @@ export function layoutSlideQuote(
 }
 
 // ---------------------------------------------------------------------------
-// 8. Custom layout (passthrough)
+// 8. Image-text layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Image-text slide: heading at top, image on left, text content on right.
+ */
+export function layoutSlideImageText(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const imageIdx = findByType(children, 'image');
+  const labelIdx = findByType(children, 'label');
+  const bulletIdx = findByType(children, 'bullet');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.itemGap;
+  }
+
+  // Split remaining space: left = image, right = text
+  const contentH = area.y + area.h - curY;
+  const gap = config.columnGap;
+  const halfW = (area.w - gap) / 2;
+
+  // Image on left
+  for (const i of imageIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: halfW, h: contentH };
+  }
+
+  // Text content on right
+  const textX = area.x + halfW + gap;
+  const textItems = [...labelIdx, ...bulletIdx];
+  const textItemH = textItems.length > 0
+    ? (contentH - config.itemGap * (textItems.length - 1)) / textItems.length
+    : contentH;
+
+  let textY = curY;
+  for (const i of textItems) {
+    childBounds[i] = { x: textX, y: textY, w: halfW, h: Math.max(textItemH, 2) };
+    textY += textItemH + config.itemGap;
+  }
+
+  // Fill unassigned
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY + contentH, w: area.w, h: 5 };
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 9. Icon-grid layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Icon-grid slide: heading at top, icons arranged in a responsive grid below.
+ * Uses 2 columns for ≤4 icons, 3 columns otherwise.
+ */
+export function layoutSlideIconGrid(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const iconIdx = findByType(children, 'icon');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.columnGap;
+  }
+
+  // Grid layout for icons
+  const gridH = area.y + area.h - curY;
+  const iconCount = iconIdx.length || 1;
+  const cols = iconCount <= 4 ? 2 : 3;
+  const rows = Math.ceil(iconCount / cols);
+  const cellW = (area.w - config.columnGap * (cols - 1)) / cols;
+  const cellH = (gridH - config.itemGap * (rows - 1)) / rows;
+
+  for (let idx = 0; idx < iconIdx.length; idx++) {
+    const i = iconIdx[idx];
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    childBounds[i] = {
+      x: area.x + col * (cellW + config.columnGap),
+      y: curY + row * (cellH + config.itemGap),
+      w: cellW,
+      h: cellH,
+    };
+  }
+
+  // Fill unassigned
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY + gridH, w: area.w, h: 5 };
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 10. Timeline layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Timeline slide: heading at top, steps distributed horizontally.
+ */
+export function layoutSlideTimeline(
+  children: SlideLayoutChild[],
+  config: SlideLayoutConfig,
+): LayoutResult {
+  const area = contentArea(config);
+  const childBounds: IRBounds[] = new Array(children.length);
+
+  const headingIdx = findByType(children, 'heading');
+  const stepIdx = findByType(children, 'step');
+
+  // Heading area
+  const headH = area.h * (config.headingHeight / 100);
+  let curY = area.y;
+
+  for (const i of headingIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: headH };
+    curY += headH + config.columnGap;
+  }
+
+  // Timeline area: steps distributed horizontally
+  const timelineH = area.y + area.h - curY;
+  const stepCount = stepIdx.length || 1;
+  const totalGap = config.columnGap * (stepCount - 1);
+  const stepW = (area.w - totalGap) / stepCount;
+  // Center vertically in the timeline area
+  const stepH = Math.min(timelineH * 0.7, stepW * 1.2);
+  const stepY = curY + (timelineH - stepH) / 2;
+
+  for (let s = 0; s < stepIdx.length; s++) {
+    const i = stepIdx[s];
+    childBounds[i] = {
+      x: area.x + s * (stepW + config.columnGap),
+      y: stepY,
+      w: stepW,
+      h: stepH,
+    };
+  }
+
+  // Fill unassigned
+  for (let i = 0; i < children.length; i++) {
+    if (!childBounds[i]) {
+      childBounds[i] = { x: area.x, y: curY + timelineH, w: area.w, h: 5 };
+    }
+  }
+
+  return { containerBounds: config.bounds, childBounds };
+}
+
+// ---------------------------------------------------------------------------
+// 11. Custom layout (passthrough)
 // ---------------------------------------------------------------------------
 
 /**

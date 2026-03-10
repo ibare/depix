@@ -132,6 +132,54 @@ slide "features" {
 }`,
   },
   {
+    id: 'image-text-slide',
+    title: 'Image + Text Slide',
+    description: '이미지와 텍스트를 좌우로 배치하는 레이아웃. 제품 소개에 적합.',
+    dsl: `@presentation
+@ratio 16:9
+
+slide "product" {
+  layout: image-text
+  heading "Product Overview"
+  image "product-screenshot.png" { alt: "Product Screenshot" }
+  label "A powerful DSL for creating presentations"
+  label "No design tools required"
+  label "Version-controlled and git-friendly"
+}`,
+  },
+  {
+    id: 'icon-grid-slide',
+    title: 'Icon Grid Slide',
+    description: '아이콘과 설명을 그리드로 배치. SaaS 기능 소개에 적합.',
+    dsl: `@presentation
+@ratio 16:9
+
+slide "features" {
+  layout: icon-grid
+  heading "Platform Features"
+  icon "P" { label: "Parse", description: "Tokenizer + error recovery" }
+  icon "C" { label: "Compile", description: "13-pass pipeline" }
+  icon "R" { label: "Render", description: "Canvas + PNG export" }
+  icon "E" { label: "Edit", description: "Real-time collaboration" }
+}`,
+  },
+  {
+    id: 'timeline-slide',
+    title: 'Timeline Slide',
+    description: '수평 타임라인으로 단계별 프로세스를 보여주는 레이아웃.',
+    dsl: `@presentation
+@ratio 16:9
+
+slide "roadmap" {
+  layout: timeline
+  heading "Product Roadmap 2025"
+  step "Q1" { label: "Research & Design" }
+  step "Q2" { label: "Core Development" }
+  step "Q3" { label: "Beta Launch" }
+  step "Q4" { label: "GA Release" }
+}`,
+  },
+  {
     id: 'full-presentation',
     title: 'Full Presentation (5 Slides)',
     description: '여러 레이아웃을 조합한 완성된 프레젠테이션 예시. 첫 번째 슬라이드가 렌더링된다.',

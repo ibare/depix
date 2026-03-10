@@ -21,6 +21,9 @@ export type SlideContentType =
   | 'quote'
   | 'column'
   | 'item'
+  | 'image'
+  | 'icon'
+  | 'step'
   | 'unknown';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +46,9 @@ export function classifySlideLayout(slideBlock: ASTBlock): SlideLayoutType {
     case 'three-column': return 'three-column';
     case 'big-number': return 'big-number';
     case 'quote': return 'quote';
+    case 'image-text': return 'image-text';
+    case 'icon-grid': return 'icon-grid';
+    case 'timeline': return 'timeline';
     case 'custom': return 'custom';
     default: return 'custom';
   }
@@ -69,6 +75,9 @@ export function classifySlideContent(node: ASTNode): SlideContentType {
       case 'stat': return 'stat';
       case 'quote': return 'quote';
       case 'item': return 'item';
+      case 'image': return 'image';
+      case 'icon': return 'icon';
+      case 'step': return 'step';
       default: return 'unknown';
     }
   }
