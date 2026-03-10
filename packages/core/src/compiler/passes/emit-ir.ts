@@ -47,6 +47,7 @@ import { measureDiagram } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
 import { allocateBudgets } from './allocate-budgets.js';
+import { computeChartPositions, type ChartDataPoint } from '../layout/chart-layout.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -207,6 +208,11 @@ function emitBlockFromPlan(
   const containerBounds = boundsMap.get(plan.id);
   if (!containerBounds) {
     throw new Error(`Missing bounds for block ${plan.id}`);
+  }
+
+  // Chart blocks need specialized rendering (bars, axes, labels)
+  if (block.blockType === 'chart') {
+    return emitChartBlock(block, block.id ?? generateId(), containerBounds, theme, scaleCtx);
   }
 
   const irChildren: IRElement[] = [];
@@ -439,6 +445,11 @@ function emitInlineBlock(
   boundsMap: Map<string, IRBounds>,
   scaleCtx?: ScaleContext,
 ): IRContainer {
+  // Chart blocks need specialized rendering (bars, axes, labels)
+  if (block.blockType === 'chart') {
+    return emitChartBlock(block, block.id ?? generateId(), bounds, theme, scaleCtx);
+  }
+
   const plan = planNode(block, theme);
   const childNodes: (ASTElement | ASTBlock)[] = [];
   const childEdges: ASTEdge[] = [];
@@ -787,6 +798,148 @@ function emitRowElement(
   }
 
   return { id, type: 'container', bounds, style: {}, children };
+}
+
+// ---------------------------------------------------------------------------
+// Chart block (bar chart: axes, bars, labels)
+// ---------------------------------------------------------------------------
+
+function emitChartBlock(
+  block: ASTBlock,
+  id: string,
+  bounds: IRBounds,
+  theme: DepixTheme,
+  scaleCtx?: ScaleContext,
+): IRContainer {
+  const children: IRElement[] = [];
+
+  // Extract data from AST rows (data reading, not layout)
+  const data = extractChartData(block);
+
+  if (data.length === 0) {
+    const container: IRContainer = {
+      id, type: 'container', bounds, style: {}, children,
+      origin: { sourceType: 'chart', sourceProps: { ...block.props } },
+    };
+    return container;
+  }
+
+  // Delegate position computation to layout module
+  const positions = computeChartPositions(bounds, data);
+
+  const fontSize = scaleCtx
+    ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem')
+    : theme.fontSize.sm;
+
+  // Y axis
+  children.push({
+    id: `${id}-y-axis`,
+    type: 'line',
+    bounds: positions.axes.yAxis.bounds,
+    style: { stroke: theme.border, strokeWidth: 0.2 },
+    from: positions.axes.yAxis.from,
+    to: positions.axes.yAxis.to,
+  } as IRLine);
+
+  // X axis
+  children.push({
+    id: `${id}-x-axis`,
+    type: 'line',
+    bounds: positions.axes.xAxis.bounds,
+    style: { stroke: theme.border, strokeWidth: 0.2 },
+    from: positions.axes.xAxis.from,
+    to: positions.axes.xAxis.to,
+  } as IRLine);
+
+  // Bars and X labels
+  for (let i = 0; i < positions.bars.length; i++) {
+    const bar = positions.bars[i];
+
+    children.push({
+      id: `${id}-bar-${i}`,
+      type: 'shape',
+      bounds: bar.barBounds,
+      style: { fill: theme.colors.accent },
+      shape: 'rect',
+    } as IRShape);
+
+    children.push({
+      id: `${id}-xlabel-${i}`,
+      type: 'text',
+      bounds: bar.labelBounds,
+      style: {},
+      content: bar.category,
+      fontSize: fontSize * 0.8,
+      color: theme.foreground,
+      align: 'center',
+      valign: 'top',
+    } as IRText);
+  }
+
+  // Y labels (max and 0)
+  children.push({
+    id: `${id}-ylabel-max`,
+    type: 'text',
+    bounds: positions.axes.yLabelMax.bounds,
+    style: {},
+    content: positions.axes.yLabelMax.content,
+    fontSize: fontSize * 0.7,
+    color: theme.foreground,
+    align: 'right',
+    valign: 'top',
+  } as IRText);
+
+  children.push({
+    id: `${id}-ylabel-zero`,
+    type: 'text',
+    bounds: positions.axes.yLabelZero.bounds,
+    style: {},
+    content: '0',
+    fontSize: fontSize * 0.7,
+    color: theme.foreground,
+    align: 'right',
+    valign: 'bottom',
+  } as IRText);
+
+  const container: IRContainer = {
+    id,
+    type: 'container',
+    bounds,
+    style: {},
+    children,
+    origin: { sourceType: 'chart', sourceProps: { ...block.props } },
+  };
+
+  return container;
+}
+
+/**
+ * Extract chart data points from an AST block's row children.
+ * Pure data reading — no layout computation.
+ */
+function extractChartData(block: ASTBlock): ChartDataPoint[] {
+  const rows = block.children.filter(
+    (c): c is ASTElement => c.kind === 'element' && c.elementType === 'row',
+  );
+
+  const headerRow = rows.find(r => r.props.header === 1);
+  const dataRows = rows.filter(r => r.props.header !== 1);
+
+  if (dataRows.length === 0) return [];
+
+  const xCol = typeof block.props.x === 'string' ? block.props.x : undefined;
+  const yCol = typeof block.props.y === 'string' ? block.props.y : undefined;
+  const columns = headerRow?.values?.map(v => String(v)) ?? [];
+  const xIdx = xCol ? columns.indexOf(xCol) : 0;
+  const yIdx = yCol ? columns.indexOf(yCol) : columns.findIndex((_c, i) => {
+    return i > 0 && dataRows.some(r => typeof r.values?.[i] === 'number');
+  });
+  const effectiveYIdx = yIdx >= 0 ? yIdx : 1;
+
+  return dataRows.map(r => ({
+    category: String(r.values?.[xIdx] ?? ''),
+    value: typeof r.values?.[effectiveYIdx] === 'number' ? r.values[effectiveYIdx] as number : 0,
+  }));
 }
 
 // ---------------------------------------------------------------------------

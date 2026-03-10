@@ -197,11 +197,17 @@ export function layoutSceneBullets(
     curY += subLabelH + config.itemGap;
   }
 
-  // Bullet area: remaining space
-  const bulletAreaH = area.y + area.h - curY;
-  for (const i of bulletIdx) {
-    childBounds[i] = { x: area.x, y: curY, w: area.w, h: bulletAreaH };
-    curY += bulletAreaH + config.itemGap;
+  // Content area: bullets, tables, and charts share remaining space
+  const tableIdx = findByType(children, 'table');
+  const chartIdx = findByType(children, 'chart');
+  const contentIdx = [...bulletIdx, ...tableIdx, ...chartIdx];
+  const contentAreaH = area.y + area.h - curY;
+  const contentCount = Math.max(contentIdx.length, 1);
+  const contentItemH = (contentAreaH - config.itemGap * Math.max(contentCount - 1, 0)) / contentCount;
+
+  for (const i of contentIdx) {
+    childBounds[i] = { x: area.x, y: curY, w: area.w, h: Math.max(contentItemH, 5) };
+    curY += contentItemH + config.itemGap;
   }
 
   for (let i = 0; i < children.length; i++) {
