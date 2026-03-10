@@ -394,4 +394,149 @@ scene "trend" {
   chart "revenue" type:bar x:"Quarter" y:"Revenue"
 }`,
   },
+  {
+    id: 'flow-diagram-scene',
+    title: 'Flow Diagram Scene',
+    description: 'layout 없이 scene 안에 flow 다이어그램을 직접 배치한다. Custom 모드로 렌더링된다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "architecture" {
+  flow direction:right {
+    node "Client" #client { color: muted }
+    node "API Gateway" #gw { color: accent }
+    node "Auth Service" #auth { color: primary }
+    node "User Service" #user { color: info }
+    node "Database" #db { shape: diamond, color: success }
+
+    #client -> #gw
+    #gw -> #auth
+    #gw -> #user
+    #user -> #db
+  }
+}`,
+  },
+  {
+    id: 'tree-diagram-scene',
+    title: 'Tree Diagram Scene',
+    description: 'scene 안에 tree 다이어그램으로 조직도를 표현한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "org-chart" {
+  tree direction:down {
+    node "CEO" {
+      node "CTO" {
+        node "Frontend"
+        node "Backend"
+        node "DevOps"
+      }
+      node "CPO" {
+        node "Design"
+        node "Research"
+      }
+      node "CFO" {
+        node "Finance"
+        node "Legal"
+      }
+    }
+  }
+}`,
+  },
+  {
+    id: 'layers-diagram-scene',
+    title: 'Layers Diagram Scene',
+    description: 'scene 안에 layers로 아키텍처 스택을 표현한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "tech-stack" {
+  layers {
+    layer "Presentation" { color: primary }
+    layer "Application Logic" { color: accent }
+    layer "Domain Model" { color: info }
+    layer "Infrastructure" { color: success }
+    layer "Database" { color: warning }
+  }
+}`,
+  },
+  {
+    id: 'grid-diagram-scene',
+    title: 'Grid Diagram Scene',
+    description: 'scene 안에 grid로 기술 비교표를 다이어그램으로 표현한다.',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "tech-comparison" {
+  grid cols:4 {
+    cell "" { header }
+    cell "Frontend" { header }
+    cell "Backend" { header }
+    cell "DevOps" { header }
+
+    cell "Language" { header }
+    cell "TypeScript" { color: primary }
+    cell "Go" { color: info }
+    cell "Python" { color: success }
+
+    cell "Framework" { header }
+    cell "React" { color: accent }
+    cell "Echo" { color: info }
+    cell "Ansible" { color: warning }
+  }
+}`,
+  },
+  {
+    id: 'mixed-diagram-scene',
+    title: 'Mixed Diagrams (Multi-Scene)',
+    description: '여러 scene에 서로 다른 다이어그램 유형을 배치한 프레젠테이션.',
+    dsl: `@presentation
+@ratio 16:9
+@transition slide-left
+
+scene "cover" {
+  layout: title
+  heading "System Architecture"
+  label "Technical Overview"
+}
+
+scene "data-flow" {
+  flow direction:right {
+    node "Ingestion" #in { color: primary }
+    node "Processing" #proc { color: accent }
+    node "Storage" #store { shape: diamond, color: success }
+    node "Analytics" #out { color: info }
+
+    #in -> #proc
+    #proc -> #store
+    #store -> #out
+  }
+}
+
+scene "team" {
+  tree direction:down {
+    node "Tech Lead" {
+      node "Frontend" {
+        node "React"
+        node "Mobile"
+      }
+      node "Backend" {
+        node "API"
+        node "Data"
+      }
+    }
+  }
+}
+
+scene "stack" {
+  layers {
+    layer "CDN + Edge" { color: muted }
+    layer "Frontend App" { color: primary }
+    layer "API Gateway" { color: accent }
+    layer "Microservices" { color: info }
+    layer "Message Queue" { color: warning }
+    layer "Database Cluster" { color: success }
+  }
+}`,
+  },
 ];
