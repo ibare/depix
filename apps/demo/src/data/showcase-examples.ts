@@ -268,4 +268,38 @@ grid cols:3 {
   cell "AWS" { color: warning }
 }`,
   },
+  {
+    id: 'mixture-of-experts',
+    title: 'MoE Transformer Encoder',
+    description: 'Transformer 아키텍처의 레이어 스택을 layers로, MoE 블록을 box로 중첩 표현한다.',
+    ascii: `[Encoder Output    ]
+[Add & Norm        ]
+[Feed Forward FFN  ]
+[Add & Norm        ]
++--- MoE ----------+
+| FFN1  ...  FFNe  |
+|     [Gating]     |
++------------------+
+[Add & Norm        ]
+[Multi-Head Attn   ]
+[Input Embeddings  ]`,
+    dsl: `@page 16:9
+
+layers {
+  layer "Encoder Output" { color: muted }
+  layer "Add & Norm" { color: warning }
+  layer "Feed Forward FFN" { color: info }
+  layer "Add & Norm" { color: warning }
+  box "MoE" {
+    color: danger
+    node "FFN₁"
+    label "..."
+    node "FFNₑ"
+    badge "Gating" { color: success }
+  }
+  layer "Add & Norm" { color: warning }
+  layer "Multi-Head Attention" { color: warning }
+  layer "Input Embeddings + Positional Embeddings" { color: muted }
+}`,
+  },
 ];
