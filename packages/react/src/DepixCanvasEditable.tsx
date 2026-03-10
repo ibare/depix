@@ -111,43 +111,42 @@ export interface DepixCanvasEditableRef {
 // Edit button position map
 // ---------------------------------------------------------------------------
 
-const EDIT_BTN_POSITIONS: Record<string, React.CSSProperties> = {
+const OVERLAY_PILL_POSITIONS: Record<string, React.CSSProperties> = {
   'top-left': { top: '8px', left: '8px' },
   'top-right': { top: '8px', right: '8px' },
   'bottom-left': { bottom: '8px', left: '8px' },
   'bottom-right': { bottom: '8px', right: '8px' },
 };
 
-const editBtnStyle: React.CSSProperties = {
+const overlayPillStyle: React.CSSProperties = {
   position: 'absolute',
-  padding: '6px 14px',
-  borderRadius: '6px',
-  border: '1px solid rgba(255,255,255,0.2)',
-  backgroundColor: 'rgba(30,30,30,0.85)',
-  color: '#ddd',
-  fontSize: '12px',
-  fontWeight: 600,
-  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '2px',
+  padding: '4px',
+  borderRadius: '10px',
+  border: 'none',
+  backgroundColor: 'rgba(30,30,30,0.88)',
   opacity: 0,
   transition: 'opacity 0.2s',
   zIndex: 10,
+  pointerEvents: 'none',
 };
 
-const fullscreenBtnStyle: React.CSSProperties = {
-  position: 'absolute',
-  padding: '6px',
-  borderRadius: '6px',
-  border: '1px solid rgba(255,255,255,0.2)',
-  backgroundColor: 'rgba(30,30,30,0.85)',
-  color: '#ddd',
-  cursor: 'pointer',
-  opacity: 0,
-  transition: 'opacity 0.2s',
-  zIndex: 10,
+const pillIconBtnStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  borderRadius: '7px',
+  border: 'none',
+  backgroundColor: 'transparent',
+  color: '#ddd',
+  cursor: 'pointer',
+  padding: 0,
   lineHeight: 0,
+  transition: 'background-color 0.15s',
 };
 
 // ---------------------------------------------------------------------------
@@ -172,7 +171,7 @@ export const DepixCanvasEditable = forwardRef<
     width = 800,
     height = 450,
     initialEditMode = false,
-    editButtonPosition = 'top-right',
+    editButtonPosition = 'bottom-right',
     onEditModeChange,
     showToolbar = true,
     showPropertyPanel = true,
@@ -597,6 +596,30 @@ export const DepixCanvasEditable = forwardRef<
     containerRef.current?.parentElement?.requestFullscreen();
   }, []);
 
+  // ---- Fullscreen keyboard navigation ------------------------------------
+
+  useEffect(() => {
+    if (!isFullscreen || isEditing) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case ' ':
+        case 'ArrowRight':
+          e.preventDefault();
+          setCurrentSceneIndex((i) => Math.min(ir.scenes.length - 1, i + 1));
+          break;
+        case 'Backspace':
+        case 'ArrowLeft':
+          e.preventDefault();
+          setCurrentSceneIndex((i) => Math.max(0, i - 1));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFullscreen, isEditing, ir.scenes.length]);
+
   // ---- Edit mode management ----------------------------------------------
 
   const enterEditMode = useCallback(() => {
@@ -707,6 +730,16 @@ export const DepixCanvasEditable = forwardRef<
     },
     [ir, onIRChange, currentSceneIndex],
   );
+
+  // ---- Scene navigation (read-mode pill) ----------------------------------
+
+  const goToPrevScene = useCallback(() => {
+    setCurrentSceneIndex((i) => Math.max(0, i - 1));
+  }, []);
+
+  const goToNextScene = useCallback(() => {
+    setCurrentSceneIndex((i) => Math.min(ir.scenes.length - 1, i + 1));
+  }, [ir.scenes.length]);
 
   const handleRenameScene = useCallback(
     (index: number, name: string) => {
@@ -894,6 +927,9 @@ export const DepixCanvasEditable = forwardRef<
       {/* Read mode: overlay buttons — sized to match the fitted canvas */}
       {showReadModeEditButton && (() => {
         const fitted = fitToAspectRatio(width, height, ir.meta.aspectRatio);
+        const hasMultipleScenes = ir.scenes.length > 1;
+        const sceneName = ir.scenes[currentSceneIndex]?.id ?? `scene-${currentSceneIndex + 1}`;
+
         return (
           <div
             style={{
@@ -907,38 +943,106 @@ export const DepixCanvasEditable = forwardRef<
             }}
           >
             <div style={{ position: 'relative', width: fitted.width, height: fitted.height }}>
-              <button
-                type="button"
+              <div
                 data-edit-button
                 style={{
-                  ...editBtnStyle,
-                  ...EDIT_BTN_POSITIONS[editButtonPosition],
+                  ...overlayPillStyle,
+                  ...OVERLAY_PILL_POSITIONS[editButtonPosition],
                   opacity: isHovered ? 1 : 0,
                   pointerEvents: isHovered ? 'auto' : 'none',
                 }}
-                onClick={enterEditMode}
               >
-                Edit
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...fullscreenBtnStyle,
-                  bottom: '8px',
-                  right: '8px',
-                  opacity: isHovered ? 1 : 0,
-                  pointerEvents: isHovered ? 'auto' : 'none',
-                }}
-                onClick={enterFullscreen}
-                title="Fullscreen"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="8.5,1 13,1 13,5.5" />
-                  <polyline points="5.5,13 1,13 1,8.5" />
-                  <line x1="13" y1="1" x2="8.5" y2="5.5" />
-                  <line x1="1" y1="13" x2="5.5" y2="8.5" />
-                </svg>
-              </button>
+                {/* Scene navigation (only when multiple scenes) */}
+                {hasMultipleScenes && (
+                  <>
+                    <button
+                      type="button"
+                      style={{
+                        ...pillIconBtnStyle,
+                        opacity: currentSceneIndex > 0 ? 1 : 0.35,
+                      }}
+                      onClick={goToPrevScene}
+                      disabled={currentSceneIndex === 0}
+                      title="Previous scene"
+                      onMouseEnter={e => { if (currentSceneIndex > 0) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 3L5 8l5 5" />
+                      </svg>
+                    </button>
+                    <span
+                      style={{
+                        color: '#ddd',
+                        fontSize: '12px',
+                        fontFamily: 'system-ui, sans-serif',
+                        padding: '0 2px',
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none',
+                        maxWidth: '120px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {sceneName}
+                    </span>
+                    <button
+                      type="button"
+                      style={{
+                        ...pillIconBtnStyle,
+                        opacity: currentSceneIndex < ir.scenes.length - 1 ? 1 : 0.35,
+                      }}
+                      onClick={goToNextScene}
+                      disabled={currentSceneIndex === ir.scenes.length - 1}
+                      title="Next scene"
+                      onMouseEnter={e => { if (currentSceneIndex < ir.scenes.length - 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 3l5 5-5 5" />
+                      </svg>
+                    </button>
+                    {/* Divider */}
+                    <div
+                      style={{
+                        width: '1px',
+                        height: '18px',
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        margin: '0 2px',
+                        flexShrink: 0,
+                      }}
+                    />
+                  </>
+                )}
+                <button
+                  type="button"
+                  style={pillIconBtnStyle}
+                  onClick={enterFullscreen}
+                  title="Fullscreen"
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 6V3a1 1 0 0 1 1-1h3" />
+                    <path d="M10 2h3a1 1 0 0 1 1 1v3" />
+                    <path d="M14 10v3a1 1 0 0 1-1 1h-3" />
+                    <path d="M6 14H3a1 1 0 0 1-1-1v-3" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  style={pillIconBtnStyle}
+                  onClick={enterEditMode}
+                  title="Edit"
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11.5 1.5a2.12 2.12 0 0 1 3 3L5 14l-4 1 1-4Z" />
+                    <path d="M10 3.5l2.5 2.5" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         );
