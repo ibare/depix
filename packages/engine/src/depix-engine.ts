@@ -289,12 +289,14 @@ export class DepixEngine {
   }
 
   private renderDebug(scene: IRScene): void {
-    this.debugLayer.destroyChildren();
+    // Destroy the entire layer (not just children) to ensure Konva internal
+    // event listeners are fully released — destroyChildren() leaks ~32
+    // listeners per call.
+    this.debugLayer.destroy();
+    this.debugLayer = new Konva.Layer({ listening: false });
+    this.stage.add(this.debugLayer);
 
-    if (!this._debugMode) {
-      this.debugLayer.batchDraw();
-      return;
-    }
+    if (!this._debugMode) return;
 
     this.renderDebugElements(scene.elements);
     this.debugLayer.moveToTop();
