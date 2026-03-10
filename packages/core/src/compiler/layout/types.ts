@@ -157,7 +157,8 @@ export type SceneContentType =
   | 'icon'
   | 'step'
   | 'table'
-  | 'chart';
+  | 'chart'
+  | 'diagram';
 
 /**
  * Extended layout child for scene content.

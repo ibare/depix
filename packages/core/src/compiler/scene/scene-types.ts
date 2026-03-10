@@ -26,6 +26,7 @@ export type SceneContentType =
   | 'step'
   | 'table'
   | 'chart'
+  | 'diagram'
   | 'unknown';
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,16 @@ export function classifySceneContent(node: ASTNode): SceneContentType {
     if (node.blockType === 'column') return 'column';
     if (node.blockType === 'table') return 'table';
     if (node.blockType === 'chart') return 'chart';
+    // Diagram-like blocks: delegate to diagram pipeline when inside a scene
+    if (
+      node.blockType === 'flow' ||
+      node.blockType === 'tree' ||
+      node.blockType === 'layers' ||
+      node.blockType === 'grid' ||
+      node.blockType === 'stack' ||
+      node.blockType === 'group' ||
+      node.blockType === 'canvas'
+    ) return 'diagram';
     return 'unknown';
   }
   if (node.kind === 'element') {

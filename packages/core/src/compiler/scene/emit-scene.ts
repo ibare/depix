@@ -34,7 +34,7 @@ import type {
 } from '../ast.js';
 import { generateId } from '../../ir/utils.js';
 import { planScene, type ScenePlan } from './plan-scene.js';
-import { emitIR } from '../passes/emit-ir.js';
+import { emitInlineBlock } from '../passes/emit-ir.js';
 import {
   extractChartData,
   computeChartPositions,
@@ -66,14 +66,8 @@ export function emitSceneIR(
   for (let sceneIndex = 0; sceneIndex < ast.scenes.length; sceneIndex++) {
     const sceneBlock = ast.scenes[sceneIndex];
     const plan = planScene(sceneBlock, canvasBounds, sceneTheme);
-
-    if (plan.layoutType === 'custom') {
-      const customScene = emitCustomScene(sceneBlock, sceneIndex, theme);
-      if (customScene) scenes.push(customScene);
-    } else {
-      const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
-      scenes.push(irScene);
-    }
+    const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
+    scenes.push(irScene);
   }
 
   const transitions = buildSceneTransitions(ast.directives, scenes);
@@ -156,6 +150,9 @@ function emitSceneContent(
     if (node.blockType === 'chart') {
       return emitSceneChart(node, id, bounds, theme, sceneTheme, baseFontSize);
     }
+    // Diagram-like blocks (flow, tree, layers, grid, stack, group, canvas):
+    // delegate to the diagram pipeline for layout + rendering within scene bounds
+    return emitInlineBlock(node, bounds, theme, new Map());
   }
 
   return null;
@@ -817,37 +814,6 @@ function emitSceneBackground(bounds: IRBounds, sceneTheme: SceneTheme): IRElemen
     style: { fill: sceneTheme.colors.background },
     shape: 'rect',
   };
-}
-
-// ---------------------------------------------------------------------------
-// Custom scene: delegate to existing pipeline
-// ---------------------------------------------------------------------------
-
-function emitCustomScene(
-  sceneBlock: ASTBlock,
-  index: number,
-  theme: DepixTheme,
-): IRScene | null {
-  // Build a mini-document with just this scene's children as a scene
-  const miniDoc: ASTDocument = {
-    directives: [],
-    scenes: [{
-      kind: 'block',
-      blockType: 'scene',
-      label: sceneBlock.id ?? `custom-scene-${index}`,
-      props: {},
-      children: sceneBlock.children,
-      style: {},
-      loc: sceneBlock.loc,
-    }],
-  };
-
-  const ir = emitIR(miniDoc, theme);
-  const scene = ir.scenes[0];
-  if (scene) {
-    scene.id = sceneBlock.label ?? sceneBlock.id ?? `scene-${index}`;
-  }
-  return scene ?? null;
 }
 
 // ---------------------------------------------------------------------------

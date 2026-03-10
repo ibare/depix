@@ -445,7 +445,7 @@ function emitChildNode(
  * Emit an inline block (block nested inside a shape/box element).
  * Uses runLayout for positioning children within the given bounds.
  */
-function emitInlineBlock(
+export function emitInlineBlock(
   block: ASTBlock,
   bounds: IRBounds,
   theme: DepixTheme,

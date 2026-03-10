@@ -197,10 +197,11 @@ export function layoutSceneBullets(
     curY += subLabelH + config.itemGap;
   }
 
-  // Content area: bullets, tables, and charts share remaining space
+  // Content area: bullets, tables, charts, and diagrams share remaining space
   const tableIdx = findByType(children, 'table');
   const chartIdx = findByType(children, 'chart');
-  const contentIdx = [...bulletIdx, ...tableIdx, ...chartIdx];
+  const diagramIdx = findByType(children, 'diagram');
+  const contentIdx = [...bulletIdx, ...tableIdx, ...chartIdx, ...diagramIdx];
   const contentAreaH = area.y + area.h - curY;
   const contentCount = Math.max(contentIdx.length, 1);
   const contentItemH = (contentAreaH - config.itemGap * Math.max(contentCount - 1, 0)) / contentCount;
@@ -261,7 +262,8 @@ function layoutSceneColumns(
   const childBounds: IRBounds[] = new Array(children.length);
 
   const headingIdx = findByType(children, 'heading');
-  const columnIdx = findByType(children, 'column');
+  const diagramIdx = findByType(children, 'diagram');
+  const columnIdx = [...findByType(children, 'column'), ...diagramIdx];
 
   // Heading area
   const headH = area.h * (config.headingHeight / 100);
@@ -324,7 +326,8 @@ export function layoutSceneBigNumber(
   const childBounds: IRBounds[] = new Array(children.length);
 
   const headingIdx = findByType(children, 'heading');
-  const statIdx = findByType(children, 'stat');
+  const diagramIdx = findByType(children, 'diagram');
+  const statIdx = [...findByType(children, 'stat'), ...diagramIdx];
 
   // Heading area
   const headH = area.h * (config.headingHeight / 100);
@@ -423,6 +426,7 @@ export function layoutSceneImageText(
   const imageIdx = findByType(children, 'image');
   const labelIdx = findByType(children, 'label');
   const bulletIdx = findByType(children, 'bullet');
+  const diagramIdx = findByType(children, 'diagram');
 
   // Heading area
   const headH = area.h * (config.headingHeight / 100);
@@ -445,7 +449,7 @@ export function layoutSceneImageText(
 
   // Text content on right
   const textX = area.x + halfW + gap;
-  const textItems = [...labelIdx, ...bulletIdx];
+  const textItems = [...labelIdx, ...bulletIdx, ...diagramIdx];
   const textItemH = textItems.length > 0
     ? (contentH - config.itemGap * (textItems.length - 1)) / textItems.length
     : contentH;
@@ -482,7 +486,8 @@ export function layoutSceneIconGrid(
   const childBounds: IRBounds[] = new Array(children.length);
 
   const headingIdx = findByType(children, 'heading');
-  const iconIdx = findByType(children, 'icon');
+  const diagramIdx = findByType(children, 'diagram');
+  const iconIdx = [...findByType(children, 'icon'), ...diagramIdx];
 
   // Heading area
   const headH = area.h * (config.headingHeight / 100);
@@ -538,7 +543,8 @@ export function layoutSceneTimeline(
   const childBounds: IRBounds[] = new Array(children.length);
 
   const headingIdx = findByType(children, 'heading');
-  const stepIdx = findByType(children, 'step');
+  const diagramIdx = findByType(children, 'diagram');
+  const stepIdx = [...findByType(children, 'step'), ...diagramIdx];
 
   // Heading area
   const headH = area.h * (config.headingHeight / 100);
