@@ -1,33 +1,33 @@
 /**
- * Slide Layout Pass
+ * Scene Layout Pass
  *
- * Analyses a slide AST block, extracts layout children, dispatches to
- * the appropriate slide layout function, and returns a BoundsMap.
+ * Analyses a scene AST block, extracts layout children, dispatches to
+ * the appropriate scene layout function, and returns a BoundsMap.
  *
  * This is the layout pass — it computes geometry only, no IR emission.
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { SlideTheme } from '../../theme/slide-theme.js';
+import type { SceneTheme } from '../../theme/scene-theme.js';
 import type { ASTBlock, ASTNode } from '../ast.js';
-import type { SlideLayoutChild, SlideLayoutConfig } from '../layout/types.js';
-import { layoutSlide } from '../layout/slide-layout.js';
+import type { SceneLayoutChild, SceneLayoutConfig } from '../layout/types.js';
+import { layoutScene } from '../layout/scene-layout.js';
 import {
-  classifySlideContent,
-  classifySlideLayout,
+  classifySceneContent,
+  classifySceneLayout,
   countSubItems,
   getHeadingLevel,
-  type SlideLayoutType,
-} from './slide-types.js';
+  type SceneLayoutType,
+} from './scene-types.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface SlidePlan {
-  layoutType: SlideLayoutType;
+export interface ScenePlan {
+  layoutType: SceneLayoutType;
   boundsMap: Map<string, IRBounds>;
-  slideBounds: IRBounds;
+  sceneBounds: IRBounds;
   /** Ordered child node IDs matching their AST order. */
   childIds: string[];
 }
@@ -37,35 +37,35 @@ export interface SlidePlan {
 // ---------------------------------------------------------------------------
 
 /**
- * Compute layout for a single slide block.
+ * Compute layout for a single scene block.
  *
- * @param slideBlock - The AST block with blockType='slide'
- * @param canvasBounds - Available bounds for the slide
- * @param slideTheme - Slide theme configuration
- * @returns SlidePlan with BoundsMap for all slide content nodes
+ * @param sceneBlock - The AST block with blockType='scene'
+ * @param canvasBounds - Available bounds for the scene
+ * @param sceneTheme - Scene theme configuration
+ * @returns ScenePlan with BoundsMap for all scene content nodes
  */
-export function planSlide(
-  slideBlock: ASTBlock,
+export function planScene(
+  sceneBlock: ASTBlock,
   canvasBounds: IRBounds,
-  slideTheme: SlideTheme,
-): SlidePlan {
-  const layoutType = classifySlideLayout(slideBlock);
+  sceneTheme: SceneTheme,
+): ScenePlan {
+  const layoutType = classifySceneLayout(sceneBlock);
 
   // Extract layout children from AST (skip edges)
   const contentNodes: ASTNode[] = [];
-  for (const child of slideBlock.children) {
+  for (const child of sceneBlock.children) {
     if (child.kind === 'edge') continue;
     contentNodes.push(child);
   }
 
-  // Convert AST nodes to SlideLayoutChild[]
+  // Convert AST nodes to SceneLayoutChild[]
   const layoutChildren = contentNodes.map((node, i) => astToLayoutChild(node, i));
 
   // Build layout config from theme
-  const config = buildSlideLayoutConfig(canvasBounds, slideTheme);
+  const config = buildSceneLayoutConfig(canvasBounds, sceneTheme);
 
   // Dispatch to layout function
-  const result = layoutSlide(layoutType, layoutChildren, config);
+  const result = layoutScene(layoutType, layoutChildren, config);
 
   // Build BoundsMap
   const boundsMap = new Map<string, IRBounds>();
@@ -80,7 +80,7 @@ export function planSlide(
   return {
     layoutType,
     boundsMap,
-    slideBounds: canvasBounds,
+    sceneBounds: canvasBounds,
     childIds,
   };
 }
@@ -89,16 +89,16 @@ export function planSlide(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function astToLayoutChild(node: ASTNode, index: number): SlideLayoutChild {
-  const contentType = classifySlideContent(node);
+function astToLayoutChild(node: ASTNode, index: number): SceneLayoutChild {
+  const contentType = classifySceneContent(node);
   let id: string;
 
   if (node.kind === 'element') {
-    id = node.id ?? `slide-el-${index}`;
+    id = node.id ?? `scene-el-${index}`;
   } else if (node.kind === 'block') {
-    id = node.id ?? `slide-block-${index}`;
+    id = node.id ?? `scene-block-${index}`;
   } else {
-    id = `slide-node-${index}`;
+    id = `scene-node-${index}`;
   }
 
   const itemCount = countSubItems(node);
@@ -106,7 +106,7 @@ function astToLayoutChild(node: ASTNode, index: number): SlideLayoutChild {
 
   return {
     id,
-    width: 0,  // slide layouts use percentage-based sizing, not intrinsic
+    width: 0,  // scene layouts use percentage-based sizing, not intrinsic
     height: 0,
     contentType: contentType === 'unknown' ? 'label' : contentType,
     level,
@@ -114,13 +114,13 @@ function astToLayoutChild(node: ASTNode, index: number): SlideLayoutChild {
   };
 }
 
-function buildSlideLayoutConfig(
+function buildSceneLayoutConfig(
   canvasBounds: IRBounds,
-  theme: SlideTheme,
-): SlideLayoutConfig {
+  theme: SceneTheme,
+): SceneLayoutConfig {
   return {
     bounds: canvasBounds,
-    padding: theme.layout.slidePadding,
+    padding: theme.layout.scenePadding,
     headingHeight: theme.layout.headingHeight,
     columnGap: theme.layout.columnGap,
     itemGap: theme.layout.itemGap,

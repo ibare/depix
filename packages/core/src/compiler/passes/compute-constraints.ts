@@ -6,11 +6,11 @@
  * minimums; container nodes aggregate children's constraints
  * based on their layout intent.
  *
- * Pipeline: SceneLayoutPlan + ScaleContext → ConstraintMap
+ * Pipeline: DiagramLayoutPlan + ScaleContext → ConstraintMap
  */
 
 import type { NodeConstraint, ConstraintMap } from './budget-types.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
@@ -20,7 +20,7 @@ import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js
 // ---------------------------------------------------------------------------
 
 export function computeConstraints(
-  plan: SceneLayoutPlan,
+  plan: DiagramLayoutPlan,
   scaleCtx: ScaleContext,
 ): ConstraintMap {
   const constraints: ConstraintMap = new Map();

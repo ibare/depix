@@ -13,7 +13,6 @@ export { parse } from './parser.js';
 
 export type {
   ASTDocument,
-  ASTScene,
   ASTDirective,
   ASTNode,
   ASTBlock,
@@ -27,7 +26,7 @@ export type {
 export * from './routing/index.js';
 export * from './passes/index.js';
 export * from './layout/index.js';
-export * from './slide/index.js';
+export * from './scene/index.js';
 
 export { compile } from './compiler.js';
 export type { CompileOptions, CompileResult } from './compiler.js';

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { emitIR } from '../../../src/compiler/passes/emit-ir.js';
 import { lightTheme, darkTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTDocument, ASTScene, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
+import type { ASTDocument, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
 import type { DepixIR, IRContainer, IRShape, IRText, IRLine, IRImage, IREdge as IREdgeType } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
@@ -12,12 +12,12 @@ function loc() {
   return { line: 1, column: 1 };
 }
 
-function makeDoc(scenes: ASTScene[], directives: ASTDocument['directives'] = []): ASTDocument {
+function makeDoc(scenes: ASTBlock[], directives: ASTDocument['directives'] = []): ASTDocument {
   return { directives, scenes };
 }
 
-function makeScene(children: ASTScene['children'], name: string | null = null): ASTScene {
-  return { name, children, loc: loc() };
+function makeScene(children: ASTBlock['children'], label: string | undefined = undefined): ASTBlock {
+  return { kind: 'block', blockType: 'scene', props: {}, children, label, style: {}, loc: loc() };
 }
 
 function makeElement(type: string, overrides: Partial<ASTElement> = {}): ASTElement {

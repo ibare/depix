@@ -4,14 +4,13 @@ import type {
   ASTBlock,
   ASTElement,
   ASTEdge,
-  ASTScene,
 } from '../../src/compiler/ast.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function firstScene(input: string): ASTScene {
+function firstScene(input: string): ASTBlock {
   const { ast } = parse(input);
   return ast.scenes[0];
 }
@@ -52,7 +51,7 @@ describe('Document structure', () => {
   it('parses single explicit scene', () => {
     const { ast } = parse('scene "Title" {\n  node "A"\n}');
     expect(ast.scenes).toHaveLength(1);
-    expect(ast.scenes[0].name).toBe('Title');
+    expect(ast.scenes[0].label).toBe('Title');
     expect(ast.scenes[0].children).toHaveLength(1);
   });
 
@@ -66,14 +65,14 @@ scene "Body" {
 }`;
     const { ast } = parse(input);
     expect(ast.scenes).toHaveLength(2);
-    expect(ast.scenes[0].name).toBe('Intro');
-    expect(ast.scenes[1].name).toBe('Body');
+    expect(ast.scenes[0].label).toBe('Intro');
+    expect(ast.scenes[1].label).toBe('Body');
   });
 
   it('wraps sceneless content in implicit scene', () => {
     const { ast } = parse('node "A"\nnode "B"');
     expect(ast.scenes).toHaveLength(1);
-    expect(ast.scenes[0].name).toBeNull();
+    expect(ast.scenes[0].label).toBeUndefined();
     expect(ast.scenes[0].children).toHaveLength(2);
   });
 
@@ -753,8 +752,8 @@ scene "기능 소개" {
     const result = parse(input);
     expect(result.errors).toHaveLength(0);
     expect(result.ast.scenes).toHaveLength(2);
-    expect(result.ast.scenes[0].name).toBe('인트로');
-    expect(result.ast.scenes[1].name).toBe('기능 소개');
+    expect(result.ast.scenes[0].label).toBe('인트로');
+    expect(result.ast.scenes[1].label).toBe('기능 소개');
 
     const intro = result.ast.scenes[0].children[0] as ASTElement;
     expect(intro.elementType).toBe('box');

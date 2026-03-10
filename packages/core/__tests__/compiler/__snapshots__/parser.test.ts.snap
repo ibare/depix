@@ -5,6 +5,7 @@ exports[`AST snapshots > flow-basic matches snapshot 1`] = `
   "directives": [],
   "scenes": [
     {
+      "blockType": "scene",
       "children": [
         {
           "blockType": "flow",
@@ -64,11 +65,13 @@ exports[`AST snapshots > flow-basic matches snapshot 1`] = `
           "style": {},
         },
       ],
+      "kind": "block",
       "loc": {
         "column": 1,
         "line": 1,
       },
-      "name": null,
+      "props": {},
+      "style": {},
     },
   ],
 }
@@ -79,6 +82,7 @@ exports[`AST snapshots > grid-basic matches snapshot 1`] = `
   "directives": [],
   "scenes": [
     {
+      "blockType": "scene",
       "children": [
         {
           "blockType": "grid",
@@ -161,11 +165,13 @@ exports[`AST snapshots > grid-basic matches snapshot 1`] = `
           "style": {},
         },
       ],
+      "kind": "block",
       "loc": {
         "column": 1,
         "line": 1,
       },
-      "name": null,
+      "props": {},
+      "style": {},
     },
   ],
 }
@@ -176,6 +182,7 @@ exports[`AST snapshots > stack-row matches snapshot 1`] = `
   "directives": [],
   "scenes": [
     {
+      "blockType": "scene",
       "children": [
         {
           "blockType": "stack",
@@ -225,11 +232,13 @@ exports[`AST snapshots > stack-row matches snapshot 1`] = `
           "style": {},
         },
       ],
+      "kind": "block",
       "loc": {
         "column": 1,
         "line": 1,
       },
-      "name": null,
+      "props": {},
+      "style": {},
     },
   ],
 }

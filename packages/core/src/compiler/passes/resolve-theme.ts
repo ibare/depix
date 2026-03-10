@@ -26,7 +26,6 @@ import {
 } from '../../theme/resolver.js';
 import type {
   ASTDocument,
-  ASTScene,
   ASTNode,
   ASTBlock,
   ASTElement,
@@ -42,7 +41,7 @@ export function resolveTheme(
 ): ASTDocument {
   return {
     directives: [...ast.directives],
-    scenes: ast.scenes.map((scene) => resolveScene(scene, theme)),
+    scenes: ast.scenes.map((scene) => resolveDiagram(scene, theme)),
   };
 }
 
@@ -50,7 +49,7 @@ export function resolveTheme(
 // Internal resolution
 // ---------------------------------------------------------------------------
 
-function resolveScene(scene: ASTScene, theme: DepixTheme): ASTScene {
+function resolveDiagram(scene: ASTBlock, theme: DepixTheme): ASTBlock {
   return {
     ...scene,
     children: scene.children.map((child) => resolveNode(child, theme)),

@@ -1,8 +1,8 @@
 /**
- * Slide DSL — Tokenizer & Parser Tests
+ * Scene DSL — Tokenizer & Parser Tests
  *
- * Verifies that slide keywords are tokenized correctly and
- * the parser produces valid AST structures for slide DSL.
+ * Verifies that scene keywords are tokenized correctly and
+ * the parser produces valid AST structures for scene DSL.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -13,7 +13,7 @@ import { parse } from '../../../src/compiler/parser.js';
 // Tokenizer tests
 // ---------------------------------------------------------------------------
 
-describe('Slide tokenizer', () => {
+describe('Scene tokenizer', () => {
   function pairs(input: string): [string, string][] {
     return tokenize(input)
       .tokens.filter(t => t.type !== 'NEWLINE' && t.type !== 'EOF')
@@ -40,8 +40,8 @@ describe('Slide tokenizer', () => {
     ]);
   });
 
-  it('tokenizes slide as BLOCK_TYPE', () => {
-    expect(pairs('slide')).toEqual([['BLOCK_TYPE', 'slide']]);
+  it('tokenizes scene as BLOCK_TYPE', () => {
+    expect(pairs('scene')).toEqual([['BLOCK_TYPE', 'scene']]);
   });
 
   it('tokenizes column as BLOCK_TYPE', () => {
@@ -68,11 +68,11 @@ describe('Slide tokenizer', () => {
     expect(pairs('item')).toEqual([['ELEMENT_TYPE', 'item']]);
   });
 
-  it('produces no errors for valid slide DSL', () => {
+  it('produces no errors for valid scene DSL', () => {
     const input = `@presentation
 @ratio 16:9
 
-slide "intro" {
+scene "intro" {
   layout: title
   heading "Hello World"
   label "Subtitle"
@@ -86,7 +86,7 @@ slide "intro" {
 // Parser tests
 // ---------------------------------------------------------------------------
 
-describe('Slide parser', () => {
+describe('Scene parser', () => {
   it('parses @presentation directive', () => {
     const { ast, errors } = parse('@presentation');
     expect(errors).toEqual([]);
@@ -101,30 +101,28 @@ describe('Slide parser', () => {
     expect(ast.directives[0].value).toBe('16:9');
   });
 
-  it('parses a slide block with layout prop', () => {
-    const input = `slide "intro" {
+  it('parses a scene block with layout prop', () => {
+    const input = `scene "intro" {
   layout: title
   heading "Hello"
 }`;
     const { ast, errors } = parse(input);
     expect(errors).toEqual([]);
     expect(ast.scenes).toHaveLength(1);
-    const slide = ast.scenes[0].children[0];
-    expect(slide.kind).toBe('block');
-    if (slide.kind === 'block') {
-      expect(slide.blockType).toBe('slide');
-      expect(slide.label).toBe('intro');
-      expect(slide.props.layout).toBe('title');
-      expect(slide.children).toHaveLength(1);
-      expect(slide.children[0].kind).toBe('element');
-    }
+    const scene = ast.scenes[0];
+    expect(scene.kind).toBe('block');
+    expect(scene.blockType).toBe('scene');
+    expect(scene.label).toBe('intro');
+    expect(scene.props.layout).toBe('title');
+    expect(scene.children).toHaveLength(1);
+    expect(scene.children[0].kind).toBe('element');
   });
 
   it('parses heading with level prop', () => {
-    const { ast } = parse('slide { heading "Title" { level: 2 } }');
-    const slide = ast.scenes[0].children[0];
-    if (slide.kind === 'block') {
-      const heading = slide.children[0];
+    const { ast } = parse('scene { heading "Title" { level: 2 } }');
+    const scene = ast.scenes[0];
+    {
+      const heading = scene.children[0];
       if (heading.kind === 'element') {
         expect(heading.elementType).toBe('heading');
         expect(heading.label).toBe('Title');
@@ -134,7 +132,7 @@ describe('Slide parser', () => {
   });
 
   it('parses bullet with nested items', () => {
-    const input = `slide {
+    const input = `scene {
   bullet {
     item "First"
     item "Second"
@@ -142,49 +140,43 @@ describe('Slide parser', () => {
 }`;
     const { ast, errors } = parse(input);
     expect(errors).toEqual([]);
-    const slide = ast.scenes[0].children[0];
-    if (slide.kind === 'block') {
-      const bullet = slide.children[0];
-      if (bullet.kind === 'element') {
-        expect(bullet.elementType).toBe('bullet');
-        expect(bullet.children).toHaveLength(2);
-        expect(bullet.children[0].kind).toBe('element');
-        if (bullet.children[0].kind === 'element') {
-          expect(bullet.children[0].elementType).toBe('item');
-          expect(bullet.children[0].label).toBe('First');
-        }
+    const scene = ast.scenes[0];
+    const bullet = scene.children[0];
+    if (bullet.kind === 'element') {
+      expect(bullet.elementType).toBe('bullet');
+      expect(bullet.children).toHaveLength(2);
+      expect(bullet.children[0].kind).toBe('element');
+      if (bullet.children[0].kind === 'element') {
+        expect(bullet.children[0].elementType).toBe('item');
+        expect(bullet.children[0].label).toBe('First');
       }
     }
   });
 
   it('parses stat with label prop', () => {
-    const { ast } = parse('slide { stat "340%" { label: "Growth" } }');
-    const slide = ast.scenes[0].children[0];
-    if (slide.kind === 'block') {
-      const stat = slide.children[0];
-      if (stat.kind === 'element') {
-        expect(stat.elementType).toBe('stat');
-        expect(stat.label).toBe('340%');
-        expect(stat.props.label).toBe('Growth');
-      }
+    const { ast } = parse('scene { stat "340%" { label: "Growth" } }');
+    const scene = ast.scenes[0];
+    const stat = scene.children[0];
+    if (stat.kind === 'element') {
+      expect(stat.elementType).toBe('stat');
+      expect(stat.label).toBe('340%');
+      expect(stat.props.label).toBe('Growth');
     }
   });
 
   it('parses quote with attribution', () => {
-    const { ast } = parse('slide { quote "Speed matters." { attribution: "John" } }');
-    const slide = ast.scenes[0].children[0];
-    if (slide.kind === 'block') {
-      const quote = slide.children[0];
-      if (quote.kind === 'element') {
-        expect(quote.elementType).toBe('quote');
-        expect(quote.label).toBe('Speed matters.');
-        expect(quote.props.attribution).toBe('John');
-      }
+    const { ast } = parse('scene { quote "Speed matters." { attribution: "John" } }');
+    const scene = ast.scenes[0];
+    const quote = scene.children[0];
+    if (quote.kind === 'element') {
+      expect(quote.elementType).toBe('quote');
+      expect(quote.label).toBe('Speed matters.');
+      expect(quote.props.attribution).toBe('John');
     }
   });
 
-  it('parses column blocks inside a slide', () => {
-    const input = `slide {
+  it('parses column blocks inside a scene', () => {
+    const input = `scene {
   layout: two-column
   heading "Title"
   column { heading "Col 1" }
@@ -192,25 +184,25 @@ describe('Slide parser', () => {
 }`;
     const { ast, errors } = parse(input);
     expect(errors).toEqual([]);
-    const slide = ast.scenes[0].children[0];
-    if (slide.kind === 'block') {
-      expect(slide.props.layout).toBe('two-column');
-      const blocks = slide.children.filter(c => c.kind === 'block');
-      expect(blocks).toHaveLength(2);
-      expect(blocks[0].kind === 'block' && blocks[0].blockType).toBe('column');
-    }
+    const scene = ast.scenes[0];
+    expect(scene.props.layout).toBe('two-column');
+    const blocks = scene.children.filter(c => c.kind === 'block');
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].kind === 'block' && blocks[0].blockType).toBe('column');
   });
 
-  it('parses multiple slides in sequence', () => {
+  it('parses multiple scenes in sequence', () => {
     const input = `@presentation
 
-slide "s1" { heading "Slide 1" }
-slide "s2" { heading "Slide 2" }
-slide "s3" { heading "Slide 3" }`;
+scene "s1" { heading "Slide 1" }
+scene "s2" { heading "Slide 2" }
+scene "s3" { heading "Slide 3" }`;
     const { ast, errors } = parse(input);
     expect(errors).toEqual([]);
     expect(ast.directives[0].key).toBe('presentation');
-    const slides = ast.scenes[0].children.filter(c => c.kind === 'block');
-    expect(slides).toHaveLength(3);
+    expect(ast.scenes).toHaveLength(3);
+    expect(ast.scenes[0].label).toBe('s1');
+    expect(ast.scenes[1].label).toBe('s2');
+    expect(ast.scenes[2].label).toBe('s3');
   });
 });

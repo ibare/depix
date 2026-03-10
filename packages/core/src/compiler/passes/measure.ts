@@ -5,12 +5,12 @@
  * Resolves fontSize, lineHeight, padding, and computes minimum dimensions
  * that the subsequent allocate-bounds pass uses as constraints.
  *
- * Pipeline: SceneLayoutPlan + ScaleContext + Theme → MeasureMap
+ * Pipeline: DiagramLayoutPlan + ScaleContext + Theme → MeasureMap
  */
 
 import type { DepixTheme } from '../../theme/types.js';
 import type { ASTBlock, ASTElement } from '../ast.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeFontSize, computePadding, computeGap } from './scale-system.js';
 import type { BudgetMap } from './budget-types.js';
@@ -60,8 +60,8 @@ const TEXT_BLOCK_MULTIPLIER = 1.8; // height = fontSize * multiplier (accounts f
  *
  * Returns a MeasureMap keyed by plan node id.
  */
-export function measureScene(
-  plan: SceneLayoutPlan,
+export function measureDiagram(
+  plan: DiagramLayoutPlan,
   theme: DepixTheme,
   scaleCtx?: ScaleContext,
   budgetMap?: BudgetMap,

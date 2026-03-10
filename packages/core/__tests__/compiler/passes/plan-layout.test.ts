@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  planScene,
+  planDiagram,
   planNode,
   classifyNode,
   computeMetrics,
@@ -9,7 +9,7 @@ import {
 } from '../../../src/compiler/passes/plan-layout.js';
 import type { PlanNodeType, LayoutPlanNode } from '../../../src/compiler/passes/plan-layout.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTScene, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
+import type { ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,8 +19,8 @@ function loc() {
   return { line: 1, column: 1 };
 }
 
-function makeScene(children: ASTScene['children'], name: string | null = null): ASTScene {
-  return { name, children, loc: loc() };
+function makeScene(children: ASTBlock['children'], label: string | null = null): ASTBlock {
+  return { kind: 'block', blockType: 'scene', props: {}, children, label: label ?? undefined, style: {}, loc: loc() };
 }
 
 function makeElement(type: string, overrides: Partial<ASTElement> = {}): ASTElement {
@@ -262,18 +262,18 @@ describe('computeIntrinsicSize', () => {
 });
 
 // ---------------------------------------------------------------------------
-// planScene
+// planDiagram
 // ---------------------------------------------------------------------------
 
-describe('planScene', () => {
+describe('planDiagram', () => {
   it('returns empty plan for empty scene', () => {
-    const plan = planScene(makeScene([]), lightTheme);
+    const plan = planDiagram(makeScene([]), lightTheme);
     expect(plan.children).toHaveLength(0);
     expect(plan.totalWeight).toBe(0);
   });
 
   it('plans a single element', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -283,7 +283,7 @@ describe('planScene', () => {
   });
 
   it('skips edges at scene level', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'a' }),
         makeElement('node', { id: 'b' }),
@@ -300,7 +300,7 @@ describe('planScene', () => {
       makeElement('node', { id: 'n2' }),
     ], { id: 's1' });
 
-    const plan = planScene(makeScene([block]), lightTheme);
+    const plan = planDiagram(makeScene([block]), lightTheme);
     expect(plan.children).toHaveLength(1);
     expect(plan.children[0].nodeType).toBe('block-stack');
     expect(plan.children[0].children).toHaveLength(2);
@@ -314,13 +314,13 @@ describe('planScene', () => {
       makeEdge('a', 'b'),
     ], { id: 'f1' });
 
-    const plan = planScene(makeScene([block]), lightTheme);
+    const plan = planDiagram(makeScene([block]), lightTheme);
     expect(plan.children[0].edges).toHaveLength(1);
     expect(plan.children[0].children).toHaveLength(2);
   });
 
   it('totalWeight sums all top-level weights', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('label', { id: 'l1' }),

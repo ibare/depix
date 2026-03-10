@@ -5,7 +5,7 @@
  * Each node carries weight and metrics that drive top-down space allocation
  * in the subsequent allocate-bounds pass.
  *
- * Pipeline: AST → planScene() → SceneLayoutPlan
+ * Pipeline: AST → planDiagram() → DiagramLayoutPlan
  */
 
 import type { DepixTheme } from '../../theme/types.js';
@@ -14,7 +14,6 @@ import type {
   ASTEdge,
   ASTElement,
   ASTNode,
-  ASTScene,
 } from '../ast.js';
 
 // ---------------------------------------------------------------------------
@@ -46,7 +45,7 @@ export interface LayoutPlanNode {
   edges: ASTEdge[];
 }
 
-export interface SceneLayoutPlan {
+export interface DiagramLayoutPlan {
   children: LayoutPlanNode[];
   totalWeight: number;
 }
@@ -81,7 +80,7 @@ const BASE_WEIGHT: Record<PlanNodeType, number> = {
  * Edges at scene level are collected but not represented as plan nodes
  * (they are routed after bounds allocation).
  */
-export function planScene(scene: ASTScene, theme: DepixTheme): SceneLayoutPlan {
+export function planDiagram(scene: ASTBlock, theme: DepixTheme): DiagramLayoutPlan {
   const children: LayoutPlanNode[] = [];
 
   for (const child of scene.children) {
@@ -159,7 +158,7 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       case 'group': return 'block-group';
       case 'layers': return 'block-layers';
       case 'canvas': return 'block-canvas';
-      case 'slide': return 'block-canvas';
+      case 'scene': return 'block-canvas';
       case 'column': return 'block-stack';
       default: return 'block-canvas';
     }

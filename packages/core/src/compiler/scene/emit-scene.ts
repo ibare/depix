@@ -1,10 +1,10 @@
 /**
- * Slide IR Emission Pass
+ * Scene IR Emission Pass
  *
- * Converts slide AST blocks + pre-computed BoundsMap into IRScene[].
+ * Converts scene AST blocks + pre-computed BoundsMap into IRScene[].
  * This is the emit pass — it only creates IR elements from already-computed bounds.
  *
- * Pipeline: AST (resolved) + SlidePlan → IRScene
+ * Pipeline: AST (resolved) + ScenePlan → IRScene
  */
 
 import type {
@@ -21,7 +21,7 @@ import type {
   IRTransition,
 } from '../../ir/types.js';
 import type { DepixTheme } from '../../theme/types.js';
-import type { SlideTheme } from '../../theme/slide-theme.js';
+import type { SceneTheme } from '../../theme/scene-theme.js';
 import type {
   ASTBlock,
   ASTDirective,
@@ -30,7 +30,7 @@ import type {
   ASTNode,
 } from '../ast.js';
 import { generateId } from '../../ir/utils.js';
-import { planSlide, type SlidePlan } from './plan-slide.js';
+import { planScene, type ScenePlan } from './plan-scene.js';
 import { emitIR } from '../passes/emit-ir.js';
 
 // ---------------------------------------------------------------------------
@@ -40,39 +40,33 @@ import { emitIR } from '../passes/emit-ir.js';
 /**
  * Compile a presentation-mode AST document into DepixIR.
  *
- * Each `slide` block in each scene becomes an independent IRScene.
- * Non-slide content is ignored in presentation mode.
+ * Each scene block becomes an independent IRScene.
+ * Non-scene content is ignored in presentation mode.
  */
-export function emitSlideIR(
+export function emitSceneIR(
   ast: ASTDocument,
   theme: DepixTheme,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
 ): DepixIR {
-  const meta = buildSlideMeta(ast.directives, theme, slideTheme);
+  const meta = buildSceneMeta(ast.directives, theme, sceneTheme);
   const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
   const scenes: IRScene[] = [];
 
-  // Collect all slide blocks from all scenes
-  let slideIndex = 0;
-  for (const scene of ast.scenes) {
-    for (const child of scene.children) {
-      if (child.kind === 'block' && child.blockType === 'slide') {
-        const plan = planSlide(child, canvasBounds, slideTheme);
+  // Each scene block is a presentation scene
+  for (let sceneIndex = 0; sceneIndex < ast.scenes.length; sceneIndex++) {
+    const sceneBlock = ast.scenes[sceneIndex];
+    const plan = planScene(sceneBlock, canvasBounds, sceneTheme);
 
-        if (plan.layoutType === 'custom') {
-          // Delegate custom layout to the existing pipeline
-          const customScene = emitCustomSlide(child, slideIndex, theme);
-          if (customScene) scenes.push(customScene);
-        } else {
-          const irScene = emitSlideScene(child, plan, slideIndex, theme, slideTheme);
-          scenes.push(irScene);
-        }
-        slideIndex++;
-      }
+    if (plan.layoutType === 'custom') {
+      const customScene = emitCustomScene(sceneBlock, sceneIndex, theme);
+      if (customScene) scenes.push(customScene);
+    } else {
+      const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
+      scenes.push(irScene);
     }
   }
 
-  const transitions = buildSlideTransitions(ast.directives, scenes);
+  const transitions = buildSceneTransitions(ast.directives, scenes);
   return { meta, scenes, transitions };
 }
 
@@ -80,22 +74,22 @@ export function emitSlideIR(
 // Scene emission
 // ---------------------------------------------------------------------------
 
-function emitSlideScene(
-  slideBlock: ASTBlock,
-  plan: SlidePlan,
+function emitScene(
+  sceneBlock: ASTBlock,
+  plan: ScenePlan,
   index: number,
   theme: DepixTheme,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
 ): IRScene {
   const elements: IRElement[] = [];
-  const baseFontSize = plan.slideBounds.h * 0.04;
+  const baseFontSize = plan.sceneBounds.h * 0.04;
 
   // Background rect
-  elements.push(emitSlideBackground(plan.slideBounds, slideTheme));
+  elements.push(emitSceneBackground(plan.sceneBounds, sceneTheme));
 
   // Emit each content node using pre-computed bounds
   let childIdx = 0;
-  for (const child of slideBlock.children) {
+  for (const child of sceneBlock.children) {
     if (child.kind === 'edge') continue;
 
     const childId = plan.childIds[childIdx];
@@ -104,13 +98,13 @@ function emitSlideScene(
 
     if (!bounds) continue;
 
-    const el = emitSlideContent(child, childId, bounds, theme, slideTheme, baseFontSize);
+    const el = emitSceneContent(child, childId, bounds, theme, sceneTheme, baseFontSize);
     if (el) elements.push(el);
   }
 
   return {
-    id: slideBlock.label ?? slideBlock.id ?? `slide-${index}`,
-    background: { type: 'solid', color: slideTheme.colors.background },
+    id: sceneBlock.label ?? sceneBlock.id ?? `scene-${index}`,
+    background: { type: 'solid', color: sceneTheme.colors.background },
     elements,
   };
 }
@@ -119,31 +113,31 @@ function emitSlideScene(
 // Content node → IR element emission
 // ---------------------------------------------------------------------------
 
-function emitSlideContent(
+function emitSceneContent(
   node: ASTNode,
   id: string,
   bounds: IRBounds,
   theme: DepixTheme,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRElement | null {
   if (node.kind === 'element') {
     switch (node.elementType) {
-      case 'heading': return emitHeading(node, id, bounds, slideTheme, baseFontSize);
+      case 'heading': return emitHeading(node, id, bounds, sceneTheme, baseFontSize);
       case 'label':
-      case 'text': return emitLabel(node, id, bounds, slideTheme, baseFontSize);
-      case 'bullet': return emitBullet(node, id, bounds, slideTheme, baseFontSize);
-      case 'stat': return emitStat(node, id, bounds, slideTheme, baseFontSize);
-      case 'quote': return emitQuote(node, id, bounds, slideTheme, baseFontSize);
-      case 'image': return emitImage(node, id, bounds, slideTheme, baseFontSize);
-      case 'icon': return emitIcon(node, id, bounds, slideTheme, baseFontSize);
-      case 'step': return emitStep(node, id, bounds, slideTheme, baseFontSize);
-      default: return emitLabel(node, id, bounds, slideTheme, baseFontSize);
+      case 'text': return emitLabel(node, id, bounds, sceneTheme, baseFontSize);
+      case 'bullet': return emitBullet(node, id, bounds, sceneTheme, baseFontSize);
+      case 'stat': return emitStat(node, id, bounds, sceneTheme, baseFontSize);
+      case 'quote': return emitQuote(node, id, bounds, sceneTheme, baseFontSize);
+      case 'image': return emitImage(node, id, bounds, sceneTheme, baseFontSize);
+      case 'icon': return emitIcon(node, id, bounds, sceneTheme, baseFontSize);
+      case 'step': return emitStep(node, id, bounds, sceneTheme, baseFontSize);
+      default: return emitLabel(node, id, bounds, sceneTheme, baseFontSize);
     }
   }
 
   if (node.kind === 'block' && node.blockType === 'column') {
-    return emitColumn(node, id, bounds, theme, slideTheme, baseFontSize);
+    return emitColumn(node, id, bounds, theme, sceneTheme, baseFontSize);
   }
 
   return null;
@@ -157,11 +151,11 @@ function emitHeading(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRText {
   const level = typeof el.props.level === 'number' ? el.props.level : 1;
-  const sizeMultiplier = level === 1 ? slideTheme.typography.headingSize : slideTheme.typography.headingSize * 0.7;
+  const sizeMultiplier = level === 1 ? sceneTheme.typography.headingSize : sceneTheme.typography.headingSize * 0.7;
   const fontSize = baseFontSize * sizeMultiplier;
 
   return {
@@ -171,7 +165,7 @@ function emitHeading(
     style: resolveElementStyle(el),
     content: el.label ?? '',
     fontSize,
-    color: slideTheme.colors.primary,
+    color: sceneTheme.colors.primary,
     fontWeight: 'bold',
     align: 'center',
     valign: 'middle',
@@ -182,11 +176,11 @@ function emitLabel(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRText {
   const sizeStr = el.props.size;
-  let sizeMultiplier = slideTheme.typography.bodySize;
+  let sizeMultiplier = sceneTheme.typography.bodySize;
   if (sizeStr === 'sm') sizeMultiplier *= 0.8;
   if (sizeStr === 'lg') sizeMultiplier *= 1.2;
 
@@ -197,7 +191,7 @@ function emitLabel(
     style: resolveElementStyle(el),
     content: el.label ?? '',
     fontSize: baseFontSize * sizeMultiplier,
-    color: slideTheme.colors.textMuted,
+    color: sceneTheme.colors.textMuted,
     align: 'center',
     valign: 'middle',
   };
@@ -207,7 +201,7 @@ function emitBullet(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const children: IRElement[] = [];
@@ -215,7 +209,7 @@ function emitBullet(
     (c): c is ASTElement => c.kind === 'element' && c.elementType === 'item',
   );
   const itemCount = itemNodes.length || 1;
-  const gap = slideTheme.layout.itemGap;
+  const gap = sceneTheme.layout.itemGap;
   const itemH = (bounds.h - gap * (itemCount - 1)) / itemCount;
 
   let curY = bounds.y;
@@ -228,8 +222,8 @@ function emitBullet(
       bounds: itemBounds,
       style: {},
       content: `• ${item.label ?? ''}`,
-      fontSize: baseFontSize * slideTheme.typography.bodySize,
-      color: slideTheme.colors.text,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      color: sceneTheme.colors.text,
       align: 'left',
       valign: 'middle',
     } as IRText);
@@ -249,14 +243,14 @@ function emitStat(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const statValue = el.label ?? '';
   const statLabel = typeof el.props.label === 'string' ? el.props.label : '';
   const statColor = typeof el.props.color === 'string'
     ? el.props.color
-    : slideTheme.colors.accent;
+    : sceneTheme.colors.accent;
 
   const valueH = bounds.h * 0.55;
   const labelH = bounds.h * 0.3;
@@ -269,7 +263,7 @@ function emitStat(
       bounds: { x: bounds.x, y: bounds.y + (bounds.h - valueH - labelH - gap) / 2, w: bounds.w, h: valueH },
       style: {},
       content: statValue,
-      fontSize: baseFontSize * slideTheme.typography.statSize,
+      fontSize: baseFontSize * sceneTheme.typography.statSize,
       color: statColor,
       fontWeight: 'bold',
       align: 'center',
@@ -281,8 +275,8 @@ function emitStat(
       bounds: { x: bounds.x, y: bounds.y + (bounds.h - valueH - labelH - gap) / 2 + valueH + gap, w: bounds.w, h: labelH },
       style: {},
       content: statLabel,
-      fontSize: baseFontSize * slideTheme.typography.bodySize,
-      color: slideTheme.colors.textMuted,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
     } as IRText,
@@ -301,7 +295,7 @@ function emitQuote(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const quoteText = el.label ?? '';
@@ -318,8 +312,8 @@ function emitQuote(
       bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: quoteH },
       style: {},
       content: `\u201C${quoteText}\u201D`,
-      fontSize: baseFontSize * slideTheme.typography.headingSize * 0.8,
-      color: slideTheme.colors.primary,
+      fontSize: baseFontSize * sceneTheme.typography.headingSize * 0.8,
+      color: sceneTheme.colors.primary,
       fontStyle: 'italic',
       align: 'center',
       valign: 'middle',
@@ -333,8 +327,8 @@ function emitQuote(
       bounds: { x: bounds.x, y: bounds.y + quoteH + gap, w: bounds.w, h: attrH },
       style: {},
       content: `\u2014 ${attribution}`,
-      fontSize: baseFontSize * slideTheme.typography.bodySize,
-      color: slideTheme.colors.textMuted,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
     } as IRText);
@@ -354,12 +348,12 @@ function emitColumn(
   id: string,
   bounds: IRBounds,
   theme: DepixTheme,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const children: IRElement[] = [];
   const contentNodes = block.children.filter(c => c.kind !== 'edge');
-  const gap = slideTheme.layout.itemGap;
+  const gap = sceneTheme.layout.itemGap;
   const itemH = contentNodes.length > 0
     ? (bounds.h - gap * (contentNodes.length - 1)) / contentNodes.length
     : bounds.h;
@@ -369,12 +363,12 @@ function emitColumn(
     const child = contentNodes[i];
     const childId = `${id}-child-${i}`;
     const childBounds: IRBounds = { x: bounds.x, y: curY, w: bounds.w, h: Math.max(itemH, 2) };
-    const el = emitSlideContent(child, childId, childBounds, theme, slideTheme, baseFontSize);
+    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
     if (el) children.push(el);
     curY += itemH + gap;
   }
 
-  const origin: IROrigin = { sourceType: 'slide', sourceProps: { columnId: id } };
+  const origin: IROrigin = { sourceType: 'scene', sourceProps: { columnId: id } };
 
   return {
     id,
@@ -390,7 +384,7 @@ function emitImage(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const src = el.label ?? '';
@@ -401,7 +395,7 @@ function emitImage(
       id: `${id}-bg`,
       type: 'shape',
       bounds: { ...bounds },
-      style: { fill: slideTheme.colors.surface },
+      style: { fill: sceneTheme.colors.surface },
       shape: 'rect',
     },
     {
@@ -410,8 +404,8 @@ function emitImage(
       bounds: { x: bounds.x + 2, y: bounds.y + bounds.h * 0.4, w: bounds.w - 4, h: bounds.h * 0.2 },
       style: {},
       content: alt,
-      fontSize: baseFontSize * slideTheme.typography.bodySize * 0.8,
-      color: slideTheme.colors.textMuted,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.8,
+      color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'middle',
     } as IRText,
@@ -424,7 +418,7 @@ function emitIcon(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const iconSymbol = el.label ?? '';
@@ -443,8 +437,8 @@ function emitIcon(
       bounds: { x: bounds.x, y: bounds.y + bounds.h * 0.05, w: bounds.w, h: iconH },
       style: {},
       content: iconSymbol,
-      fontSize: baseFontSize * slideTheme.typography.statSize,
-      color: slideTheme.colors.accent,
+      fontSize: baseFontSize * sceneTheme.typography.statSize,
+      color: sceneTheme.colors.accent,
       align: 'center',
       valign: 'middle',
     } as IRText,
@@ -457,8 +451,8 @@ function emitIcon(
       bounds: { x: bounds.x, y: bounds.y + iconH + gap, w: bounds.w, h: labelH },
       style: {},
       content: iconLabel,
-      fontSize: baseFontSize * slideTheme.typography.bodySize * 1.1,
-      color: slideTheme.colors.text,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize * 1.1,
+      color: sceneTheme.colors.text,
       fontWeight: 'bold',
       align: 'center',
       valign: 'middle',
@@ -472,8 +466,8 @@ function emitIcon(
       bounds: { x: bounds.x + bounds.w * 0.05, y: bounds.y + iconH + gap + labelH + gap * 0.5, w: bounds.w * 0.9, h: descH },
       style: {},
       content: iconDesc,
-      fontSize: baseFontSize * slideTheme.typography.bodySize * 0.85,
-      color: slideTheme.colors.textMuted,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.85,
+      color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
     } as IRText);
@@ -486,7 +480,7 @@ function emitStep(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRContainer {
   const stepLabel = el.label ?? '';
@@ -506,7 +500,7 @@ function emitStep(
         w: markerH,
         h: markerH,
       },
-      style: { fill: slideTheme.colors.accent },
+      style: { fill: sceneTheme.colors.accent },
       shape: 'circle',
     },
     {
@@ -520,8 +514,8 @@ function emitStep(
       },
       style: {},
       content: stepLabel,
-      fontSize: baseFontSize * slideTheme.typography.bodySize * 1.2,
-      color: slideTheme.colors.background,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize * 1.2,
+      color: sceneTheme.colors.background,
       fontWeight: 'bold',
       align: 'center',
       valign: 'middle',
@@ -540,8 +534,8 @@ function emitStep(
       },
       style: {},
       content: stepDesc,
-      fontSize: baseFontSize * slideTheme.typography.bodySize,
-      color: slideTheme.colors.text,
+      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      color: sceneTheme.colors.text,
       align: 'center',
       valign: 'top',
     } as IRText);
@@ -551,42 +545,46 @@ function emitStep(
 }
 
 // ---------------------------------------------------------------------------
-// Slide background element
+// Scene background element
 // ---------------------------------------------------------------------------
 
-function emitSlideBackground(bounds: IRBounds, slideTheme: SlideTheme): IRElement {
+function emitSceneBackground(bounds: IRBounds, sceneTheme: SceneTheme): IRElement {
   return {
     id: generateId(),
     type: 'shape',
     bounds: { ...bounds },
-    style: { fill: slideTheme.colors.background },
+    style: { fill: sceneTheme.colors.background },
     shape: 'rect',
   };
 }
 
 // ---------------------------------------------------------------------------
-// Custom slide: delegate to existing pipeline
+// Custom scene: delegate to existing pipeline
 // ---------------------------------------------------------------------------
 
-function emitCustomSlide(
-  slideBlock: ASTBlock,
+function emitCustomScene(
+  sceneBlock: ASTBlock,
   index: number,
   theme: DepixTheme,
 ): IRScene | null {
-  // Build a mini-document with just this slide's children as a scene
+  // Build a mini-document with just this scene's children as a scene
   const miniDoc: ASTDocument = {
     directives: [],
     scenes: [{
-      name: slideBlock.id ?? `custom-slide-${index}`,
-      children: slideBlock.children,
-      loc: slideBlock.loc,
+      kind: 'block',
+      blockType: 'scene',
+      label: sceneBlock.id ?? `custom-scene-${index}`,
+      props: {},
+      children: sceneBlock.children,
+      style: {},
+      loc: sceneBlock.loc,
     }],
   };
 
   const ir = emitIR(miniDoc, theme);
   const scene = ir.scenes[0];
   if (scene) {
-    scene.id = slideBlock.label ?? slideBlock.id ?? `slide-${index}`;
+    scene.id = sceneBlock.label ?? sceneBlock.id ?? `scene-${index}`;
   }
   return scene ?? null;
 }
@@ -595,10 +593,10 @@ function emitCustomSlide(
 // Meta
 // ---------------------------------------------------------------------------
 
-function buildSlideMeta(
+function buildSceneMeta(
   directives: ASTDirective[],
   theme: DepixTheme,
-  slideTheme: SlideTheme,
+  sceneTheme: SceneTheme,
 ): IRMeta {
   let aspectRatio = { width: 16, height: 9 };
 
@@ -617,7 +615,7 @@ function buildSlideMeta(
 
   return {
     aspectRatio,
-    background: { type: 'solid', color: slideTheme.colors.background },
+    background: { type: 'solid', color: sceneTheme.colors.background },
     drawingStyle: 'default',
   };
 }
@@ -631,7 +629,7 @@ const VALID_TRANSITION_TYPES: readonly string[] = [
   'zoom-in', 'zoom-out',
 ];
 
-function buildSlideTransitions(
+function buildSceneTransitions(
   directives: ASTDirective[],
   scenes: IRScene[],
 ): IRTransition[] {

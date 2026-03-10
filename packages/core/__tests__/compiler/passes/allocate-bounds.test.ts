@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { allocateScene, runLayout, buildTreeNodes, computeLayoutChildren } from '../../../src/compiler/passes/allocate-bounds.js';
+import { allocateDiagram, runLayout, buildTreeNodes, computeLayoutChildren } from '../../../src/compiler/passes/allocate-bounds.js';
 import type { LayoutPlanNode } from '../../../src/compiler/passes/plan-layout.js';
-import { planScene, planNode } from '../../../src/compiler/passes/plan-layout.js';
+import { planDiagram, planNode } from '../../../src/compiler/passes/plan-layout.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTScene, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
+import type { ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
 import type { IRBounds } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
@@ -14,8 +14,8 @@ function loc() {
   return { line: 1, column: 1 };
 }
 
-function makeScene(children: ASTScene['children'], name: string | null = null): ASTScene {
-  return { name, children, loc: loc() };
+function makeScene(children: ASTBlock['children'], label: string | null = null): ASTBlock {
+  return { kind: 'block', blockType: 'scene', props: {}, children, label: label ?? undefined, style: {}, loc: loc() };
 }
 
 function makeElement(type: string, overrides: Partial<ASTElement> = {}): ASTElement {
@@ -53,28 +53,28 @@ function makeEdge(fromId: string, toId: string): ASTEdge {
 const CANVAS: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
 
 // ---------------------------------------------------------------------------
-// allocateScene — empty
+// allocateDiagram — empty
 // ---------------------------------------------------------------------------
 
-describe('allocateScene — empty', () => {
+describe('allocateDiagram — empty', () => {
   it('returns empty map for empty scene', () => {
-    const plan = planScene(makeScene([]), lightTheme);
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const plan = planDiagram(makeScene([]), lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
     expect(map.size).toBe(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// allocateScene — single element
+// allocateDiagram — single element
 // ---------------------------------------------------------------------------
 
-describe('allocateScene — single element', () => {
+describe('allocateDiagram — single element', () => {
   it('allocates full canvas space to single element', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     const bounds = map.get('n1');
     expect(bounds).toBeDefined();
@@ -87,19 +87,19 @@ describe('allocateScene — single element', () => {
 });
 
 // ---------------------------------------------------------------------------
-// allocateScene — multiple elements
+// allocateDiagram — multiple elements
 // ---------------------------------------------------------------------------
 
-describe('allocateScene — multiple elements', () => {
+describe('allocateDiagram — multiple elements', () => {
   it('distributes height by weight ratio', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('node', { id: 'n2' }),
       ]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     const b1 = map.get('n1')!;
     const b2 = map.get('n2')!;
@@ -111,7 +111,7 @@ describe('allocateScene — multiple elements', () => {
   });
 
   it('heavier element gets more space', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'a' }),
@@ -122,7 +122,7 @@ describe('allocateScene — multiple elements', () => {
       ]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     const blockBounds = map.get('big-block')!;
     const smallBounds = map.get('small')!;
@@ -131,7 +131,7 @@ describe('allocateScene — multiple elements', () => {
   });
 
   it('all allocations fit within canvas', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('label', { id: 'l1', label: 'Title' }),
@@ -139,7 +139,7 @@ describe('allocateScene — multiple elements', () => {
       ]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     for (const [, bounds] of map) {
       expect(bounds.x).toBeGreaterThanOrEqual(CANVAS.x);
@@ -150,12 +150,12 @@ describe('allocateScene — multiple elements', () => {
 });
 
 // ---------------------------------------------------------------------------
-// allocateScene — block children
+// allocateDiagram — block children
 // ---------------------------------------------------------------------------
 
-describe('allocateScene — block allocation', () => {
+describe('allocateDiagram — block allocation', () => {
   it('allocates bounds for block container', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'n1' }),
@@ -164,7 +164,7 @@ describe('allocateScene — block allocation', () => {
       ]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     expect(map.has('s1')).toBe(true);
     expect(map.has('n1')).toBe(true);
@@ -172,7 +172,7 @@ describe('allocateScene — block allocation', () => {
   });
 
   it('child bounds are within block bounds', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'n1' }),
@@ -181,7 +181,7 @@ describe('allocateScene — block allocation', () => {
       ]),
       lightTheme,
     );
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     const container = map.get('s1')!;
     const n1 = map.get('n1')!;
@@ -201,8 +201,8 @@ describe('allocateScene — block allocation', () => {
       makeElement('node', { id: 'outer-n' }),
     ], { id: 'outer-stack', props: { direction: 'col' } });
 
-    const plan = planScene(makeScene([outer]), lightTheme);
-    const map = allocateScene(plan, CANVAS, lightTheme);
+    const plan = planDiagram(makeScene([outer]), lightTheme);
+    const map = allocateDiagram(plan, CANVAS, lightTheme);
 
     expect(map.has('outer-stack')).toBe(true);
     expect(map.has('inner-stack')).toBe(true);

@@ -1,19 +1,19 @@
 /**
- * Slide DSL Type Definitions
+ * Scene DSL Type Definitions
  *
- * Types and classification utilities for slide compilation.
+ * Types and classification utilities for scene compilation.
  */
 
 import type { ASTBlock, ASTElement, ASTNode } from '../ast.js';
-import type { SlideLayoutType } from '../layout/slide-layout.js';
+import type { SceneLayoutType } from '../layout/scene-layout.js';
 
-export type { SlideLayoutType } from '../layout/slide-layout.js';
+export type { SceneLayoutType } from '../layout/scene-layout.js';
 
 // ---------------------------------------------------------------------------
-// Slide content type
+// Scene content type
 // ---------------------------------------------------------------------------
 
-export type SlideContentType =
+export type SceneContentType =
   | 'heading'
   | 'label'
   | 'bullet'
@@ -31,11 +31,11 @@ export type SlideContentType =
 // ---------------------------------------------------------------------------
 
 /**
- * Determine the slide layout type from a slide block's props.
+ * Determine the scene layout type from a scene block's props.
  * Falls back to 'custom' if no layout is specified.
  */
-export function classifySlideLayout(slideBlock: ASTBlock): SlideLayoutType {
-  const layout = slideBlock.props.layout;
+export function classifySceneLayout(sceneBlock: ASTBlock): SceneLayoutType {
+  const layout = sceneBlock.props.layout;
   if (typeof layout !== 'string') return 'custom';
 
   switch (layout) {
@@ -59,9 +59,9 @@ export function classifySlideLayout(slideBlock: ASTBlock): SlideLayoutType {
 // ---------------------------------------------------------------------------
 
 /**
- * Classify an AST node's content type for slide layout purposes.
+ * Classify an AST node's content type for scene layout purposes.
  */
-export function classifySlideContent(node: ASTNode): SlideContentType {
+export function classifySceneContent(node: ASTNode): SceneContentType {
   if (node.kind === 'block') {
     if (node.blockType === 'column') return 'column';
     return 'unknown';

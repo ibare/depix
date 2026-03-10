@@ -1,19 +1,19 @@
 /**
- * Slide Layout Algorithms
+ * Scene Layout Algorithms
  *
- * Pure geometry functions for 8 slide layout types.
- * Each function takes SlideLayoutChild[] + SlideLayoutConfig and returns LayoutResult.
+ * Pure geometry functions for 8 scene layout types.
+ * Each function takes SceneLayoutChild[] + SceneLayoutConfig and returns LayoutResult.
  * All coordinates are in the 0-100 relative space.
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { LayoutResult, SlideLayoutChild, SlideLayoutConfig } from './types.js';
+import type { LayoutResult, SceneLayoutChild, SceneLayoutConfig } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Layout type
 // ---------------------------------------------------------------------------
 
-export type SlideLayoutType =
+export type SceneLayoutType =
   | 'title'
   | 'statement'
   | 'bullets'
@@ -31,25 +31,25 @@ export type SlideLayoutType =
 // ---------------------------------------------------------------------------
 
 /**
- * Dispatch to the appropriate slide layout function.
+ * Dispatch to the appropriate scene layout function.
  */
-export function layoutSlide(
-  layoutType: SlideLayoutType,
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutScene(
+  layoutType: SceneLayoutType,
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   switch (layoutType) {
-    case 'title': return layoutSlideTitle(children, config);
-    case 'statement': return layoutSlideStatement(children, config);
-    case 'bullets': return layoutSlideBullets(children, config);
-    case 'two-column': return layoutSlideTwoColumn(children, config);
-    case 'three-column': return layoutSlideThreeColumn(children, config);
-    case 'big-number': return layoutSlideBigNumber(children, config);
-    case 'quote': return layoutSlideQuote(children, config);
-    case 'image-text': return layoutSlideImageText(children, config);
-    case 'icon-grid': return layoutSlideIconGrid(children, config);
-    case 'timeline': return layoutSlideTimeline(children, config);
-    case 'custom': return layoutSlideCustom(children, config);
+    case 'title': return layoutSceneTitle(children, config);
+    case 'statement': return layoutSceneStatement(children, config);
+    case 'bullets': return layoutSceneBullets(children, config);
+    case 'two-column': return layoutSceneTwoColumn(children, config);
+    case 'three-column': return layoutSceneThreeColumn(children, config);
+    case 'big-number': return layoutSceneBigNumber(children, config);
+    case 'quote': return layoutSceneQuote(children, config);
+    case 'image-text': return layoutSceneImageText(children, config);
+    case 'icon-grid': return layoutSceneIconGrid(children, config);
+    case 'timeline': return layoutSceneTimeline(children, config);
+    case 'custom': return layoutSceneCustom(children, config);
   }
 }
 
@@ -57,7 +57,7 @@ export function layoutSlide(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function contentArea(config: SlideLayoutConfig): IRBounds {
+function contentArea(config: SceneLayoutConfig): IRBounds {
   const p = config.padding;
   return {
     x: config.bounds.x + p,
@@ -67,7 +67,7 @@ function contentArea(config: SlideLayoutConfig): IRBounds {
   };
 }
 
-function findByType(children: SlideLayoutChild[], type: string): number[] {
+function findByType(children: SceneLayoutChild[], type: string): number[] {
   return children.reduce<number[]>((acc, c, i) => {
     if (c.contentType === type) acc.push(i);
     return acc;
@@ -79,12 +79,12 @@ function findByType(children: SlideLayoutChild[], type: string): number[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Title slide: centered heading with optional labels below.
+ * Title scene: centered heading with optional labels below.
  * Top 30% margin, heading centered, labels below heading, bottom 20% margin.
  */
-export function layoutSlideTitle(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneTitle(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -124,11 +124,11 @@ export function layoutSlideTitle(
 // ---------------------------------------------------------------------------
 
 /**
- * Statement slide: vertically centered heading + optional label.
+ * Statement scene: vertically centered heading + optional label.
  */
-export function layoutSlideStatement(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneStatement(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -168,11 +168,11 @@ export function layoutSlideStatement(
 // ---------------------------------------------------------------------------
 
 /**
- * Bullets slide: heading at top, bullet items fill remaining space.
+ * Bullets scene: heading at top, bullet items fill remaining space.
  */
-export function layoutSlideBullets(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneBullets(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -219,13 +219,13 @@ export function layoutSlideBullets(
 // ---------------------------------------------------------------------------
 
 /**
- * Two-column slide: heading at top, two equal columns below.
+ * Two-column scene: heading at top, two equal columns below.
  */
-export function layoutSlideTwoColumn(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneTwoColumn(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
-  return layoutSlideColumns(children, config, 2);
+  return layoutSceneColumns(children, config, 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -233,22 +233,22 @@ export function layoutSlideTwoColumn(
 // ---------------------------------------------------------------------------
 
 /**
- * Three-column slide: heading at top, three equal columns below.
+ * Three-column scene: heading at top, three equal columns below.
  */
-export function layoutSlideThreeColumn(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneThreeColumn(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
-  return layoutSlideColumns(children, config, 3);
+  return layoutSceneColumns(children, config, 3);
 }
 
 // ---------------------------------------------------------------------------
 // Column layout shared implementation
 // ---------------------------------------------------------------------------
 
-function layoutSlideColumns(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+function layoutSceneColumns(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
   colCount: number,
 ): LayoutResult {
   const area = contentArea(config);
@@ -308,11 +308,11 @@ function layoutSlideColumns(
 // ---------------------------------------------------------------------------
 
 /**
- * Big-number slide: heading at top, stat cards in a grid below.
+ * Big-number scene: heading at top, stat cards in a grid below.
  */
-export function layoutSlideBigNumber(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneBigNumber(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -361,11 +361,11 @@ export function layoutSlideBigNumber(
 // ---------------------------------------------------------------------------
 
 /**
- * Quote slide: vertically centered quote text + attribution below.
+ * Quote scene: vertically centered quote text + attribution below.
  */
-export function layoutSlideQuote(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneQuote(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -404,11 +404,11 @@ export function layoutSlideQuote(
 // ---------------------------------------------------------------------------
 
 /**
- * Image-text slide: heading at top, image on left, text content on right.
+ * Image-text scene: heading at top, image on left, text content on right.
  */
-export function layoutSlideImageText(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneImageText(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -465,12 +465,12 @@ export function layoutSlideImageText(
 // ---------------------------------------------------------------------------
 
 /**
- * Icon-grid slide: heading at top, icons arranged in a responsive grid below.
+ * Icon-grid scene: heading at top, icons arranged in a responsive grid below.
  * Uses 2 columns for ≤4 icons, 3 columns otherwise.
  */
-export function layoutSlideIconGrid(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneIconGrid(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -522,11 +522,11 @@ export function layoutSlideIconGrid(
 // ---------------------------------------------------------------------------
 
 /**
- * Timeline slide: heading at top, steps distributed horizontally.
+ * Timeline scene: heading at top, steps distributed horizontally.
  */
-export function layoutSlideTimeline(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneTimeline(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childBounds: IRBounds[] = new Array(children.length);
@@ -580,9 +580,9 @@ export function layoutSlideTimeline(
  * Custom layout: evenly distribute children vertically.
  * Actual layout is delegated to the existing pipeline by the compiler.
  */
-export function layoutSlideCustom(
-  children: SlideLayoutChild[],
-  config: SlideLayoutConfig,
+export function layoutSceneCustom(
+  children: SceneLayoutChild[],
+  config: SceneLayoutConfig,
 ): LayoutResult {
   const area = contentArea(config);
   const childH = children.length > 0

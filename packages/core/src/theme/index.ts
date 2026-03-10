@@ -21,9 +21,9 @@ export type {
 // Re-export built-in themes
 export { darkTheme, lightTheme } from './builtin-themes.js';
 
-// Re-export slide theme
-export type { SlideTheme } from './slide-theme.js';
-export { defaultSlideTheme } from './slide-theme.js';
+// Re-export scene theme
+export type { SceneTheme } from './scene-theme.js';
+export { defaultSceneTheme } from './scene-theme.js';
 
 // Re-export resolver functions
 export {

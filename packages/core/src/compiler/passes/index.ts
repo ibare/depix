@@ -1,8 +1,8 @@
 export { resolveTheme } from './resolve-theme.js';
 export { emitIR } from './emit-ir.js';
-export { planScene, planNode } from './plan-layout.js';
-export type { LayoutPlanNode, PlanNodeType, PlanMetrics, SceneLayoutPlan } from './plan-layout.js';
-export { allocateScene, runLayout, buildTreeNodes, computeLayoutChildren, redistributeWithMinimums } from './allocate-bounds.js';
+export { planDiagram, planNode } from './plan-layout.js';
+export type { LayoutPlanNode, PlanNodeType, PlanMetrics, DiagramLayoutPlan } from './plan-layout.js';
+export { allocateDiagram, runLayout, buildTreeNodes, computeLayoutChildren, redistributeWithMinimums } from './allocate-bounds.js';
 export type { BoundsMap } from './allocate-bounds.js';
 export { computeConstraints } from './compute-constraints.js';
 export { allocateBudgets } from './allocate-budgets.js';

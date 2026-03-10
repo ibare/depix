@@ -141,11 +141,11 @@ export interface LayersLayoutConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Slide layout types
+// Scene layout types
 // ---------------------------------------------------------------------------
 
-/** Content type discriminator for slide layout children. */
-export type SlideContentType =
+/** Content type discriminator for scene layout children. */
+export type SceneContentType =
   | 'heading'
   | 'label'
   | 'bullet'
@@ -158,22 +158,22 @@ export type SlideContentType =
   | 'step';
 
 /**
- * Extended layout child for slide content.
- * Extends LayoutChild with content type information needed by slide layouts.
+ * Extended layout child for scene content.
+ * Extends LayoutChild with content type information needed by scene layouts.
  */
-export interface SlideLayoutChild extends LayoutChild {
+export interface SceneLayoutChild extends LayoutChild {
   /** Semantic content type for positioning decisions. */
-  contentType: SlideContentType;
+  contentType: SceneContentType;
   /** Optional level (e.g., heading level 1 or 2). */
   level?: number;
   /** Number of sub-items (for bullet/column children). */
   itemCount?: number;
 }
 
-export interface SlideLayoutConfig {
-  /** Available space for the slide content. */
+export interface SceneLayoutConfig {
+  /** Available space for the scene content. */
   bounds: IRBounds;
-  /** Padding from slide edges (%). */
+  /** Padding from scene edges (%). */
   padding: number;
   /** Height reserved for heading area (%). */
   headingHeight: number;

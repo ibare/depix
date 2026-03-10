@@ -3,9 +3,9 @@
  *
  * Converts a theme-resolved AST into a fully resolved DepixIR document.
  * Uses the plan → allocate → emit pipeline:
- *   1. planScene()     — structural analysis (plan-layout.ts)
- *   2. allocateScene() — top-down space allocation (allocate-bounds.ts)
- *   3. emitSceneFromPlan() — AST→IR conversion using allocated bounds
+ *   1. planDiagram()     — structural analysis (plan-layout.ts)
+ *   2. allocateDiagram() — top-down space allocation (allocate-bounds.ts)
+ *   3. emitDiagramFromPlan() — AST→IR conversion using allocated bounds
  *
  * All coordinates in the output are in the 0-100 relative space.
  */
@@ -35,16 +35,15 @@ import type {
   ASTDocument,
   ASTEdge,
   ASTElement,
-  ASTScene,
 } from '../ast.js';
 import { routeEdge, type RouteEdgeInput } from '../routing/edge-router.js';
 import { generateId } from '../../ir/utils.js';
-import { planScene, planNode } from './plan-layout.js';
-import { allocateScene, runLayout, computeLayoutChildren, type BoundsMap } from './allocate-bounds.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import { planDiagram, planNode } from './plan-layout.js';
+import { allocateDiagram, runLayout, computeLayoutChildren, type BoundsMap } from './allocate-bounds.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { createScaleContext, computeFontSize, computePadding } from './scale-system.js';
-import { measureScene } from './measure.js';
+import { measureDiagram } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
 import { allocateBudgets } from './allocate-budgets.js';
@@ -60,13 +59,13 @@ export function emitIR(ast: ASTDocument, theme: DepixTheme): DepixIR {
   const meta = buildMeta(ast.directives, theme);
   const canvasBounds: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
   const scenes = ast.scenes.map((scene, i) => {
-    const plan = planScene(scene, theme);
+    const plan = planDiagram(scene, theme);
     const scaleCtx = createScaleContext(plan, canvasBounds);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, canvasBounds, constraints, scaleCtx);
-    const mMap = measureScene(plan, theme, scaleCtx, budgetMap);
-    const boundsMap = allocateScene(plan, canvasBounds, theme, scaleCtx, mMap);
-    return emitSceneFromPlan(scene, plan, boundsMap, i, theme, scaleCtx, mMap);
+    const mMap = measureDiagram(plan, theme, scaleCtx, budgetMap);
+    const boundsMap = allocateDiagram(plan, canvasBounds, theme, scaleCtx, mMap);
+    return emitDiagramFromPlan(scene, plan, boundsMap, i, theme, scaleCtx, mMap);
   });
   const transitions = buildTransitions(ast.directives, scenes);
   return { meta, scenes, transitions };
@@ -142,9 +141,9 @@ function buildTransitions(
 // Scene emission from plan
 // ---------------------------------------------------------------------------
 
-function emitSceneFromPlan(
-  scene: ASTScene,
-  plan: SceneLayoutPlan,
+function emitDiagramFromPlan(
+  scene: ASTBlock,
+  plan: DiagramLayoutPlan,
   boundsMap: BoundsMap,
   index: number,
   theme: DepixTheme,
@@ -188,7 +187,7 @@ function emitSceneFromPlan(
   }
 
   return {
-    id: scene.name ? `scene-${scene.name}` : `scene-${index}`,
+    id: scene.label ? `scene-${scene.label}` : `scene-${index}`,
     elements,
   };
 }
@@ -261,7 +260,7 @@ function emitBlockFromPlan(
 }
 
 function isLayoutSourceType(type: string): boolean {
-  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'slide'].includes(type);
+  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'scene'].includes(type);
 }
 
 // ---------------------------------------------------------------------------

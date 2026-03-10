@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { measureScene } from '../../../src/compiler/passes/measure.js';
-import { planScene } from '../../../src/compiler/passes/plan-layout.js';
+import { measureDiagram } from '../../../src/compiler/passes/measure.js';
+import { planDiagram } from '../../../src/compiler/passes/plan-layout.js';
 import { createScaleContext } from '../../../src/compiler/passes/scale-system.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTScene, ASTBlock, ASTElement } from '../../../src/compiler/ast.js';
+import type { ASTBlock, ASTElement } from '../../../src/compiler/ast.js';
 import type { IRBounds } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
@@ -14,8 +14,8 @@ function loc() {
   return { line: 1, column: 1 };
 }
 
-function makeScene(children: ASTScene['children']): ASTScene {
-  return { name: null, children, loc: loc() };
+function makeScene(children: ASTBlock['children'], label: string | null = null): ASTBlock {
+  return { kind: 'block', blockType: 'scene', props: {}, children, label: label ?? undefined, style: {}, loc: loc() };
 }
 
 function makeElement(type: string, overrides: Partial<ASTElement> = {}): ASTElement {
@@ -48,18 +48,18 @@ function makeBlock(type: string, children: ASTBlock['children'], overrides: Part
 
 const CANVAS: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
 
-function measureWithDefaults(scene: ASTScene) {
-  const plan = planScene(scene, lightTheme);
+function measureWithDefaults(scene: ASTBlock) {
+  const plan = planDiagram(scene, lightTheme);
   const scaleCtx = createScaleContext(plan, CANVAS);
-  const measureMap = measureScene(plan, lightTheme, scaleCtx);
+  const measureMap = measureDiagram(plan, lightTheme, scaleCtx);
   return { plan, scaleCtx, measureMap };
 }
 
 // ---------------------------------------------------------------------------
-// measureScene basic
+// measureDiagram basic
 // ---------------------------------------------------------------------------
 
-describe('measureScene', () => {
+describe('measureDiagram', () => {
   it('returns empty map for empty scene', () => {
     const { measureMap } = measureWithDefaults(makeScene([]));
     expect(measureMap.size).toBe(0);

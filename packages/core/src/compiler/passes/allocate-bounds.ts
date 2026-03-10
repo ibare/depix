@@ -6,7 +6,7 @@
  * laid out using the existing layout algorithms; leaf elements receive
  * the allocated space (filling the parent's allocation).
  *
- * Pipeline: SceneLayoutPlan + canvasBounds → BoundsMap
+ * Pipeline: DiagramLayoutPlan + canvasBounds → BoundsMap
  */
 
 import type { IRBounds } from '../../ir/types.js';
@@ -23,7 +23,7 @@ import type {
   LayoutResult,
   TreeNode,
 } from '../layout/types.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { MeasureMap } from './measure.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
@@ -66,8 +66,8 @@ export type BoundsMap = Map<string, IRBounds>;
  * Returns a BoundsMap keyed by node id containing computed IRBounds.
  * Also stores container bounds under each block's id.
  */
-export function allocateScene(
-  plan: SceneLayoutPlan,
+export function allocateDiagram(
+  plan: DiagramLayoutPlan,
   canvasBounds: IRBounds,
   _theme: DepixTheme,
   scaleCtx?: ScaleContext,

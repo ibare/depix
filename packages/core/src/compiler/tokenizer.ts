@@ -23,7 +23,6 @@ export type TokenType =
   | 'NEWLINE'
   | 'EOF'
   // Keywords
-  | 'SCENE'
   | 'BLOCK_TYPE'
   | 'ELEMENT_TYPE'
   | 'FLAG'
@@ -67,7 +66,7 @@ export const BLOCK_TYPES = new Set([
   'group',
   'layers',
   'canvas',
-  'slide',
+  'scene',
   'column',
 ]);
 
@@ -564,9 +563,7 @@ class Tokenizer {
 
     // Classify the word
     let type: TokenType;
-    if (value === 'scene') {
-      type = 'SCENE';
-    } else if (BLOCK_TYPES.has(value)) {
+    if (BLOCK_TYPES.has(value)) {
       type = 'BLOCK_TYPE';
     } else if (ELEMENT_TYPES.has(value)) {
       type = 'ELEMENT_TYPE';

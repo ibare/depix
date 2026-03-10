@@ -8,9 +8,9 @@ import {
   createScaleContext,
 } from '../../../src/compiler/passes/scale-system.js';
 import type { GapType, TextRole } from '../../../src/compiler/passes/scale-system.js';
-import { planScene } from '../../../src/compiler/passes/plan-layout.js';
+import { planDiagram } from '../../../src/compiler/passes/plan-layout.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTScene, ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
+import type { ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
 import type { IRBounds } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
@@ -21,8 +21,8 @@ function loc() {
   return { line: 1, column: 1 };
 }
 
-function makeScene(children: ASTScene['children']): ASTScene {
-  return { name: null, children, loc: loc() };
+function makeScene(children: ASTBlock['children'], label: string | null = null): ASTBlock {
+  return { kind: 'block', blockType: 'scene', props: {}, children, label: label ?? undefined, style: {}, loc: loc() };
 }
 
 function makeElement(type: string, overrides: Partial<ASTElement> = {}): ASTElement {
@@ -233,12 +233,12 @@ describe('computePadding', () => {
 
 describe('countElements', () => {
   it('returns 1 for empty plan', () => {
-    const plan = planScene(makeScene([]), lightTheme);
+    const plan = planDiagram(makeScene([]), lightTheme);
     expect(countElements(plan)).toBe(1);
   });
 
   it('counts single leaf', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -246,7 +246,7 @@ describe('countElements', () => {
   });
 
   it('counts multiple leaves', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('node', { id: 'n2' }),
@@ -258,7 +258,7 @@ describe('countElements', () => {
   });
 
   it('counts only leaf elements in blocks (not the block itself)', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'n1' }),
@@ -272,7 +272,7 @@ describe('countElements', () => {
   });
 
   it('counts nested leaves correctly', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeBlock('flow', [
@@ -296,7 +296,7 @@ describe('countElements', () => {
 
 describe('createScaleContext', () => {
   it('creates context with correct canvasArea', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -306,7 +306,7 @@ describe('createScaleContext', () => {
   });
 
   it('creates context with correct elementCount', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('node', { id: 'n2' }),
@@ -319,7 +319,7 @@ describe('createScaleContext', () => {
   });
 
   it('baseUnit is positive', () => {
-    const plan = planScene(
+    const plan = planDiagram(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -329,11 +329,11 @@ describe('createScaleContext', () => {
   });
 
   it('more elements → smaller baseUnit', () => {
-    const planFew = planScene(
+    const planFew = planDiagram(
       makeScene([makeElement('node', { id: 'n1' }), makeElement('node', { id: 'n2' })]),
       lightTheme,
     );
-    const planMany = planScene(
+    const planMany = planDiagram(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'a' }),

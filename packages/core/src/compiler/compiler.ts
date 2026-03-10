@@ -6,20 +6,20 @@
  *   2. Resolve theme (semantic tokens → concrete values)
  *   3. Emit IR (layout + edge routing + element conversion)
  *
- * When @presentation directive is present, switches to slide mode:
- *   1. Parse → 2. Flatten → 3. Resolve theme → 4. Slide layout + emit
+ * When @presentation directive is present, switches to scene mode:
+ *   1. Parse → 2. Flatten → 3. Resolve theme → 4. Scene layout + emit
  */
 
 import type { DepixIR } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
-import type { SlideTheme } from '../theme/slide-theme.js';
-import { defaultSlideTheme } from '../theme/slide-theme.js';
+import type { SceneTheme } from '../theme/scene-theme.js';
+import { defaultSceneTheme } from '../theme/scene-theme.js';
 import type { ASTDocument, ParseError } from './ast.js';
 import { parse } from './parser.js';
 import { flattenHierarchy } from './passes/flatten-hierarchy.js';
 import { resolveTheme } from './passes/resolve-theme.js';
 import { emitIR } from './passes/emit-ir.js';
-import { emitSlideIR } from './slide/emit-slide.js';
+import { emitSceneIR } from './scene/emit-scene.js';
 import { lightTheme } from '../theme/builtin-themes.js';
 
 // ---------------------------------------------------------------------------
@@ -32,8 +32,8 @@ import { lightTheme } from '../theme/builtin-themes.js';
 export interface CompileOptions {
   /** Theme to use for resolving semantic tokens. Defaults to the light theme. */
   theme?: DepixTheme;
-  /** Slide theme for presentation mode. Defaults to defaultSlideTheme. */
-  slideTheme?: SlideTheme;
+  /** Scene theme for presentation mode. Defaults to defaultSceneTheme. */
+  sceneTheme?: SceneTheme;
 }
 
 /**
@@ -56,7 +56,7 @@ export interface CompileResult {
  * This is the main entry point for the Depix compiler. It runs the full
  * pipeline: parse → theme resolution → layout → edge routing → IR emission.
  *
- * When @presentation directive is found, switches to slide compilation mode.
+ * When @presentation directive is found, switches to scene compilation mode.
  *
  * @param dsl     - The DSL v2 source string.
  * @param options - Optional compiler configuration.
@@ -78,9 +78,9 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   const isPresentation = resolvedAST.directives.some(d => d.key === 'presentation');
 
   if (isPresentation) {
-    // Slide pipeline: slide layout → slide IR emission
-    const slideTheme = options?.slideTheme ?? defaultSlideTheme;
-    const ir = emitSlideIR(resolvedAST, theme, slideTheme);
+    // Scene pipeline: scene layout → scene IR emission
+    const sceneTheme = options?.sceneTheme ?? defaultSceneTheme;
+    const ir = emitSceneIR(resolvedAST, theme, sceneTheme);
     return { ir, errors };
   }
 

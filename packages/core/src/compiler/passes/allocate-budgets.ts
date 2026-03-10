@@ -5,12 +5,12 @@
  * using BFS traversal. Each node receives a budget (width, height) that
  * the measure pass uses to determine fontSize and other size-dependent values.
  *
- * Pipeline: SceneLayoutPlan + canvasBounds + ConstraintMap + ScaleContext → BudgetMap
+ * Pipeline: DiagramLayoutPlan + canvasBounds + ConstraintMap + ScaleContext → BudgetMap
  */
 
 import type { IRBounds } from '../../ir/types.js';
 import type { NodeBudget, BudgetMap, ConstraintMap } from './budget-types.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums } from './allocate-bounds.js';
@@ -21,7 +21,7 @@ import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from 
 // ---------------------------------------------------------------------------
 
 export function allocateBudgets(
-  plan: SceneLayoutPlan,
+  plan: DiagramLayoutPlan,
   canvasBounds: IRBounds,
   constraints: ConstraintMap,
   scaleCtx: ScaleContext,

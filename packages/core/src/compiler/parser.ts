@@ -10,7 +10,6 @@ import type { Token, TokenType } from './tokenizer.js';
 import { tokenize } from './tokenizer.js';
 import type {
   ASTDocument,
-  ASTScene,
   ASTDirective,
   ASTNode,
   ASTBlock,
@@ -71,7 +70,7 @@ class Parser {
 
   private parseDocument(): ASTDocument {
     const directives: ASTDirective[] = [];
-    const scenes: ASTScene[] = [];
+    const scenes: ASTBlock[] = [];
     const implicitChildren: ASTNode[] = [];
 
     this.skipNewlines();
@@ -85,8 +84,10 @@ class Parser {
         continue;
       }
 
-      if (tok.type === 'SCENE') {
-        scenes.push(this.parseScene());
+      // Explicit scene block at top level
+      if (tok.type === 'BLOCK_TYPE' && tok.value === 'scene') {
+        const block = this.parseBlock();
+        scenes.push(block);
         this.skipNewlines();
         continue;
       }
@@ -106,8 +107,11 @@ class Parser {
     // If there are no explicit scenes, wrap implicit children in one
     if (scenes.length === 0 && implicitChildren.length > 0) {
       scenes.push({
-        name: null,
+        kind: 'block',
+        blockType: 'scene',
+        props: {},
         children: implicitChildren,
+        style: {},
         loc: { line: 1, column: 1 },
       });
     }
@@ -135,23 +139,6 @@ class Parser {
     }
 
     return { key, value: valueParts.join(''), loc };
-  }
-
-  // ---- Scene --------------------------------------------------------------
-
-  private parseScene(): ASTScene {
-    const sceneTok = this.expect('SCENE');
-    const loc = { line: sceneTok.line, column: sceneTok.column };
-
-    let name: string | null = null;
-    if (this.check('STRING')) {
-      name = this.advance().value;
-    }
-
-    this.skipNewlines();
-    const children = this.parseBraceBlock();
-
-    return { name, children, loc };
   }
 
   // ---- Node dispatcher ----------------------------------------------------
@@ -209,9 +196,9 @@ class Parser {
 
     this.skipNewlines();
 
-    // Slide blocks support both properties and children inside braces
+    // Scene blocks support both properties and children inside braces
     let children: ASTNode[];
-    if (blockType === 'slide') {
+    if (blockType === 'scene') {
       children = [];
       if (this.check('BRACE_OPEN')) {
         this.parsePropBlock(props, style, [], children);

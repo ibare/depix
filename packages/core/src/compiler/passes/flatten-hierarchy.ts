@@ -16,7 +16,6 @@
 
 import type {
   ASTDocument,
-  ASTScene,
   ASTNode,
   ASTBlock,
   ASTElement,
@@ -31,7 +30,7 @@ import type {
 export function flattenHierarchy(ast: ASTDocument): ASTDocument {
   return {
     directives: ast.directives,
-    scenes: ast.scenes.map(flattenScene),
+    scenes: ast.scenes.map(flattenDiagram),
   };
 }
 
@@ -39,7 +38,7 @@ export function flattenHierarchy(ast: ASTDocument): ASTDocument {
 // Internal
 // ---------------------------------------------------------------------------
 
-function flattenScene(scene: ASTScene): ASTScene {
+function flattenDiagram(scene: ASTBlock): ASTBlock {
   return {
     ...scene,
     children: scene.children.map(flattenNode),

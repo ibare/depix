@@ -1,13 +1,13 @@
 /**
- * SlideTheme Tests
+ * SceneTheme Tests
  */
 
 import { describe, it, expect } from 'vitest';
-import { defaultSlideTheme, type SlideTheme } from '../../../src/theme/slide-theme.js';
+import { defaultSceneTheme, type SceneTheme } from '../../../src/theme/scene-theme.js';
 
-describe('SlideTheme', () => {
-  it('defaultSlideTheme has all required color fields', () => {
-    const { colors } = defaultSlideTheme;
+describe('SceneTheme', () => {
+  it('defaultSceneTheme has all required color fields', () => {
+    const { colors } = defaultSceneTheme;
     expect(colors.background).toBeDefined();
     expect(colors.surface).toBeDefined();
     expect(colors.primary).toBeDefined();
@@ -16,8 +16,8 @@ describe('SlideTheme', () => {
     expect(colors.accent).toBeDefined();
   });
 
-  it('defaultSlideTheme has valid HEX colors', () => {
-    const { colors } = defaultSlideTheme;
+  it('defaultSceneTheme has valid HEX colors', () => {
+    const { colors } = defaultSceneTheme;
     const hexPattern = /^#[0-9A-Fa-f]{6}$/;
     expect(colors.background).toMatch(hexPattern);
     expect(colors.surface).toMatch(hexPattern);
@@ -27,8 +27,8 @@ describe('SlideTheme', () => {
     expect(colors.accent).toMatch(hexPattern);
   });
 
-  it('defaultSlideTheme has typography multipliers', () => {
-    const { typography } = defaultSlideTheme;
+  it('defaultSceneTheme has typography multipliers', () => {
+    const { typography } = defaultSceneTheme;
     expect(typography.headingSize).toBeGreaterThan(0);
     expect(typography.bodySize).toBeGreaterThan(0);
     expect(typography.statSize).toBeGreaterThan(0);
@@ -36,24 +36,24 @@ describe('SlideTheme', () => {
     expect(typography.bodyFont).toBeDefined();
   });
 
-  it('defaultSlideTheme has layout percentages', () => {
-    const { layout } = defaultSlideTheme;
-    expect(layout.slidePadding).toBeGreaterThan(0);
-    expect(layout.slidePadding).toBeLessThan(50);
+  it('defaultSceneTheme has layout percentages', () => {
+    const { layout } = defaultSceneTheme;
+    expect(layout.scenePadding).toBeGreaterThan(0);
+    expect(layout.scenePadding).toBeLessThan(50);
     expect(layout.columnGap).toBeGreaterThan(0);
     expect(layout.itemGap).toBeGreaterThan(0);
     expect(layout.headingHeight).toBeGreaterThan(0);
     expect(layout.headingHeight).toBeLessThan(50);
   });
 
-  it('defaultSlideTheme has density hints', () => {
-    const { density } = defaultSlideTheme;
+  it('defaultSceneTheme has density hints', () => {
+    const { density } = defaultSceneTheme;
     expect(density.bulletItemsMax).toBeGreaterThan(0);
     expect(density.statCountMax).toBeGreaterThan(0);
   });
 
-  it('SlideTheme is structurally valid', () => {
-    const custom: SlideTheme = {
+  it('SceneTheme is structurally valid', () => {
+    const custom: SceneTheme = {
       colors: {
         background: '#000000',
         surface: '#111111',
@@ -70,7 +70,7 @@ describe('SlideTheme', () => {
         statSize: 2.5,
       },
       layout: {
-        slidePadding: 10,
+        scenePadding: 10,
         columnGap: 5,
         itemGap: 3,
         headingHeight: 20,

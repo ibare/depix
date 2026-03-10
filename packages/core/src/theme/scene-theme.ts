@@ -1,17 +1,17 @@
 /**
- * Slide Theme System
+ * Scene Theme System
  *
- * Defines the SlideTheme interface and default theme for presentation mode.
- * SlideTheme controls slide-specific styling: colors, typography multipliers,
+ * Defines the SceneTheme interface and default theme for presentation mode.
+ * SceneTheme controls scene-specific styling: colors, typography multipliers,
  * layout percentages, and density hints.
  */
 
 // ---------------------------------------------------------------------------
-// SlideTheme interface
+// SceneTheme interface
 // ---------------------------------------------------------------------------
 
-export interface SlideTheme {
-  /** Slide color palette. */
+export interface SceneTheme {
+  /** Scene color palette. */
   colors: {
     background: string;
     surface: string;
@@ -21,7 +21,7 @@ export interface SlideTheme {
     accent: string;
   };
 
-  /** Typography multipliers (applied to baseFontSize = slideHeight * 0.04). */
+  /** Typography multipliers (applied to baseFontSize = sceneHeight * 0.04). */
   typography: {
     headingFont: string;
     bodyFont: string;
@@ -32,7 +32,7 @@ export interface SlideTheme {
 
   /** Layout percentages (0-100 scale). */
   layout: {
-    slidePadding: number;
+    scenePadding: number;
     columnGap: number;
     itemGap: number;
     headingHeight: number;
@@ -46,10 +46,10 @@ export interface SlideTheme {
 }
 
 // ---------------------------------------------------------------------------
-// Default slide theme
+// Default scene theme
 // ---------------------------------------------------------------------------
 
-export const defaultSlideTheme: SlideTheme = {
+export const defaultSceneTheme: SceneTheme = {
   colors: {
     background: '#FFFFFF',
     surface: '#F8F9FA',
@@ -66,7 +66,7 @@ export const defaultSlideTheme: SlideTheme = {
     statSize: 2.0,
   },
   layout: {
-    slidePadding: 8,
+    scenePadding: 8,
     columnGap: 4,
     itemGap: 2,
     headingHeight: 18,

@@ -12,7 +12,7 @@
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { LayoutPlanNode, SceneLayoutPlan } from './plan-layout.js';
+import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,7 +73,7 @@ const FONT_SIZE_MAX_BY_ROLE: Record<TextRole, number> = {
  * Create a ScaleContext from a scene layout plan and canvas bounds.
  */
 export function createScaleContext(
-  plan: SceneLayoutPlan,
+  plan: DiagramLayoutPlan,
   canvasBounds: IRBounds,
 ): ScaleContext {
   const canvasArea = canvasBounds.w * canvasBounds.h;
@@ -132,7 +132,7 @@ export function computePadding(baseUnit: number): number {
  * Count leaf elements in a plan (non-block nodes without children).
  * Returns at least 1 to avoid division by zero.
  */
-export function countElements(plan: SceneLayoutPlan): number {
+export function countElements(plan: DiagramLayoutPlan): number {
   let count = 0;
   for (const child of plan.children) {
     count += countNodeLeaves(child);

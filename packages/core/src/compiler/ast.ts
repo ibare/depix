@@ -21,13 +21,7 @@ export interface SourceLocation {
 
 export interface ASTDocument {
   directives: ASTDirective[];
-  scenes: ASTScene[];
-}
-
-export interface ASTScene {
-  name: string | null; // null for implicit single scene
-  children: ASTNode[];
-  loc: SourceLocation;
+  scenes: ASTBlock[];
 }
 
 export interface ASTDirective {

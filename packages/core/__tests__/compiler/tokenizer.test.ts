@@ -135,15 +135,15 @@ describe('Flags', () => {
 // ===========================================================================
 
 describe('Scene keyword', () => {
-  it('tokenizes scene as SCENE', () => {
+  it('tokenizes scene as BLOCK_TYPE', () => {
     const result = tokenize('scene');
-    expect(result.tokens[0].type).toBe('SCENE');
+    expect(result.tokens[0].type).toBe('BLOCK_TYPE');
     expect(result.tokens[0].value).toBe('scene');
   });
 
   it('tokenizes scene "name" {', () => {
     expect(pairs('scene "타이틀" {')).toEqual([
-      ['SCENE', 'scene'],
+      ['BLOCK_TYPE', 'scene'],
       ['STRING', '타이틀'],
       ['BRACE_OPEN', '{'],
     ]);
@@ -895,7 +895,7 @@ scene "타이틀" {
       ['NUMBER', '16'],
       ['COLON', ':'],
       ['NUMBER', '9'],
-      ['SCENE', 'scene'],
+      ['BLOCK_TYPE', 'scene'],
       ['STRING', '타이틀'],
       ['BRACE_OPEN', '{'],
       ['BLOCK_TYPE', 'flow'],

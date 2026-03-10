@@ -1,5 +1,5 @@
 /**
- * Slide DSL — End-to-End Compilation Tests
+ * Scene DSL — End-to-End Compilation Tests
  *
  * Verifies the full pipeline: DSL source → compile() → DepixIR
  * for presentation mode.
@@ -13,7 +13,7 @@ import type { IRContainer, IRText, IRScene } from '../../../src/ir/types.js';
 // Helper
 // ---------------------------------------------------------------------------
 
-function compileSlide(dsl: string) {
+function compileScene(dsl: string) {
   return compile(dsl);
 }
 
@@ -39,12 +39,12 @@ function findTexts(scene: IRScene): IRText[] {
 // Basic compilation
 // ---------------------------------------------------------------------------
 
-describe('Slide E2E compilation', () => {
-  it('compiles a single title slide', () => {
-    const { ir, errors } = compileSlide(`
+describe('Scene E2E compilation', () => {
+  it('compiles a single title scene', () => {
+    const { ir, errors } = compileScene(`
 @presentation
 
-slide "intro" {
+scene "intro" {
   layout: title
   heading "Welcome to Depix"
   label "A DSL for diagrams"
@@ -63,18 +63,18 @@ slide "intro" {
     expect(labelText).toBeDefined();
   });
 
-  it('compiles 3 slides (title + bullets + statement)', () => {
-    const { ir, errors } = compileSlide(`
+  it('compiles 3 scenes (title + bullets + statement)', () => {
+    const { ir, errors } = compileScene(`
 @presentation
 @ratio 16:9
 
-slide "title" {
+scene "title" {
   layout: title
   heading "2025 Strategy"
   label "Q1 Report"
 }
 
-slide "points" {
+scene "points" {
   layout: bullets
   heading "Key Points"
   bullet {
@@ -84,7 +84,7 @@ slide "points" {
   }
 }
 
-slide "closing" {
+scene "closing" {
   layout: statement
   heading "The future is bright"
   label "Thank you"
@@ -100,7 +100,7 @@ slide "closing" {
     expect(ir.meta.aspectRatio).toEqual({ width: 16, height: 9 });
     expect(ir.meta.background.type).toBe('solid');
 
-    // Verify transitions between slides
+    // Verify transitions between scenes
     expect(ir.transitions).toHaveLength(2);
     expect(ir.transitions[0].from).toBe('title');
     expect(ir.transitions[0].to).toBe('points');
@@ -108,11 +108,11 @@ slide "closing" {
     expect(ir.transitions[1].to).toBe('closing');
   });
 
-  it('compiles a bullets slide with item content', () => {
-    const { ir } = compileSlide(`
+  it('compiles a bullets scene with item content', () => {
+    const { ir } = compileScene(`
 @presentation
 
-slide {
+scene {
   layout: bullets
   heading "Topics"
   bullet {
@@ -128,11 +128,11 @@ slide {
     expect(items.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('compiles a big-number slide with stats', () => {
-    const { ir } = compileSlide(`
+  it('compiles a big-number scene with stats', () => {
+    const { ir } = compileScene(`
 @presentation
 
-slide "metrics" {
+scene "metrics" {
   layout: big-number
   heading "Key Metrics"
   stat "340%" { label: "Growth" }
@@ -146,11 +146,11 @@ slide "metrics" {
     expect(texts.find(t => t.content === 'Growth')).toBeDefined();
   });
 
-  it('compiles a quote slide', () => {
-    const { ir } = compileSlide(`
+  it('compiles a quote scene', () => {
+    const { ir } = compileScene(`
 @presentation
 
-slide "wisdom" {
+scene "wisdom" {
   layout: quote
   quote "Speed matters." { attribution: "Peter Drucker" }
 }
@@ -163,11 +163,11 @@ slide "wisdom" {
     expect(texts.find(t => t.content.includes('Peter Drucker'))).toBeDefined();
   });
 
-  it('compiles a two-column slide', () => {
-    const { ir } = compileSlide(`
+  it('compiles a two-column scene', () => {
+    const { ir } = compileScene(`
 @presentation
 
-slide {
+scene {
   layout: two-column
   heading "Comparison"
   column {
@@ -188,9 +188,9 @@ slide {
   });
 
   it('IR elements have valid bounds (0-100 range)', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
-slide { layout: title heading "Test" label "Sub" }
+scene { layout: title heading "Test" label "Sub" }
 `);
     for (const scene of ir.scenes) {
       for (const el of scene.elements) {
@@ -210,27 +210,27 @@ flow {
   #a -> #b
 }
 `);
-    // Standard diagram mode — should have scenes but no slide-specific structure
+    // Standard diagram mode — should have scenes but no scene-specific structure
     expect(ir.scenes).toHaveLength(1);
-    // No slide backgrounds
+    // No scene backgrounds
     expect(ir.scenes[0].elements.every(e => e.type !== 'shape' || (e as any).shape !== 'rect' || (e as any).style?.fill !== '#FFFFFF')).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Slide-specific features
+// Scene-specific features
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // New layout types
 // ---------------------------------------------------------------------------
 
-describe('New slide layouts', () => {
-  it('compiles an image-text slide', () => {
-    const { ir, errors } = compileSlide(`
+describe('New scene layouts', () => {
+  it('compiles an image-text scene', () => {
+    const { ir, errors } = compileScene(`
 @presentation
 
-slide "hero" {
+scene "hero" {
   layout: image-text
   heading "Product Overview"
   image "screenshot.png" { alt: "Product" }
@@ -248,11 +248,11 @@ slide "hero" {
     expect(texts.find(t => t.content.includes('Product'))).toBeDefined();
   });
 
-  it('compiles an icon-grid slide', () => {
-    const { ir, errors } = compileSlide(`
+  it('compiles an icon-grid scene', () => {
+    const { ir, errors } = compileScene(`
 @presentation
 
-slide "features" {
+scene "features" {
   layout: icon-grid
   heading "Key Features"
   icon "P" { label: "Parse", description: "Fast tokenizer" }
@@ -270,11 +270,11 @@ slide "features" {
     expect(texts.find(t => t.content === 'Fast tokenizer')).toBeDefined();
   });
 
-  it('compiles a timeline slide', () => {
-    const { ir, errors } = compileSlide(`
+  it('compiles a timeline scene', () => {
+    const { ir, errors } = compileScene(`
 @presentation
 
-slide "roadmap" {
+scene "roadmap" {
   layout: timeline
   heading "Roadmap"
   step "Q1" { label: "Research" }
@@ -292,11 +292,11 @@ slide "roadmap" {
   });
 
   it('IR elements from new layouts have valid bounds', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
-slide { layout: image-text heading "T" image "img.png" label "Text" }
-slide { layout: icon-grid heading "T" icon "A" { label: "X" } icon "B" { label: "Y" } }
-slide { layout: timeline heading "T" step "1" { label: "S1" } step "2" { label: "S2" } }
+scene { layout: image-text heading "T" image "img.png" label "Text" }
+scene { layout: icon-grid heading "T" icon "A" { label: "X" } icon "B" { label: "Y" } }
+scene { layout: timeline heading "T" step "1" { label: "S1" } step "2" { label: "S2" } }
 `);
     expect(ir.scenes).toHaveLength(3);
     for (const scene of ir.scenes) {
@@ -311,59 +311,59 @@ slide { layout: timeline heading "T" step "1" { label: "S1" } step "2" { label: 
 });
 
 // ---------------------------------------------------------------------------
-// Slide-specific features
+// Scene-specific features
 // ---------------------------------------------------------------------------
 
-describe('Slide features', () => {
+describe('Scene features', () => {
   it('generates scene backgrounds', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
-slide { layout: title heading "Hi" }
+scene { layout: title heading "Hi" }
 `);
     expect(ir.scenes[0].background).toBeDefined();
     expect(ir.scenes[0].background!.type).toBe('solid');
   });
 
-  it('uses slide IDs when provided', () => {
-    const { ir } = compileSlide(`
+  it('uses scene IDs when provided', () => {
+    const { ir } = compileScene(`
 @presentation
-slide "my-slide" { layout: title heading "Hi" }
+scene "my-slide" { layout: title heading "Hi" }
 `);
     expect(ir.scenes[0].id).toBe('my-slide');
   });
 
   it('generates auto IDs when no ID provided', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
-slide { layout: title heading "Hi" }
+scene { layout: title heading "Hi" }
 `);
-    expect(ir.scenes[0].id).toMatch(/slide-\d+/);
+    expect(ir.scenes[0].id).toMatch(/scene-\d+/);
   });
 
   it('respects @ratio directive in meta', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
 @ratio 4:3
-slide { layout: title heading "Hi" }
+scene { layout: title heading "Hi" }
 `);
     expect(ir.meta.aspectRatio).toEqual({ width: 4, height: 3 });
   });
 
   it('uses custom transition type from @transition', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
 @transition slide-left
-slide "s1" { layout: title heading "1" }
-slide "s2" { layout: title heading "2" }
+scene "s1" { layout: title heading "1" }
+scene "s2" { layout: title heading "2" }
 `);
     expect(ir.transitions).toHaveLength(1);
     expect(ir.transitions[0].type).toBe('slide-left');
   });
 
   it('heading fontSize is larger than body fontSize', () => {
-    const { ir } = compileSlide(`
+    const { ir } = compileScene(`
 @presentation
-slide {
+scene {
   layout: bullets
   heading "Title"
   bullet { item "Body text" }

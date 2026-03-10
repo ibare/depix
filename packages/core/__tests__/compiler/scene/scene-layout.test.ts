@@ -1,26 +1,26 @@
 /**
- * Slide Layout Tests
+ * Scene Layout Tests
  *
- * Unit tests for each of the 8 slide layout functions.
+ * Unit tests for each of the 8 scene layout functions.
  */
 
 import { describe, it, expect } from 'vitest';
 import type { IRBounds } from '../../../src/ir/types.js';
-import type { SlideLayoutChild, SlideLayoutConfig } from '../../../src/compiler/layout/types.js';
+import type { SceneLayoutChild, SceneLayoutConfig } from '../../../src/compiler/layout/types.js';
 import {
-  layoutSlide,
-  layoutSlideTitle,
-  layoutSlideStatement,
-  layoutSlideBullets,
-  layoutSlideTwoColumn,
-  layoutSlideThreeColumn,
-  layoutSlideBigNumber,
-  layoutSlideQuote,
-  layoutSlideImageText,
-  layoutSlideIconGrid,
-  layoutSlideTimeline,
-  layoutSlideCustom,
-} from '../../../src/compiler/layout/slide-layout.js';
+  layoutScene,
+  layoutSceneTitle,
+  layoutSceneStatement,
+  layoutSceneBullets,
+  layoutSceneTwoColumn,
+  layoutSceneThreeColumn,
+  layoutSceneBigNumber,
+  layoutSceneQuote,
+  layoutSceneImageText,
+  layoutSceneIconGrid,
+  layoutSceneTimeline,
+  layoutSceneCustom,
+} from '../../../src/compiler/layout/scene-layout.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,7 +28,7 @@ import {
 
 const CANVAS: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
 
-function defaultConfig(bounds = CANVAS): SlideLayoutConfig {
+function defaultConfig(bounds = CANVAS): SceneLayoutConfig {
   return {
     bounds,
     padding: 8,
@@ -38,7 +38,7 @@ function defaultConfig(bounds = CANVAS): SlideLayoutConfig {
   };
 }
 
-function child(contentType: SlideLayoutChild['contentType'], id = `c-${contentType}`): SlideLayoutChild {
+function child(contentType: SceneLayoutChild['contentType'], id = `c-${contentType}`): SceneLayoutChild {
   return { id, width: 0, height: 0, contentType };
 }
 
@@ -55,16 +55,16 @@ function boundsWithin(b: IRBounds, container: IRBounds): boolean {
 // Dispatcher
 // ---------------------------------------------------------------------------
 
-describe('layoutSlide dispatcher', () => {
+describe('layoutScene dispatcher', () => {
   it('dispatches title layout', () => {
-    const result = layoutSlide('title', [child('heading')], defaultConfig());
+    const result = layoutScene('title', [child('heading')], defaultConfig());
     expect(result.childBounds).toHaveLength(1);
   });
 
   it('dispatches all 11 layout types without error', () => {
     const types = ['title', 'statement', 'bullets', 'two-column', 'three-column', 'big-number', 'quote', 'image-text', 'icon-grid', 'timeline', 'custom'] as const;
     for (const type of types) {
-      const result = layoutSlide(type, [child('heading')], defaultConfig());
+      const result = layoutScene(type, [child('heading')], defaultConfig());
       expect(result.childBounds).toHaveLength(1);
       expect(result.containerBounds).toBeDefined();
     }
@@ -75,9 +75,9 @@ describe('layoutSlide dispatcher', () => {
 // Title layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideTitle', () => {
+describe('layoutSceneTitle', () => {
   it('positions heading in vertical center region', () => {
-    const result = layoutSlideTitle(
+    const result = layoutSceneTitle(
       [child('heading'), child('label')],
       defaultConfig(),
     );
@@ -88,7 +88,7 @@ describe('layoutSlideTitle', () => {
   });
 
   it('positions labels below heading', () => {
-    const result = layoutSlideTitle(
+    const result = layoutSceneTitle(
       [child('heading'), child('label', 'l1'), child('label', 'l2')],
       defaultConfig(),
     );
@@ -97,7 +97,7 @@ describe('layoutSlideTitle', () => {
   });
 
   it('all bounds are within canvas', () => {
-    const result = layoutSlideTitle(
+    const result = layoutSceneTitle(
       [child('heading'), child('label')],
       defaultConfig(),
     );
@@ -111,9 +111,9 @@ describe('layoutSlideTitle', () => {
 // Statement layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideStatement', () => {
+describe('layoutSceneStatement', () => {
   it('vertically centers heading', () => {
-    const result = layoutSlideStatement([child('heading')], defaultConfig());
+    const result = layoutSceneStatement([child('heading')], defaultConfig());
     const b = result.childBounds[0];
     const centerY = b.y + b.h / 2;
     expect(centerY).toBeGreaterThan(30);
@@ -121,7 +121,7 @@ describe('layoutSlideStatement', () => {
   });
 
   it('label follows heading', () => {
-    const result = layoutSlideStatement(
+    const result = layoutSceneStatement(
       [child('heading'), child('label')],
       defaultConfig(),
     );
@@ -133,9 +133,9 @@ describe('layoutSlideStatement', () => {
 // Bullets layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideBullets', () => {
+describe('layoutSceneBullets', () => {
   it('heading at top, bullet below', () => {
-    const result = layoutSlideBullets(
+    const result = layoutSceneBullets(
       [child('heading'), child('bullet')],
       defaultConfig(),
     );
@@ -143,7 +143,7 @@ describe('layoutSlideBullets', () => {
   });
 
   it('bullet area fills remaining space', () => {
-    const result = layoutSlideBullets(
+    const result = layoutSceneBullets(
       [child('heading'), child('bullet')],
       defaultConfig(),
     );
@@ -156,9 +156,9 @@ describe('layoutSlideBullets', () => {
 // Two-column layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideTwoColumn', () => {
+describe('layoutSceneTwoColumn', () => {
   it('heading at top, two columns side by side', () => {
-    const result = layoutSlideTwoColumn(
+    const result = layoutSceneTwoColumn(
       [child('heading'), child('column', 'col1'), child('column', 'col2')],
       defaultConfig(),
     );
@@ -171,7 +171,7 @@ describe('layoutSlideTwoColumn', () => {
   });
 
   it('columns have roughly equal width', () => {
-    const result = layoutSlideTwoColumn(
+    const result = layoutSceneTwoColumn(
       [child('heading'), child('column', 'c1'), child('column', 'c2')],
       defaultConfig(),
     );
@@ -185,9 +185,9 @@ describe('layoutSlideTwoColumn', () => {
 // Three-column layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideThreeColumn', () => {
+describe('layoutSceneThreeColumn', () => {
   it('positions three columns side by side', () => {
-    const result = layoutSlideThreeColumn(
+    const result = layoutSceneThreeColumn(
       [child('heading'), child('column', 'c1'), child('column', 'c2'), child('column', 'c3')],
       defaultConfig(),
     );
@@ -203,9 +203,9 @@ describe('layoutSlideThreeColumn', () => {
 // Big-number layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideBigNumber', () => {
+describe('layoutSceneBigNumber', () => {
   it('heading at top, stats in grid below', () => {
-    const result = layoutSlideBigNumber(
+    const result = layoutSceneBigNumber(
       [child('heading'), child('stat', 's1'), child('stat', 's2'), child('stat', 's3')],
       defaultConfig(),
     );
@@ -217,7 +217,7 @@ describe('layoutSlideBigNumber', () => {
   });
 
   it('single stat is centered', () => {
-    const result = layoutSlideBigNumber(
+    const result = layoutSceneBigNumber(
       [child('heading'), child('stat')],
       defaultConfig(),
     );
@@ -230,9 +230,9 @@ describe('layoutSlideBigNumber', () => {
 // Quote layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideQuote', () => {
+describe('layoutSceneQuote', () => {
   it('vertically centers quote', () => {
-    const result = layoutSlideQuote([child('quote')], defaultConfig());
+    const result = layoutSceneQuote([child('quote')], defaultConfig());
     const b = result.childBounds[0];
     const centerY = b.y + b.h / 2;
     expect(centerY).toBeGreaterThan(30);
@@ -240,7 +240,7 @@ describe('layoutSlideQuote', () => {
   });
 
   it('attribution label below quote', () => {
-    const result = layoutSlideQuote(
+    const result = layoutSceneQuote(
       [child('quote'), child('label')],
       defaultConfig(),
     );
@@ -256,9 +256,9 @@ describe('layoutSlideQuote', () => {
 // Image-text layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideImageText', () => {
+describe('layoutSceneImageText', () => {
   it('positions heading at top, image left, text right', () => {
-    const result = layoutSlideImageText(
+    const result = layoutSceneImageText(
       [child('heading'), child('image'), child('label', 'l1'), child('label', 'l2')],
       defaultConfig(),
     );
@@ -270,7 +270,7 @@ describe('layoutSlideImageText', () => {
   });
 
   it('image and text areas have roughly equal width', () => {
-    const result = layoutSlideImageText(
+    const result = layoutSceneImageText(
       [child('heading'), child('image'), child('label')],
       defaultConfig(),
     );
@@ -280,7 +280,7 @@ describe('layoutSlideImageText', () => {
   });
 
   it('all bounds within canvas', () => {
-    const result = layoutSlideImageText(
+    const result = layoutSceneImageText(
       [child('heading'), child('image'), child('label')],
       defaultConfig(),
     );
@@ -294,9 +294,9 @@ describe('layoutSlideImageText', () => {
 // Icon-grid layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideIconGrid', () => {
+describe('layoutSceneIconGrid', () => {
   it('positions heading at top, icons in grid below', () => {
-    const result = layoutSlideIconGrid(
+    const result = layoutSceneIconGrid(
       [child('heading'), child('icon', 'i1'), child('icon', 'i2'), child('icon', 'i3'), child('icon', 'i4')],
       defaultConfig(),
     );
@@ -306,7 +306,7 @@ describe('layoutSlideIconGrid', () => {
   });
 
   it('uses 2 columns for ≤4 icons', () => {
-    const result = layoutSlideIconGrid(
+    const result = layoutSceneIconGrid(
       [child('heading'), child('icon', 'i1'), child('icon', 'i2'), child('icon', 'i3'), child('icon', 'i4')],
       defaultConfig(),
     );
@@ -318,7 +318,7 @@ describe('layoutSlideIconGrid', () => {
 
   it('uses 3 columns for >4 icons', () => {
     const icons = Array.from({ length: 6 }, (_, i) => child('icon', `i${i}`));
-    const result = layoutSlideIconGrid(
+    const result = layoutSceneIconGrid(
       [child('heading'), ...icons],
       defaultConfig(),
     );
@@ -334,9 +334,9 @@ describe('layoutSlideIconGrid', () => {
 // Timeline layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideTimeline', () => {
+describe('layoutSceneTimeline', () => {
   it('positions heading at top, steps horizontally', () => {
-    const result = layoutSlideTimeline(
+    const result = layoutSceneTimeline(
       [child('heading'), child('step', 's1'), child('step', 's2'), child('step', 's3')],
       defaultConfig(),
     );
@@ -349,7 +349,7 @@ describe('layoutSlideTimeline', () => {
   });
 
   it('steps are vertically centered in timeline area', () => {
-    const result = layoutSlideTimeline(
+    const result = layoutSceneTimeline(
       [child('heading'), child('step', 's1'), child('step', 's2')],
       defaultConfig(),
     );
@@ -358,7 +358,7 @@ describe('layoutSlideTimeline', () => {
   });
 
   it('steps have equal width', () => {
-    const result = layoutSlideTimeline(
+    const result = layoutSceneTimeline(
       [child('heading'), child('step', 's1'), child('step', 's2'), child('step', 's3')],
       defaultConfig(),
     );
@@ -374,9 +374,9 @@ describe('layoutSlideTimeline', () => {
 // Custom layout
 // ---------------------------------------------------------------------------
 
-describe('layoutSlideCustom', () => {
+describe('layoutSceneCustom', () => {
   it('evenly distributes children', () => {
-    const result = layoutSlideCustom(
+    const result = layoutSceneCustom(
       [child('heading'), child('label'), child('label')],
       defaultConfig(),
     );
@@ -386,7 +386,7 @@ describe('layoutSlideCustom', () => {
   });
 
   it('handles empty children', () => {
-    const result = layoutSlideCustom([], defaultConfig());
+    const result = layoutSceneCustom([], defaultConfig());
     expect(result.childBounds).toHaveLength(0);
   });
 });
