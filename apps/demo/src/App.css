@@ -137,6 +137,30 @@ body {
   gap: 8px;
 }
 
+/* ===== Debug Toggle ===== */
+.header-debug-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.header-debug-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.header-debug-btn.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
 /* ===== Theme Switcher ===== */
 .theme-switcher {
   padding: 6px 12px;

@@ -7,7 +7,7 @@
  */
 
 import Konva from 'konva';
-import type { DepixIR, IRScene, IRBackground } from '@depix/core';
+import type { DepixIR, IRScene, IRBackground, IRElement, IRContainer } from '@depix/core';
 import { CoordinateTransform } from './coordinate-transform.js';
 import { renderElements } from './ir-renderer.js';
 
@@ -49,14 +49,27 @@ export interface DepixEngineOptions {
 // DepixEngine
 // ---------------------------------------------------------------------------
 
+// Debug overlay colors by IR element type
+const DEBUG_COLORS: Record<string, string> = {
+  container: '#3b82f6', // blue
+  shape: '#22c55e',     // green
+  text: '#f59e0b',      // amber
+  line: '#a855f7',      // purple
+  edge: '#a855f7',      // purple
+  path: '#ef4444',      // red
+  image: '#06b6d4',     // cyan
+};
+
 export class DepixEngine {
   private stage: Konva.Stage;
   private backgroundLayer: Konva.Layer;
   private contentLayer: Konva.Layer;
+  private debugLayer: Konva.Layer;
   private ir: DepixIR | null = null;
   private currentSceneIndex = 0;
   private transform: CoordinateTransform;
   private availableSize: { width: number; height: number } | null = null;
+  private _debugMode = false;
 
   constructor(options: DepixEngineOptions) {
     const container =
@@ -75,8 +88,10 @@ export class DepixEngine {
 
     this.backgroundLayer = new Konva.Layer();
     this.contentLayer = new Konva.Layer();
+    this.debugLayer = new Konva.Layer({ listening: false });
     this.stage.add(this.backgroundLayer);
     this.stage.add(this.contentLayer);
+    this.stage.add(this.debugLayer);
 
     this.transform = new CoordinateTransform(
       { width, height },
@@ -198,6 +213,22 @@ export class DepixEngine {
 
   // ---- Access ---------------------------------------------------------------
 
+  // ---- Debug mode -----------------------------------------------------------
+
+  /** Enable or disable debug overlay that shows element bounding boxes. */
+  setDebugMode(enabled: boolean): void {
+    this._debugMode = enabled;
+    if (this.ir) {
+      const scene = this.ir.scenes[this.currentSceneIndex];
+      if (scene) this.renderDebug(scene);
+    }
+  }
+
+  /** Whether debug mode is currently active. */
+  get debugMode(): boolean {
+    return this._debugMode;
+  }
+
   /** Get the underlying Konva Stage (for advanced usage). */
   getStage(): Konva.Stage {
     return this.stage;
@@ -223,6 +254,7 @@ export class DepixEngine {
 
     this.renderBackground(scene);
     this.renderContent(scene);
+    this.renderDebug(scene);
   }
 
   private renderBackground(scene: IRScene): void {
@@ -254,5 +286,58 @@ export class DepixEngine {
     const group = renderElements(scene.elements, this.transform);
     this.contentLayer.add(group);
     this.contentLayer.batchDraw();
+  }
+
+  private renderDebug(scene: IRScene): void {
+    this.debugLayer.destroyChildren();
+
+    if (!this._debugMode) {
+      this.debugLayer.batchDraw();
+      return;
+    }
+
+    this.renderDebugElements(scene.elements);
+    this.debugLayer.moveToTop();
+    this.debugLayer.batchDraw();
+  }
+
+  private renderDebugElements(elements: IRElement[]): void {
+    for (const el of elements) {
+      this.renderDebugRect(el);
+      if (el.type === 'container') {
+        this.renderDebugElements((el as IRContainer).children);
+      }
+    }
+  }
+
+  private renderDebugRect(el: IRElement): void {
+    const abs = this.transform.toAbsoluteBounds(el.bounds);
+    const color = DEBUG_COLORS[el.type] ?? '#999999';
+    const fontSize = Math.max(Math.min(abs.width, abs.height) * 0.08, 7);
+
+    this.debugLayer.add(
+      new Konva.Rect({
+        x: abs.x,
+        y: abs.y,
+        width: abs.width,
+        height: abs.height,
+        stroke: color,
+        strokeWidth: 1,
+        fill: color + '11',
+        dash: [4, 2],
+        listening: false,
+      }),
+    );
+
+    this.debugLayer.add(
+      new Konva.Text({
+        x: abs.x + 2,
+        y: abs.y + 1,
+        text: `${el.type}:${el.id}`,
+        fontSize,
+        fill: color,
+        listening: false,
+      }),
+    );
   }
 }

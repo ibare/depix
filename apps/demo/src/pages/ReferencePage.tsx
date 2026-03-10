@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { REFERENCE_CATEGORIES } from '../data/reference-sections';
 import { LiveExample } from '../components/LiveExample';
 
-export function ReferencePage() {
+export function ReferencePage({ debug }: { debug?: boolean }) {
   const [activeCat, setActiveCat] = useState(REFERENCE_CATEGORIES[0].id);
 
   const category = REFERENCE_CATEGORIES.find((c) => c.id === activeCat) ?? REFERENCE_CATEGORIES[0];
@@ -45,6 +45,7 @@ export function ReferencePage() {
                   width={420}
                   height={240}
                   themeName={ex.themeName}
+                  debug={debug}
                 />
               </div>
             ))}

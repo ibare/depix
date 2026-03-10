@@ -2,7 +2,7 @@ import { SHOWCASE_EXAMPLES } from '../data/showcase-examples';
 import { AsciiPanel } from '../components/AsciiPanel';
 import { LiveExample } from '../components/LiveExample';
 
-export function ShowcasePage() {
+export function ShowcasePage({ debug }: { debug?: boolean }) {
   return (
     <div className="showcase">
       <section className="showcase__hero">
@@ -42,6 +42,7 @@ export function ShowcasePage() {
                 width={480}
                 height={270}
                 className="showcase__live"
+                debug={debug}
               />
             </div>
           </section>

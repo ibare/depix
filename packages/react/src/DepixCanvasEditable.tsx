@@ -80,6 +80,8 @@ export interface DepixCanvasEditableProps {
   showToolbar?: boolean;
   /** Whether to show the property panel in edit mode. Default: true */
   showPropertyPanel?: boolean;
+  /** Show debug overlay with element bounding boxes. Default: false */
+  debug?: boolean;
 }
 
 export interface DepixCanvasEditableRef {
@@ -175,6 +177,7 @@ export const DepixCanvasEditable = forwardRef<
     onEditModeChange,
     showToolbar = true,
     showPropertyPanel = true,
+    debug = false,
   } = props;
 
   const generatedId = useId();
@@ -287,6 +290,14 @@ export const DepixCanvasEditable = forwardRef<
     if (!engine) return;
     engine.update(ir);
   }, [ir]);
+
+  // ---- Sync debug mode to engine ------------------------------------------
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setDebugMode(debug);
+  }, [debug]);
 
   // ---- Sync scene index to engine ----------------------------------------
 

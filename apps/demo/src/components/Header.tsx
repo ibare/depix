@@ -5,6 +5,8 @@ export type PageId = 'showcase' | 'scene' | 'playground' | 'reference';
 interface HeaderProps {
   activePage: PageId;
   onPageChange: (page: PageId) => void;
+  debug?: boolean;
+  onDebugToggle?: () => void;
 }
 
 const pages: { id: PageId; label: string }[] = [
@@ -14,7 +16,7 @@ const pages: { id: PageId; label: string }[] = [
   { id: 'reference', label: 'Reference' },
 ];
 
-export function Header({ activePage, onPageChange }: HeaderProps) {
+export function Header({ activePage, onPageChange, debug, onDebugToggle }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-left">
@@ -38,6 +40,15 @@ export function Header({ activePage, onPageChange }: HeaderProps) {
         </nav>
       </div>
       <div className="header-right">
+        {onDebugToggle && (
+          <button
+            className={`header-debug-btn${debug ? ' active' : ''}`}
+            onClick={onDebugToggle}
+            title="Toggle debug bounds overlay"
+          >
+            Debug
+          </button>
+        )}
         <ThemeSwitcher />
       </div>
     </header>

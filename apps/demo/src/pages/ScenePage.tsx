@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { SCENE_EXAMPLES } from '../data/scene-examples';
 import { LiveExample } from '../components/LiveExample';
 
-export function ScenePage() {
+export function ScenePage({ debug }: { debug?: boolean }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const example = SCENE_EXAMPLES[activeIdx];
 
@@ -46,6 +46,7 @@ export function ScenePage() {
             width={800}
             height={450}
             className="scene-page__live"
+            debug={debug}
           />
         </div>
       </div>

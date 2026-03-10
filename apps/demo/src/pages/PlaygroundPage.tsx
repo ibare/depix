@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PLAYGROUND_LEVELS } from '../data/playground-levels';
 import { LiveExample } from '../components/LiveExample';
 
-export function PlaygroundPage() {
+export function PlaygroundPage({ debug }: { debug?: boolean }) {
   const [levelIdx, setLevelIdx] = useState(0);
   const [exampleIdx, setExampleIdx] = useState(0);
 
@@ -63,6 +63,7 @@ export function PlaygroundPage() {
             width={720}
             height={360}
             className="playground__live"
+            debug={debug}
           />
         </div>
       </div>

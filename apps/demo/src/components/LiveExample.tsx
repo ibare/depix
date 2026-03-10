@@ -24,6 +24,8 @@ interface LiveExampleProps {
   className?: string;
   /** Theme name to use for compilation. */
   themeName?: 'light' | 'dark';
+  /** Show debug overlay with element bounding boxes. */
+  debug?: boolean;
 }
 
 export function LiveExample({
@@ -36,6 +38,7 @@ export function LiveExample({
   codeMaxHeight,
   className,
   themeName = 'light',
+  debug = false,
 }: LiveExampleProps) {
   const [dsl, setDsl] = useState(initialDsl);
   const [ir, setIr] = useState<DepixIR | null>(null);
@@ -50,16 +53,19 @@ export function LiveExample({
     setDsl(initialDsl);
   }, [initialDsl]);
 
-  // Compile DSL → IR
+  // Compile DSL → IR (debounced to avoid rapid recompilation on every keystroke)
   useEffect(() => {
-    try {
-      const result = compile(dsl, { theme });
-      setIr(result.ir);
-      setErrors(result.errors.map((e) => `Line ${e.line}: ${e.message}`));
-    } catch (e) {
-      setErrors([(e as Error).message]);
-      setIr(null);
-    }
+    const timer = setTimeout(() => {
+      try {
+        const result = compile(dsl, { theme });
+        setIr(result.ir);
+        setErrors(result.errors.map((e) => `Line ${e.line}: ${e.message}`));
+      } catch (e) {
+        setErrors([(e as Error).message]);
+        setIr(null);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
   }, [dsl, theme]);
 
   // Compute canvas size from container width + IR aspect ratio (no letterbox)
@@ -110,6 +116,7 @@ export function LiveExample({
             onIRChange={handleIRChange}
             width={canvasWidth}
             height={canvasHeight}
+            debug={debug}
           />
         ) : (
           <span className="text-muted">No preview</span>

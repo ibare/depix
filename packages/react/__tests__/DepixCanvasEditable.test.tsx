@@ -54,8 +54,10 @@ const {
     getStage: _mockGetStage,
     getTransform: _mockGetTransform,
     setScene: _mockSetScene,
+    setDebugMode: vi.fn(),
     get sceneIndex() { return 0; },
     get sceneCount() { return 1; },
+    get debugMode() { return false; },
   }));
 
   // ---- SelectionManager mock ----
