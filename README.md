@@ -478,13 +478,117 @@ const { ir, errors } = compile(dsl, { theme: darkTheme });
 
 ---
 
-## 에디터와 DSL의 관계
+## 에디터 모드
 
-에디터는 IR을 직접 조작하므로 DSL의 표현 범위에 제약받지 않는다.
+Depix는 두 가지 편집 모드를 제공한다.
 
-- DSL로 생성한 다이어그램을 에디터에서 자유롭게 수정할 수 있다.
-- 에디터에서 수정한 결과는 IR로 저장된다. DSL로의 역변환은 제공하지 않는다.
-- 시맨틱 레이아웃(flow, stack 등)의 제약에서 벗어나려면 **Detach** 기능을 사용한다. Figma의 "Remove Auto Layout"과 동일한 개념이다.
+### DSL-first 모드 (권장)
+
+**DSL 텍스트가 유일한 source of truth다.** 모든 시각적 편집은 DSL 텍스트 변경으로 이어지고, 변경된 DSL은 재컴파일되어 캔버스에 반영된다. DSL 코드를 직접 보여주는 textarea 없이도 동작한다.
+
+```
+사용자 조작 → DSL mutation 함수 → 새 DSL 문자열
+  → compile(dsl) → 새 IR → 캔버스 갱신
+```
+
+이 모드는 Scene → Layout → Slot → Element 계층 구조를 따르며, 레이아웃이 요소 배치를 결정한다. 레이아웃 밖으로 요소를 자유 배치하려면 `@overrides` 디렉티브를 사용한다.
+
+```depix
+@presentation
+
+scene "Dashboard" {
+  layout: header-sidebar
+  header: heading "System Overview"
+  main: flow direction:down {
+    node "API Gateway" #gw
+    node "Services"    #svc
+    #gw -> #svc
+  }
+  side: stat "99.9%" { label: "Uptime" }
+}
+
+@overrides {
+  #gw  { x: 15, y: 35 }
+  #svc { x: 15, y: 65 }
+}
+```
+
+#### 핵심 원칙: Overlay-only UI
+
+Depix 캔버스는 마크다운 문서 안에 이미지처럼 인라인으로 삽입된다. 따라서 편집 모드에 진입해도 **캔버스 크기가 절대 변하지 않아야** 하며, 주변 문서 콘텐츠를 밀어내서는 안 된다.
+
+모든 편집 UI(툴바, 속성 패널, 레이아웃 피커 등)는 캔버스 위에 `position: fixed` 또는 `position: absolute`로 렌더링되는 오버레이다.
+
+```
+┌─────────────────────────────────────────┐
+│             Canvas (크기 불변)            │
+│  ┌──────┐                    ┌────────┐ │
+│  │Toolbar│   ┌────────────┐  │Property│ │
+│  │(fixed)│   │ SlotOverlay│  │ Panel  │ │
+│  │       │   │ (absolute) │  │(fixed) │ │
+│  └──────┘   └────────────┘  └────────┘ │
+└─────────────────────────────────────────┘
+```
+
+#### DSL mutation 함수
+
+편집 작업은 순수 함수로 구현된다. 각 함수는 `parse(dsl) → AST 조작 → serialize(ast)` 패턴을 따른다.
+
+| 함수 | 역할 |
+|------|------|
+| `changeLayout(dsl, sceneIndex, layout)` | 씬의 레이아웃 프리셋 변경 |
+| `addSlotContent(dsl, sceneIndex, slot, content)` | 빈 슬롯에 요소 추가 |
+| `changeElementLabel(dsl, sceneIndex, elemIndex, label)` | 요소 텍스트 변경 |
+| `changeElementStyle(dsl, sceneIndex, elemIndex, key, value)` | 요소 스타일 속성 변경 |
+| `removeElement(dsl, sceneIndex, elemIndex)` | 요소 삭제 |
+| `upsertOverride(dsl, elementId, bounds)` | `@overrides` 위치 추가/수정 |
+| `addScene(dsl, title)` | 새 씬 추가 |
+| `removeScene(dsl, sceneIndex)` | 씬 삭제 |
+| `reorderScenes(dsl, from, to)` | 씬 순서 변경 |
+
+#### 사용법
+
+`DepixCanvasEditable`에 `dsl`과 `onDSLChange`를 전달하면 DSL-first 모드가 활성화된다.
+
+```tsx
+import { useState, useEffect } from 'react';
+import { compile } from '@depix/core';
+import { DepixCanvasEditable } from '@depix/react';
+import type { DepixIR } from '@depix/core';
+
+function DSLEditor() {
+  const [dsl, setDsl] = useState(initialDsl);
+  const [ir, setIr] = useState<DepixIR | null>(null);
+
+  useEffect(() => {
+    const { ir } = compile(dsl);
+    setIr(ir);
+  }, [dsl]);
+
+  if (!ir) return null;
+
+  return (
+    <DepixCanvasEditable
+      ir={ir}
+      onIRChange={setIr}
+      width={800}
+      height={450}
+      dsl={dsl}
+      onDSLChange={setDsl}   // 이 두 prop이 DSL-first 모드를 활성화
+    />
+  );
+}
+```
+
+`dsl`/`onDSLChange` 없이 사용하면 기존 freeform 모드로 동작한다.
+
+### Freeform 모드 (레거시)
+
+IR을 직접 조작하는 모드. DSL의 표현 범위에 제약받지 않는다.
+
+- DSL로 생성한 다이어그램을 에디터에서 자유롭게 수정할 수 있다
+- 에디터에서 수정한 결과는 IR로 저장된다
+- 시맨틱 레이아웃의 제약에서 벗어나려면 **Detach** 기능을 사용한다 (Figma의 "Remove Auto Layout"과 동일)
 
 ---
 
@@ -494,6 +598,6 @@ const { ir, errors } = compile(dsl, { theme: darkTheme });
 |--------|----------|-------------|
 | `@depix/core` | 1,192 | 90%+ |
 | `@depix/engine` | 120 | 70%+ |
-| `@depix/editor` | 315 | 80%+ |
+| `@depix/editor` | 332 | 80%+ |
 | `@depix/react` | 299 | 60%+ |
-| **합계** | **1,926** | |
+| **합계** | **1,943** | |
