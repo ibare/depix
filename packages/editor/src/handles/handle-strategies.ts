@@ -5,8 +5,8 @@
  * This is a pure function with no Konva dependency -- it maps IR element
  * types to handle behaviour descriptions.
  *
- * In v2, the IR unifies shapes so we only need 7 strategies
- * (one per IRElementType) instead of the original 11.
+ * The IR unifies shapes so we only need 7 strategies
+ * (one per IRElementType).
  *
  * @module @depix/editor/handles/handle-strategies
  */

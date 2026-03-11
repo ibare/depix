@@ -51,7 +51,7 @@ stack direction:col gap:md {
   label "This is a label" { bold }
   label "A smaller label" { font-size: sm, color: muted }
   stack direction:row gap:sm {
-    badge "v2.0" { color: success }
+    badge "stable" { color: success }
     badge "beta" { color: warning }
     badge "new" { color: info }
   }

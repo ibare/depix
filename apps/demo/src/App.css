@@ -770,10 +770,8 @@ body {
 
 .lm-pad {
   display: flex;
-  align-items: center;
-  justify-content: center;
   flex: 1;
-  padding: 14%;
+  padding: 15% 10%;
 }
 
 .lm-slot {

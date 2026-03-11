@@ -4,7 +4,7 @@
 
 ```
                         ┌─────────────┐
-  DSL v2 텍스트 ──────→ │  Compiler   │ ──→ DepixIR (JSON)
+  DSL 텍스트 ─────────→ │  Compiler   │ ──→ DepixIR (JSON)
                         └─────────────┘          │
                               ↑                  ↓
                          레이아웃 엔진       DepixEngine (Konva)
@@ -21,7 +21,7 @@
 
 | 레이어 | 역할 | 판단/계산 | 비유 |
 |--------|------|-----------|------|
-| **DSL v2** | LLM/사람이 의도를 기술 | 없음 (선언만) | Java 소스 |
+| **DSL** | LLM/사람이 의도를 기술 | 없음 (선언만) | Java 소스 |
 | **Compiler** | DSL → IR 변환, 모든 계산 수행 | 레이아웃, 색상, 경로 | javac |
 | **DepixIR** | 완전히 해결된 장면 기술 | 없음 (결과만) | bytecode |
 | **DepixEngine** | IR → 화면 렌더링 | 없음 (그리기만) | JVM |
@@ -449,7 +449,7 @@ interface IRTransition {
 
 ---
 
-## Compiler: DSL v2 → IR 변환
+## Compiler: DSL → IR 변환
 
 ### 컴파일러 파이프라인
 
@@ -699,7 +699,7 @@ IR이 primary 저장 포맷이 되는 것이 맞음.
 기존 데이터를 버리지 않기 위한 변환기:
 
 ```typescript
-function migrateV1toIR(doc: DepixDocument): DepixIR {
+function convertDocumentToIR(doc: DepixDocument): DepixIR {
   return {
     meta: {
       aspectRatio: doc.aspectRatio,

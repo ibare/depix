@@ -9,11 +9,11 @@ DSL 텍스트로 다이어그램을 선언하면 컴파일러가 레이아웃을
 ## 핵심 컨셉
 
 ```
-DSL v2 텍스트  →  Compiler  →  DepixIR  →  Renderer
+DSL 텍스트  →  Compiler  →  DepixIR  →  Renderer
   (의미 기술)     (레이아웃 계산)  (완전 해결)   (그리기만)
 ```
 
-- **DSL**: `flow`, `stack`, `grid`, `tree`, `layers` 등 시맨틱 레이아웃 프리미티브로 구조를 기술한다. 좌표를 직접 지정하지 않는다.
+- **DSL**: `flow`, `stack`, `grid`, `tree`, `layers`, `table`, `chart` 등 시맨틱 레이아웃 프리미티브로 구조를 기술한다. 좌표를 직접 지정하지 않는다.
 - **Compiler**: DSL을 파싱하고 테마를 해석하고 레이아웃을 계산해 모든 값이 해결된 IR을 생성한다.
 - **DepixIR**: 모든 좌표, 색상, 경로가 확정된 JSON 문서. 렌더러와 에디터의 공통 데이터 계약.
 - **Renderer**: IR을 받아 Konva 캔버스에 그리기만 한다.
@@ -93,10 +93,13 @@ layers {
 ### 멀티 씬 프레젠테이션
 
 ```depix
+@presentation
 @page 16:9
 
 scene "Overview" {
-  flow direction:right {
+  layout: header
+  header: heading "Development Pipeline"
+  body: flow direction:right {
     node "Plan" #a
     node "Build" #b
     node "Ship"  #c
@@ -105,7 +108,9 @@ scene "Overview" {
 }
 
 scene "Details" {
-  stack direction:row gap:lg {
+  layout: header
+  header: heading "Phase Breakdown"
+  body: stack direction:row gap:lg {
     box "Plan"  { color: primary  list ["Requirements" "Design"] }
     box "Build" { color: info     list ["Develop" "Test"] }
     box "Ship"  { color: success  list ["Deploy" "Monitor"] }
@@ -125,6 +130,72 @@ scene "Details" {
 | `tree` | 계층 구조 — 조직도, 분류 체계 |
 | `group` | 시각적 그룹핑 — 영역 구분 |
 | `layers` | 수직 레이어 — 아키텍처 스택 |
+| `table` | 데이터 테이블 — 행/열 기반 |
+| `chart` | 차트 — 데이터셋 기반 시각화 |
+
+---
+
+## 디렉티브
+
+| 디렉티브 | 값 | 설명 |
+|----------|-----|------|
+| `@page` | `16:9`, `4:3`, `1:1`, `A4`, `letter` | 캔버스 비율/크기 |
+| `@style` | `default`, `sketch` | 드로잉 스타일 |
+| `@presentation` | — | 프레젠테이션(슬라이드) 모드 활성화 |
+| `@transition` | `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `none` | 씬 간 기본 전환 효과 |
+| `@data` | `"name" { ... }` | 데이터셋 정의 (chart 블록에서 참조) |
+
+---
+
+## 엣지 (연결선) 문법
+
+```depix
+#a -> #b           // 실선 화살표
+#a --> #b          // 점선 화살표
+#a -- #b           // 실선 (화살표 없음)
+#a <-> #b          // 양방향 화살표
+#a -> #b "라벨"    // 라벨 포함
+```
+
+---
+
+## 씬 레이아웃 프리셋
+
+`@presentation` 모드에서 14가지 슬롯 기반 레이아웃을 지원한다. 각 슬롯에 텍스트 요소 또는 다이어그램 블록을 배치할 수 있다.
+
+```depix
+@presentation
+scene "Title" {
+  layout: header-sidebar
+  header: heading "Architecture Overview"
+  main: flow direction:down {
+    node "API" #a
+    node "DB"  #b
+    #a -> #b
+  }
+  side: bullet {
+    item "REST API"
+    item "PostgreSQL"
+  }
+}
+```
+
+| # | 레이아웃 | 슬롯 | 설명 |
+|---|---------|------|------|
+| 1 | `full` | body | 전체 영역 단일 슬롯 |
+| 2 | `center` | body | 가운데 정렬 (좌우·상하 여백) |
+| 3 | `split` | left, right | 50:50 좌우 분할 |
+| 4 | `rows` | top, bottom | 50:50 상하 분할 |
+| 5 | `sidebar` | main, side | 70:30 메인-사이드바 |
+| 6 | `header` | header, body | 헤더 + 본문 |
+| 7 | `header-split` | header, left, right | 헤더 + 좌우 분할 |
+| 8 | `header-rows` | header, top, bottom | 헤더 + 상하 분할 |
+| 9 | `header-sidebar` | header, main, side | 헤더 + 메인-사이드바 |
+| 10 | `grid` | cell × N | 다중 셀 그리드 (자동 배열) |
+| 11 | `header-grid` | header, cell × N | 헤더 + 다중 셀 그리드 |
+| 12 | `focus` | focus, cell × N | 포커스 영역(65%) + 하단 셀 |
+| 13 | `header-focus` | header, focus, cell × N | 헤더 + 포커스 + 셀 |
+| 14 | `custom` | cell × N | 수직 스택 폴백 |
 
 ---
 
@@ -136,7 +207,8 @@ LLM이 구체적 수치를 몰라도 의도를 표현할 수 있도록 시맨틱
 |------|------|
 | 간격 | `xs` `sm` `md` `lg` `xl` |
 | 색상 | `primary` `secondary` `accent` `success` `warning` `danger` `info` `muted` |
-| 폰트 크기 | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
+| 명명된 색상 | `red` `orange` `yellow` `green` `blue` `purple` `gray` `white` `black` |
+| 폰트 크기 | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` … `10xl` |
 | 그림자 | `none` `sm` `md` `lg` |
 | 모서리 | `none` `sm` `md` `lg` `full` |
 
@@ -147,7 +219,7 @@ LLM이 구체적 수치를 몰라도 의도를 표현할 수 있도록 시맨틱
 ### 컴파일러 파이프라인
 
 ```
-DSL v2 텍스트
+DSL 텍스트
     │
     ▼
 ┌───────────────────┐
@@ -162,42 +234,48 @@ DSL v2 텍스트
 │  Resolve Theme    │  시맨틱 토큰 → 구체 값 (color: warning → #F59E0B)
 └────────┬──────────┘
          ▼
-┌───────────────────┐
-│  Plan Layout      │  구조 분석 — 가중치, 깊이, 분기 수 산출
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│  Scale System     │  baseUnit = √(캔버스면적 / 요소수) × 0.55
-└────────┬──────────┘
-         ▼  ── 2-pass 예산 시스템 ──
-┌───────────────────┐
-│  Compute          │  ↑ Bottom-up: 자식 → 부모 방향으로
-│  Constraints      │    각 노드의 min/max 크기 제약 수집
-└────────┬──────────┘  ConstraintMap
-         ▼
-┌───────────────────┐
-│  Allocate         │  ↓ Top-down: 캔버스 루트 → 자식 방향으로
-│  Budgets          │    가용 공간을 weight 비례 배분
-└────────┬──────────┘  BudgetMap
-         ▼
-┌───────────────────┐
-│  Measure          │  확정된 예산 기반으로 fontSize, padding,
-│                   │  lineHeight, minWidth, minHeight 결정
-└────────┬──────────┘  MeasureMap
-         ▼  ── 좌표 확정 ──
-┌───────────────────┐
-│  Allocate Bounds  │  measure 제약 + 레이아웃 알고리즘으로 최종 좌표 확정
-└────────┬──────────┘  BoundsMap
-         ▼
-┌───────────────────┐
-│  Route Edges      │  노드 좌표 기반 연결선 경로 계산
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│  Emit IR          │  모든 값이 확정된 DepixIR JSON 생성
-└───────────────────┘
-         ▼
-      DepixIR  →  Renderer (Konva)
+    @presentation?
+    ┌────┴────┐
+   YES        NO
+    ▼          ▼
+┌──────────┐ ┌───────────────────┐
+│ Plan     │ │  Plan Layout      │  구조 분석 — 가중치, 깊이, 분기 수 산출
+│ Scene    │ └────────┬──────────┘
+└────┬─────┘          ▼
+     ▼       ┌───────────────────┐
+┌──────────┐ │  Scale System     │  baseUnit = √(캔버스면적 / 요소수) × 0.55
+│ Scene    │ └────────┬──────────┘
+│ Layout   │          ▼  ── 2-pass 예산 시스템 ──
+│ (14 slot │ ┌───────────────────┐
+│ presets) │ │  Compute          │  ↑ Bottom-up: 자식 → 부모 방향으로
+└────┬─────┘ │  Constraints      │    각 노드의 min/max 크기 제약 수집
+     ▼       └────────┬──────────┘  ConstraintMap
+┌──────────┐          ▼
+│ Emit     │ ┌───────────────────┐
+│ Scene IR │ │  Allocate         │  ↓ Top-down: 캔버스 루트 → 자식 방향으로
+└────┬─────┘ │  Budgets          │    가용 공간을 weight 비례 배분
+     │       └────────┬──────────┘  BudgetMap
+     │                ▼
+     │       ┌───────────────────┐
+     │       │  Measure          │  확정된 예산 기반으로 fontSize, padding,
+     │       │                   │  lineHeight, minWidth, minHeight 결정
+     │       └────────┬──────────┘  MeasureMap
+     │                ▼  ── 좌표 확정 ──
+     │       ┌───────────────────┐
+     │       │  Allocate Bounds  │  measure 제약 + 레이아웃 알고리즘으로 최종 좌표 확정
+     │       └────────┬──────────┘  BoundsMap
+     │                ▼
+     │       ┌───────────────────┐
+     │       │  Route Edges      │  노드 좌표 기반 연결선 경로 계산
+     │       └────────┬──────────┘
+     │                ▼
+     │       ┌───────────────────┐
+     │       │  Emit IR          │  모든 값이 확정된 DepixIR JSON 생성
+     │       └────────┬──────────┘
+     │                │
+     └───────┬────────┘
+             ▼
+          DepixIR  →  Renderer (Konva)
 ```
 
 #### 컴파일러 패스 순서 (13패스)
@@ -206,17 +284,19 @@ DSL v2 텍스트
 |---|------|------|------|------|
 | 1 | Tokenize | DSL 텍스트 | Token[] | 어휘 분석 |
 | 2 | Parse | Token[] | AST | 구문 분석 |
-| 3 | Flatten Hierarchy | AST | AST (정규화) | tree/flow의 중첩 요소를 flat children + implicit edges로 변환 |
-| 4 | Resolve Theme | AST + Theme | AST (해결) | 시맨틱 토큰(`primary`, `md`) → HEX/수치 |
-| 5 | Plan Layout | AST | DiagramLayoutPlan | 가중치, 깊이, 자식 수, 의도별 타입 분석 |
-| 6 | Scale System | Plan + Canvas | ScaleContext | `baseUnit` 산출, 동적 gap/font/padding 비율 결정 |
-| 7 | Compute Constraints | Plan + ScaleCtx | ConstraintMap | Bottom-up: 각 노드의 min/max 크기 수집 |
-| 8 | Allocate Budgets | Plan + Canvas + Constraints + ScaleCtx | BudgetMap | Top-down: 가용 공간을 weight 비례 배분 |
-| 9 | Measure | Plan + Theme + ScaleCtx + BudgetMap | MeasureMap | 예산 기반 fontSize, padding, minHeight 산출 |
-| 10 | Allocate Bounds | Plan + Canvas + MeasureMap + ScaleCtx | BoundsMap | 레이아웃 알고리즘 실행, 최종 좌표 확정 |
-| 11 | Layout | LayoutChildren + Config | LayoutResult | flow/stack/grid/tree/layers/group 배치 |
-| 12 | Route Edges | BoundsMap + 엣지 정의 | IREdge[] | 연결선 경로 포인트 계산 |
-| 13 | Emit IR | AST + BoundsMap + ScaleCtx + MeasureMap | DepixIR | 완전 해결된 IR JSON 생성 |
+| 3 | Resolve Data | AST | AST (데이터 해결) | `@data` 디렉티브의 데이터셋을 chart 블록에 바인딩 |
+| 4 | Flatten Hierarchy | AST | AST (정규화) | tree/flow의 중첩 요소를 flat children + implicit edges로 변환 |
+| 5 | Resolve Theme | AST + Theme | AST (해결) | 시맨틱 토큰(`primary`, `md`) → HEX/수치 |
+| — | **@presentation 분기** | | | `@presentation` 있으면 → Scene Path (Plan Scene → Scene Layout → Emit Scene) |
+| 6 | Plan Layout | AST | DiagramLayoutPlan | 가중치, 깊이, 자식 수, 의도별 타입 분석 |
+| 7 | Scale System | Plan + Canvas | ScaleContext | `baseUnit` 산출, 동적 gap/font/padding 비율 결정 |
+| 8 | Compute Constraints | Plan + ScaleCtx | ConstraintMap | Bottom-up: 각 노드의 min/max 크기 수집 |
+| 9 | Allocate Budgets | Plan + Canvas + Constraints + ScaleCtx | BudgetMap | Top-down: 가용 공간을 weight 비례 배분 |
+| 10 | Measure | Plan + Theme + ScaleCtx + BudgetMap | MeasureMap | 예산 기반 fontSize, padding, minHeight 산출 |
+| 11 | Allocate Bounds | Plan + Canvas + MeasureMap + ScaleCtx | BoundsMap | 레이아웃 알고리즘 실행, 최종 좌표 확정 |
+| 12 | Layout | LayoutChildren + Config | LayoutResult | flow/stack/grid/tree/layers/group 배치 |
+| 13 | Route Edges | BoundsMap + 엣지 정의 | IREdge[] | 연결선 경로 포인트 계산 |
+| 14 | Emit IR | AST + BoundsMap + ScaleCtx + MeasureMap | DepixIR | 완전 해결된 IR JSON 생성 |
 
 > 각 패스는 **순수 함수**다. 전역 상태를 읽지 않고, 같은 입력에 항상 같은 출력을 반환한다.
 
@@ -324,9 +404,11 @@ pnpm --filter @depix/demo dev
 
 브라우저에서 `http://localhost:5173`으로 접속한다.
 
-데모 앱은 두 개의 탭으로 구성된다:
-- **Gallery** — 카테고리별 DSL 예제 (flow, stack, grid, tree, layers, multi-scene)
-- **Editor** — DSL 라이브 에디터 + 실시간 캔버스 미리보기 + IR JSON 뷰어
+데모 앱은 네 개의 페이지로 구성된다:
+- **Showcase** — 완성된 다이어그램 예제 전시 (카테고리별)
+- **Scene** — 14가지 씬 레이아웃 프리셋 시연 + 미니맵 시각화
+- **Playground** — 단계별 대화형 학습 (힌트 포함)
+- **Reference** — DSL 문법 레퍼런스 (블록, 요소, 스타일, 디렉티브, 씬 카테고리별 예제)
 
 ### 테스트
 
@@ -410,8 +492,8 @@ const { ir, errors } = compile(dsl, { theme: darkTheme });
 
 | 패키지 | 테스트 수 | 커버리지 목표 |
 |--------|----------|-------------|
-| `@depix/core` | 1,100 | 90%+ |
+| `@depix/core` | 1,192 | 90%+ |
 | `@depix/engine` | 120 | 70%+ |
 | `@depix/editor` | 315 | 80%+ |
 | `@depix/react` | 299 | 60%+ |
-| **합계** | **1,834** | |
+| **합계** | **1,926** | |

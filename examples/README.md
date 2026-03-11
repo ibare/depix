@@ -1,4 +1,4 @@
-# Depix v2 Examples
+# Depix Examples
 
 Standalone reference examples showing how to use the `@depix/*` packages.
 

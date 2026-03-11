@@ -1,4 +1,4 @@
-# Depix v2 테스트 전략
+# Depix 테스트 전략
 
 ## 원칙
 
@@ -45,7 +45,7 @@ packages/
 │       │   │   └── edge-router.test.ts
 │       │   └── compiler.integration.test.ts
 │       └── fixtures/              # 공유 테스트 데이터
-│           ├── dsl/               # DSL v2 텍스트 파일
+│           ├── dsl/               # DSL 텍스트 파일
 │           ├── ast/               # 기대 AST JSON
 │           └── ir/                # 기대 IR JSON
 │

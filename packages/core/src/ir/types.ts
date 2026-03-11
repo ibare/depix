@@ -232,9 +232,8 @@ export interface IRInnerText {
 /**
  * Common base properties shared by every IR element.
  *
- * Key difference from the v1 document model: every value here is
- * "resolved" -- concrete numbers instead of dynamic sizing values,
- * concrete HEX colors instead of semantic tokens.
+ * Every value here is "resolved" -- concrete numbers instead of dynamic
+ * sizing values, concrete HEX colors instead of semantic tokens.
  */
 export interface IRBase {
   /** Unique element identifier (used for editor operations and edge references). */
@@ -273,8 +272,8 @@ export type IRShapeType =
 /**
  * A geometric shape element.
  *
- * Unifies the v1 RectObject, CircleObject, and EllipseObject into a
- * single type distinguished by the `shape` property.
+ * A unified shape type distinguished by the `shape` property
+ * (rect, circle, ellipse, diamond, etc.).
  *
  * The renderer draws the requested shape within the element's bounding box.
  */
@@ -481,9 +480,8 @@ export interface IREdgeLabel {
 /**
  * A connection between two elements with a fully resolved route.
  *
- * Key difference from the v1 ConnectorObject: the path is pre-computed
- * as concrete points. The renderer simply draws along the path without
- * any routing calculation.
+ * The path is pre-computed as concrete points. The renderer simply
+ * draws along the path without any routing calculation.
  *
  * `fromId` and `toId` are retained so the editor can re-route when
  * elements are moved.
@@ -516,9 +514,9 @@ export interface IREdge extends IRBase {
 /**
  * A container that holds child elements.
  *
- * Unifies the v1 GroupObject and FrameObject. The critical difference
- * is that all layout has been resolved: children already have concrete
- * bounding boxes. The renderer simply draws them in order.
+ * A container that groups child elements. All layout has been resolved:
+ * children already have concrete bounding boxes. The renderer simply
+ * draws them in order.
  *
  * If the container originated from a semantic layout (flow, stack, etc.),
  * the `origin` field preserves that information for smart editing.

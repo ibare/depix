@@ -463,7 +463,7 @@ canvas {
 
 box "Features" {
   color: primary
-  subtitle: "Version 2.0"
+  subtitle: "Feature Overview"
   list [
     "New DSL syntax"
     "Visual editor"

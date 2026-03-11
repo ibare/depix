@@ -1,7 +1,7 @@
 /**
  * Depix Compiler
  *
- * Orchestrates the full DSL v2 → DepixIR pipeline:
+ * Orchestrates the full DSL → DepixIR pipeline:
  *   1. Parse (tokenize + parse → AST)
  *   2. Resolve theme (semantic tokens → concrete values)
  *   3. Emit IR (layout + edge routing + element conversion)
@@ -52,14 +52,14 @@ export interface CompileResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Compile a DSL v2 source string into a DepixIR document.
+ * Compile a DSL source string into a DepixIR document.
  *
  * This is the main entry point for the Depix compiler. It runs the full
  * pipeline: parse → theme resolution → layout → edge routing → IR emission.
  *
  * When @presentation directive is found, switches to scene compilation mode.
  *
- * @param dsl     - The DSL v2 source string.
+ * @param dsl     - The DSL source string.
  * @param options - Optional compiler configuration.
  * @returns The compiled IR and any parse errors.
  */

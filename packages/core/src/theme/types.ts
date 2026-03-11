@@ -1,7 +1,7 @@
 /**
  * Theme System Type Definitions
  *
- * Defines the complete theme type system for Depix DSL v2.
+ * Defines the complete theme type system for Depix DSL.
  * Themes map semantic tokens (e.g. "primary", "md") to concrete values
  * (HEX colors, pixel numbers) so the IR can be fully resolved.
  *
@@ -14,7 +14,7 @@ import type { IRArrowType, IRShadow } from '../ir/types.js';
 // Semantic token types
 // ---------------------------------------------------------------------------
 
-/** Semantic color names used in DSL v2. */
+/** Semantic color names used in DSL. */
 export type SemanticColor =
   | 'primary'
   | 'secondary'
@@ -110,7 +110,7 @@ export interface ThemeEdgeDefaults {
  * Complete theme definition.
  *
  * Maps all semantic tokens to concrete values. Used by the compiler to
- * resolve DSL v2 semantic references into fully concrete IR values.
+ * resolve DSL semantic references into fully concrete IR values.
  */
 export interface DepixTheme {
   /** Theme name identifier. */

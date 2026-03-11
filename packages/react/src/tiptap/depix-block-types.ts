@@ -14,7 +14,7 @@
 export interface DepixBlockAttrs {
   /** The DepixIR document data (JSON-serialized). */
   ir: string;
-  /** Optional DSL v2 source text. */
+  /** Optional DSL source text. */
   dsl?: string;
   /** Display width in pixels. */
   width?: number;

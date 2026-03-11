@@ -331,7 +331,7 @@ scene "features" {
   header: heading "Core Features"
   cell: column {
     heading "Parse" { level: 2 }
-    label "DSL v2 Tokenizer"
+    label "DSL Tokenizer"
     label "Error recovery"
   }
   cell: column {

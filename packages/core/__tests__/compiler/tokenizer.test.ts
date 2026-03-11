@@ -735,7 +735,7 @@ describe('Position tracking', () => {
 });
 
 // ===========================================================================
-// Comprehensive examples from DSL v2 spec
+// Comprehensive examples from DSL spec
 // ===========================================================================
 
 describe('Comprehensive examples', () => {
@@ -793,9 +793,9 @@ describe('Comprehensive examples', () => {
   });
 
   it('tokenizes badge with flags', () => {
-    expect(pairs('badge "v2.0" { outline }')).toEqual([
+    expect(pairs('badge "1.0" { outline }')).toEqual([
       ['ELEMENT_TYPE', 'badge'],
-      ['STRING', 'v2.0'],
+      ['STRING', '1.0'],
       ['BRACE_OPEN', '{'],
       ['FLAG', 'outline'],
       ['BRACE_CLOSE', '}'],

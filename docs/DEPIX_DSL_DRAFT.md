@@ -1,4 +1,4 @@
-# Depix DSL v2 — 초안 설계
+# Depix DSL — 설계 문서
 
 ## 설계 원칙
 
@@ -238,7 +238,7 @@ list ordered [
 ```depix
 badge "ATP"
 badge "NADPH" { color: green }
-badge "v2.0" { outline }
+badge "1.0" { outline }
 ```
 
 ### `icon` — 아이콘
@@ -601,17 +601,17 @@ canvas {
 
 ---
 
-## v1 → v2 변경 요약
+## 설계 요약
 
-| 영역 | v1 (현재) | v2 (제안) |
-|---|---|---|
-| 레이아웃 | 좌표 기반 (x, y, w, h) | 시맨틱 프리미티브 (flow, stack, grid...) |
-| 스타일 문법 | 커스텀 (fill:#색, stroke-w:2) | CSS-like (background, border, shadow) |
-| 크기 지정 | 절대값 0-100 | 시맨틱 토큰 (xs~xl) 또는 자동 |
-| 색상 | HEX만 | 시맨틱 컬러 + HEX |
-| 다이어그램 구조 | rect + line + connector 조합 | flow, tree, grid 등 의미 단위 |
-| 프롬프트 토큰 | 문법 가이드 ~2000 토큰 | 목표: ~800 토큰 이하 |
-| LLM 학습 필요 | 전체 문법 설명 필요 | 익숙한 문법 차용으로 최소화 |
+| 영역 | 설계 |
+|---|---|
+| 레이아웃 | 시맨틱 프리미티브 (flow, stack, grid...) |
+| 스타일 문법 | CSS-like (background, border, shadow) |
+| 크기 지정 | 시맨틱 토큰 (xs~xl) 또는 자동 |
+| 색상 | 시맨틱 컬러 + HEX |
+| 다이어그램 구조 | flow, tree, grid 등 의미 단위 |
+| 프롬프트 토큰 | 목표: ~800 토큰 이하 |
+| LLM 학습 비용 | 익숙한 문법 차용으로 최소화 |
 
 ---
 

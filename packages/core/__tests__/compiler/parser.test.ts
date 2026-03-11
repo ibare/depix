@@ -405,7 +405,7 @@ describe('Visual elements', () => {
   });
 
   it('parses badge with outline flag', () => {
-    const el = firstChild('badge "v2.0" { outline }') as ASTElement;
+    const el = firstChild('badge "1.0" { outline }') as ASTElement;
     expect(el.flags).toContain('outline');
   });
 
@@ -618,7 +618,7 @@ describe('Error recovery', () => {
 });
 
 // ===========================================================================
-// Comprehensive examples from DSL v2 spec
+// Comprehensive examples from DSL spec
 // ===========================================================================
 
 describe('Comprehensive spec examples', () => {

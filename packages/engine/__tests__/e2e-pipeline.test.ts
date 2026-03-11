@@ -1,7 +1,7 @@
 /**
  * E2E Pipeline Tests
  *
- * Tests the full pipeline: DSL v2 source → compile → DepixIR → Konva render.
+ * Tests the full pipeline: DSL source → compile → DepixIR → Konva render.
  * These tests verify that the entire system works end-to-end, from
  * text input to rendered visual nodes.
  */

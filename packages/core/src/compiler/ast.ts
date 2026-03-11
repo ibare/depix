@@ -1,5 +1,5 @@
 /**
- * DSL v2 Abstract Syntax Tree (AST) types.
+ * DSL Abstract Syntax Tree (AST) types.
  *
  * The AST is the output of the parser and the input to compiler passes.
  * It preserves the semantic structure of the DSL source, including

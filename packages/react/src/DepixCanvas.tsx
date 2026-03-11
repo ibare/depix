@@ -2,7 +2,7 @@
  * DepixCanvas
  *
  * A read-only React component for viewing Depix diagrams.
- * Accepts either a DSL v2 string or a pre-compiled DepixIR document,
+ * Accepts either a DSL string or a pre-compiled DepixIR document,
  * and renders it using a DepixEngine (Konva) internally.
  *
  * This component does NOT use react-konva; it creates its own
@@ -25,7 +25,7 @@ import { DepixEngine } from '@depix/engine';
 // ---------------------------------------------------------------------------
 
 export interface DepixCanvasProps {
-  /** DSL v2 text or pre-compiled DepixIR. */
+  /** DSL text or pre-compiled DepixIR. */
   data: string | DepixIR;
   /** Called when scene changes. */
   onSceneChange?: (index: number) => void;

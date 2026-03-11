@@ -1,7 +1,7 @@
 /**
- * DSL v2 Tokenizer
+ * DSL Tokenizer
  *
- * Converts DSL v2 source text into a stream of tokens.
+ * Converts DSL source text into a stream of tokens.
  * The tokenizer is context-free — it does not track brace depth or other state.
  * Contextual interpretation (e.g., HASH as ID vs. hex color) is left to the parser.
  */

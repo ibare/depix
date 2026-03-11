@@ -3,7 +3,7 @@
  *
  * Provides two default themes: light and dark.
  * These themes define the concrete values for all semantic tokens
- * used in the Depix DSL v2 theme system.
+ * used in the Depix DSL theme system.
  *
  * @module @depix/core/theme
  */

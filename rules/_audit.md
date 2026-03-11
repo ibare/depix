@@ -1,4 +1,4 @@
-# AUDIT-v1 결과
+# AUDIT 결과
 
 **감사 일시**: 2026-03-05
 **감사 기준**: rules/principles.md, rules/concerns/C1~C4, rules/specifics/S-compiler, S-renderer, S-ir-ops

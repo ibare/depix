@@ -1,5 +1,5 @@
 /**
- * DSL v2 Parser
+ * DSL Parser
  *
  * Converts a token stream into an AST (Abstract Syntax Tree).
  * Handles layout blocks, visual elements, edges, directives, scenes,
