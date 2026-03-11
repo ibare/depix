@@ -740,14 +740,15 @@ body {
 
 /* ===== Layout Minimap ===== */
 .layout-minimap {
-  width: 132px;
-  height: 88px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  width: 144px;
+  height: 87px;
+  border: 2px solid color-mix(in srgb, var(--text-primary) 25%, transparent);
+  border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
-  padding: 3px;
-  background: var(--bg-secondary);
+  padding: 6px;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .lm-row {
