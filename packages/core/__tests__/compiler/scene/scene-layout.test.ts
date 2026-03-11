@@ -390,3 +390,213 @@ describe('layoutSceneCustom', () => {
     expect(result.childBounds).toHaveLength(0);
   });
 });
+
+// ===========================================================================
+// V2 Slot-based Layout Tests
+// ===========================================================================
+
+import type { SceneLayoutConfigV2, SceneLayoutResult } from '../../../src/compiler/layout/types.js';
+import {
+  layoutSceneV2,
+  layoutV2Full,
+  layoutV2Center,
+  layoutV2Split,
+  layoutV2Rows,
+  layoutV2Sidebar,
+  layoutV2Header,
+  layoutV2HeaderSplit,
+  layoutV2HeaderRows,
+  layoutV2HeaderSidebar,
+  layoutV2Grid,
+  layoutV2HeaderGrid,
+  layoutV2Focus,
+  layoutV2HeaderFocus,
+  layoutV2Custom,
+} from '../../../src/compiler/layout/scene-layout.js';
+
+const CANVAS_V2: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
+
+function defaultConfigV2(overrides?: Partial<SceneLayoutConfigV2>): SceneLayoutConfigV2 {
+  return {
+    bounds: CANVAS_V2,
+    padding: 8,
+    headerHeight: 18,
+    gap: 4,
+    ...overrides,
+  };
+}
+
+function getSlot(result: SceneLayoutResult, name: string, index = 0): IRBounds {
+  const slots = result.slotBounds.get(name);
+  if (!slots || index >= slots.length) throw new Error(`Slot '${name}[${index}]' not found`);
+  return slots[index];
+}
+
+function boundsWithinV2(inner: IRBounds, outer: IRBounds): void {
+  expect(inner.x).toBeGreaterThanOrEqual(outer.x - 0.01);
+  expect(inner.y).toBeGreaterThanOrEqual(outer.y - 0.01);
+  expect(inner.x + inner.w).toBeLessThanOrEqual(outer.x + outer.w + 0.01);
+  expect(inner.y + inner.h).toBeLessThanOrEqual(outer.y + outer.h + 0.01);
+}
+
+describe('V2 Dispatcher', () => {
+  it('dispatches all 14 layout types without error', () => {
+    const types = [
+      'full', 'center', 'split', 'rows', 'sidebar',
+      'header', 'header-split', 'header-rows', 'header-sidebar',
+      'grid', 'header-grid', 'focus', 'header-focus', 'custom',
+    ] as const;
+    for (const t of types) {
+      const r = layoutSceneV2(t, defaultConfigV2(), 3);
+      expect(r.slotBounds.size).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('V2: full', () => {
+  it('has body slot filling content area', () => {
+    const r = layoutV2Full(defaultConfigV2());
+    expect(r.slotBounds.has('body')).toBe(true);
+    boundsWithinV2(getSlot(r, 'body'), CANVAS_V2);
+  });
+});
+
+describe('V2: center', () => {
+  it('has body slot smaller than full', () => {
+    const full = layoutV2Full(defaultConfigV2());
+    const center = layoutV2Center(defaultConfigV2());
+    expect(getSlot(center, 'body').w).toBeLessThan(getSlot(full, 'body').w);
+    expect(getSlot(center, 'body').h).toBeLessThan(getSlot(full, 'body').h);
+  });
+});
+
+describe('V2: split', () => {
+  it('has left and right slots side by side', () => {
+    const r = layoutV2Split(defaultConfigV2());
+    const left = getSlot(r, 'left');
+    const right = getSlot(r, 'right');
+    expect(left.x).toBeLessThan(right.x);
+    expect(left.w + right.w).toBeLessThanOrEqual(CANVAS_V2.w);
+  });
+
+  it('respects ratio prop', () => {
+    const r = layoutV2Split(defaultConfigV2({ ratio: 70 }));
+    const left = getSlot(r, 'left');
+    const right = getSlot(r, 'right');
+    expect(left.w).toBeGreaterThan(right.w);
+  });
+});
+
+describe('V2: rows', () => {
+  it('has top and bottom slots stacked', () => {
+    const r = layoutV2Rows(defaultConfigV2());
+    const top = getSlot(r, 'top');
+    const bottom = getSlot(r, 'bottom');
+    expect(top.y).toBeLessThan(bottom.y);
+  });
+});
+
+describe('V2: sidebar', () => {
+  it('main is wider than side', () => {
+    const r = layoutV2Sidebar(defaultConfigV2());
+    expect(getSlot(r, 'main').w).toBeGreaterThan(getSlot(r, 'side').w);
+  });
+
+  it('direction:left puts side on left', () => {
+    const r = layoutV2Sidebar(defaultConfigV2({ direction: 'left' }));
+    expect(getSlot(r, 'side').x).toBeLessThan(getSlot(r, 'main').x);
+  });
+});
+
+describe('V2: header', () => {
+  it('header above body', () => {
+    const r = layoutV2Header(defaultConfigV2());
+    expect(getSlot(r, 'header').y).toBeLessThan(getSlot(r, 'body').y);
+  });
+});
+
+describe('V2: header-split', () => {
+  it('header above, left and right below', () => {
+    const r = layoutV2HeaderSplit(defaultConfigV2());
+    const h = getSlot(r, 'header');
+    const l = getSlot(r, 'left');
+    const ri = getSlot(r, 'right');
+    expect(h.y + h.h).toBeLessThanOrEqual(l.y + 0.01);
+    expect(l.x).toBeLessThan(ri.x);
+  });
+});
+
+describe('V2: header-rows', () => {
+  it('header above, top above bottom', () => {
+    const r = layoutV2HeaderRows(defaultConfigV2());
+    expect(getSlot(r, 'header').y).toBeLessThan(getSlot(r, 'top').y);
+    expect(getSlot(r, 'top').y).toBeLessThan(getSlot(r, 'bottom').y);
+  });
+});
+
+describe('V2: header-sidebar', () => {
+  it('header above, main wider than side', () => {
+    const r = layoutV2HeaderSidebar(defaultConfigV2());
+    expect(getSlot(r, 'header').y).toBeLessThan(getSlot(r, 'main').y);
+    expect(getSlot(r, 'main').w).toBeGreaterThan(getSlot(r, 'side').w);
+  });
+});
+
+describe('V2: grid', () => {
+  it('produces N cells', () => {
+    const r = layoutV2Grid(defaultConfigV2(), 4);
+    expect(r.slotBounds.get('cell')).toHaveLength(4);
+  });
+
+  it('cells are within canvas', () => {
+    const r = layoutV2Grid(defaultConfigV2(), 6);
+    for (const cell of r.slotBounds.get('cell')!) {
+      boundsWithinV2(cell, CANVAS_V2);
+    }
+  });
+
+  it('handles 0 cells', () => {
+    const r = layoutV2Grid(defaultConfigV2(), 0);
+    expect(r.slotBounds.get('cell')).toHaveLength(0);
+  });
+});
+
+describe('V2: header-grid', () => {
+  it('has header + N cells', () => {
+    const r = layoutV2HeaderGrid(defaultConfigV2(), 3);
+    expect(r.slotBounds.has('header')).toBe(true);
+    expect(r.slotBounds.get('cell')).toHaveLength(3);
+    expect(getSlot(r, 'header').y).toBeLessThan(r.slotBounds.get('cell')![0].y);
+  });
+});
+
+describe('V2: focus', () => {
+  it('focus is larger than cells', () => {
+    const r = layoutV2Focus(defaultConfigV2(), 3);
+    const focus = getSlot(r, 'focus');
+    const cell = r.slotBounds.get('cell')![0];
+    expect(focus.h).toBeGreaterThan(cell.h);
+  });
+});
+
+describe('V2: header-focus', () => {
+  it('has header + focus + cells in order', () => {
+    const r = layoutV2HeaderFocus(defaultConfigV2(), 2);
+    const header = getSlot(r, 'header');
+    const focus = getSlot(r, 'focus');
+    const cells = r.slotBounds.get('cell')!;
+    expect(header.y).toBeLessThan(focus.y);
+    expect(focus.y).toBeLessThan(cells[0].y);
+    expect(cells).toHaveLength(2);
+  });
+});
+
+describe('V2: custom', () => {
+  it('stacks cells vertically', () => {
+    const r = layoutV2Custom(defaultConfigV2(), 3);
+    const cells = r.slotBounds.get('cell')!;
+    expect(cells).toHaveLength(3);
+    expect(cells[0].y).toBeLessThan(cells[1].y);
+    expect(cells[1].y).toBeLessThan(cells[2].y);
+  });
+});

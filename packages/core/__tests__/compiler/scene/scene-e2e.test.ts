@@ -377,3 +377,93 @@ scene {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Element with block child (content-flexible slots)
+// ---------------------------------------------------------------------------
+
+describe('Scene E2E — element with block child', () => {
+  it('heading flow compiles to container with node children', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: title
+  heading flow direction:right {
+    node "Client" #a
+    node "Server" #b
+    #a -> #b "API"
+  }
+}
+`);
+    expect(errors).toEqual([]);
+    expect(ir.scenes).toHaveLength(1);
+    const scene = ir.scenes[0];
+    // The heading slot should contain a container (from emitInlineBlock)
+    const containers = scene.elements.filter(e => e.type === 'container') as IRContainer[];
+    expect(containers.length).toBeGreaterThanOrEqual(1);
+    // The flow container should have children (nodes + edge)
+    const flowContainer = containers.find(c => c.children.length >= 2);
+    expect(flowContainer).toBeDefined();
+  });
+
+  it('bullet table compiles to table in bullet slot', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: bullets
+  heading "Title"
+  bullet table {
+    "Col1" "Col2"
+    "A" "B"
+  }
+}
+`);
+    expect(errors).toEqual([]);
+    const scene = ir.scenes[0];
+    const texts = findTexts(scene);
+    // heading text should still exist
+    expect(texts.find(t => t.content === 'Title')).toBeDefined();
+    // table should produce a container with cell texts
+    const containers = scene.elements.filter(e => e.type === 'container') as IRContainer[];
+    expect(containers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('mixed string and block children compile correctly', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: bullets
+  heading "Title"
+  bullet { item "Normal text" }
+  bullet flow {
+    node "X" #x
+    node "Y" #y
+    #x -> #y
+  }
+}
+`);
+    expect(errors).toEqual([]);
+    const scene = ir.scenes[0];
+    const texts = findTexts(scene);
+    expect(texts.find(t => t.content === 'Title')).toBeDefined();
+    expect(texts.find(t => t.content.includes('Normal text'))).toBeDefined();
+    // At least one element should be a flow container
+    expect(scene.elements.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('heading with string still works (no regression)', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: title
+  heading "Keep Working"
+  label "Subtitle"
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    const heading = texts.find(t => t.content === 'Keep Working');
+    expect(heading).toBeDefined();
+    expect(heading!.fontWeight).toBe('bold');
+  });
+});

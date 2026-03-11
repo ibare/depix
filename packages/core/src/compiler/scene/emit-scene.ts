@@ -126,6 +126,17 @@ function emitSceneContent(
   baseFontSize: number,
 ): IRElement | null {
   if (node.kind === 'element') {
+    // Block child → delegate to diagram/table/chart pipeline
+    const blockChild = node.children.find((c): c is ASTBlock => c.kind === 'block');
+    if (blockChild) {
+      if (blockChild.blockType === 'table') {
+        return emitSceneTable(blockChild, id, bounds, theme, sceneTheme, baseFontSize);
+      }
+      if (blockChild.blockType === 'chart') {
+        return emitSceneChart(blockChild, id, bounds, theme, sceneTheme, baseFontSize);
+      }
+      return emitInlineBlock(blockChild, bounds, theme, new Map());
+    }
     switch (node.elementType) {
       case 'heading': return emitHeading(node, id, bounds, sceneTheme, baseFontSize);
       case 'label':

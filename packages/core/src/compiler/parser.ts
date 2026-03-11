@@ -240,6 +240,23 @@ class Parser {
     const loc = { line: tok.line, column: tok.column };
     const elementType = tok.value;
 
+    // Block as child content: e.g., `heading flow { ... }`, `bullet table { ... }`
+    if (this.check('BLOCK_TYPE')) {
+      const childBlock = this.parseBlock();
+      return {
+        kind: 'element',
+        elementType,
+        label: undefined,
+        id: undefined,
+        props: {},
+        style: {},
+        flags: [],
+        children: [childBlock],
+        items: undefined,
+        loc,
+      };
+    }
+
     // Optional label (string)
     let label: string | undefined;
     if (this.check('STRING')) {

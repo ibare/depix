@@ -797,3 +797,113 @@ describe('AST snapshots', () => {
     expect(ast).toMatchSnapshot();
   });
 });
+
+// ===========================================================================
+// Element with block child (content-flexible slots)
+// ===========================================================================
+
+describe('Element with block child', () => {
+  it('parses heading with flow block child', () => {
+    const input = `scene "S" {
+  heading flow direction:right {
+    node "A" #a
+    node "B" #b
+    #a -> #b
+  }
+}`;
+    noErrors(input);
+    const scene = firstScene(input);
+    const heading = scene.children[0] as ASTElement;
+    expect(heading.kind).toBe('element');
+    expect(heading.elementType).toBe('heading');
+    expect(heading.label).toBeUndefined();
+    expect(heading.children).toHaveLength(1);
+
+    const flowBlock = heading.children[0] as ASTBlock;
+    expect(flowBlock.kind).toBe('block');
+    expect(flowBlock.blockType).toBe('flow');
+    expect(flowBlock.props.direction).toBe('right');
+    expect(flowBlock.children.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('parses bullet with table block child', () => {
+    const input = `scene "S" {
+  bullet table {
+    "Col1" "Col2"
+    "A" "B"
+  }
+}`;
+    noErrors(input);
+    const scene = firstScene(input);
+    const bullet = scene.children[0] as ASTElement;
+    expect(bullet.kind).toBe('element');
+    expect(bullet.elementType).toBe('bullet');
+    expect(bullet.label).toBeUndefined();
+    expect(bullet.children).toHaveLength(1);
+
+    const tableBlock = bullet.children[0] as ASTBlock;
+    expect(tableBlock.kind).toBe('block');
+    expect(tableBlock.blockType).toBe('table');
+  });
+
+  it('parses stat with chart block child', () => {
+    const input = `scene "S" {
+  stat chart "revenue" type:bar x:"Q" y:"Rev"
+}`;
+    noErrors(input);
+    const scene = firstScene(input);
+    const stat = scene.children[0] as ASTElement;
+    expect(stat.kind).toBe('element');
+    expect(stat.elementType).toBe('stat');
+    expect(stat.children).toHaveLength(1);
+
+    const chartBlock = stat.children[0] as ASTBlock;
+    expect(chartBlock.kind).toBe('block');
+    expect(chartBlock.blockType).toBe('chart');
+    expect(chartBlock.label).toBe('revenue');
+    expect(chartBlock.props.type).toBe('bar');
+  });
+
+  it('still parses heading with string label normally', () => {
+    const input = `scene "S" {
+  heading "Normal Title"
+}`;
+    noErrors(input);
+    const scene = firstScene(input);
+    const heading = scene.children[0] as ASTElement;
+    expect(heading.kind).toBe('element');
+    expect(heading.elementType).toBe('heading');
+    expect(heading.label).toBe('Normal Title');
+    expect(heading.children).toHaveLength(0);
+  });
+
+  it('mixes string elements and block-child elements in same scene', () => {
+    const input = `scene "S" {
+  heading flow {
+    node "X" #x
+  }
+  bullet "Normal bullet"
+  bullet table {
+    "A" "B"
+  }
+}`;
+    noErrors(input);
+    const scene = firstScene(input);
+    expect(scene.children).toHaveLength(3);
+
+    const heading = scene.children[0] as ASTElement;
+    expect(heading.elementType).toBe('heading');
+    expect(heading.children).toHaveLength(1);
+    expect((heading.children[0] as ASTBlock).blockType).toBe('flow');
+
+    const bullet1 = scene.children[1] as ASTElement;
+    expect(bullet1.elementType).toBe('bullet');
+    expect(bullet1.label).toBe('Normal bullet');
+    expect(bullet1.children).toHaveLength(0);
+
+    const bullet2 = scene.children[2] as ASTElement;
+    expect(bullet2.elementType).toBe('bullet');
+    expect(bullet2.children).toHaveLength(1);
+    expect((bullet2.children[0] as ASTBlock).blockType).toBe('table');
+  });
+});
