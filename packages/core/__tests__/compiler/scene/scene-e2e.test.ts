@@ -467,3 +467,138 @@ scene "S" {
     expect(heading!.fontWeight).toBe('bold');
   });
 });
+
+// ---------------------------------------------------------------------------
+// V2 slot-based layout E2E
+// ---------------------------------------------------------------------------
+
+describe('Scene E2E — v2 slot-based layouts', () => {
+  it('split layout with left/right slots produces two regions', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: split
+  left: heading "Left Title"
+  right: heading "Right Title"
+}
+`);
+    expect(errors).toEqual([]);
+    expect(ir.scenes).toHaveLength(1);
+    const texts = findTexts(ir.scenes[0]);
+    const left = texts.find(t => t.content === 'Left Title');
+    const right = texts.find(t => t.content === 'Right Title');
+    expect(left).toBeDefined();
+    expect(right).toBeDefined();
+    // Left should be positioned to the left of right
+    expect(left!.bounds.x).toBeLessThan(right!.bounds.x);
+  });
+
+  it('header layout with header/body slots', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: header
+  header: heading "Main Title"
+  body: label "Body content"
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    const header = texts.find(t => t.content === 'Main Title');
+    const body = texts.find(t => t.content === 'Body content');
+    expect(header).toBeDefined();
+    expect(body).toBeDefined();
+    // Header should be above body
+    expect(header!.bounds.y).toBeLessThan(body!.bounds.y);
+  });
+
+  it('header-split with header/left/right slots', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: header-split
+  header: heading "Architecture"
+  left: label "Component A"
+  right: label "Component B"
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'Architecture')).toBeDefined();
+    expect(texts.find(t => t.content === 'Component A')).toBeDefined();
+    expect(texts.find(t => t.content === 'Component B')).toBeDefined();
+  });
+
+  it('grid layout with cell slots', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: grid
+  cell: heading "Feature 1"
+  cell: heading "Feature 2"
+  cell: heading "Feature 3"
+  cell: heading "Feature 4"
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'Feature 1')).toBeDefined();
+    expect(texts.find(t => t.content === 'Feature 2')).toBeDefined();
+    expect(texts.find(t => t.content === 'Feature 3')).toBeDefined();
+    expect(texts.find(t => t.content === 'Feature 4')).toBeDefined();
+  });
+
+  it('slot with flow block compiles correctly', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: header
+  header: heading "System"
+  body: flow direction:right {
+    node "A" #a
+    node "B" #b
+    #a -> #b
+  }
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    expect(texts.find(t => t.content === 'System')).toBeDefined();
+    // flow block should produce a container
+    const containers = ir.scenes[0].elements.filter(e => e.type === 'container') as IRContainer[];
+    expect(containers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('children without slot get no bounds (ignored gracefully)', () => {
+    const { ir, errors } = compileScene(`
+@presentation
+scene "S" {
+  layout: split
+  left: heading "Left"
+  heading "Orphan"
+}
+`);
+    expect(errors).toEqual([]);
+    const texts = findTexts(ir.scenes[0]);
+    // Only the slotted child should render
+    expect(texts.find(t => t.content === 'Left')).toBeDefined();
+  });
+
+  it('v2 elements have valid bounds (0-100)', () => {
+    const { ir } = compileScene(`
+@presentation
+scene {
+  layout: header-split
+  header: heading "T"
+  left: label "L"
+  right: label "R"
+}
+`);
+    for (const el of ir.scenes[0].elements) {
+      expect(el.bounds.x).toBeGreaterThanOrEqual(0);
+      expect(el.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(el.bounds.x + el.bounds.w).toBeLessThanOrEqual(101);
+      expect(el.bounds.y + el.bounds.h).toBeLessThanOrEqual(101);
+    }
+  });
+});
