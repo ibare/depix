@@ -22,6 +22,7 @@ import { resolveTheme } from './passes/resolve-theme.js';
 import { emitIR } from './passes/emit-ir.js';
 import { emitSceneIR } from './scene/emit-scene.js';
 import { lightTheme } from '../theme/builtin-themes.js';
+import { extractOverrides, applyOverridesToIR } from './passes/apply-overrides.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -81,15 +82,27 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 5. Check for presentation mode
   const isPresentation = resolvedAST.directives.some(d => d.key === 'presentation');
 
+  // 5b. Extract @overrides from AST (before IR emission, applied after)
+  const overrides = extractOverrides(resolvedAST);
+
   if (isPresentation) {
     // Scene pipeline: scene layout → scene IR emission
     const sceneTheme = options?.sceneTheme ?? defaultSceneTheme;
-    const ir = emitSceneIR(resolvedAST, theme, sceneTheme);
+    let ir = emitSceneIR(resolvedAST, theme, sceneTheme);
+    // 7. Post-processing: apply @overrides to IR bounds
+    if (overrides.size > 0) {
+      ir = applyOverridesToIR(ir, overrides);
+    }
     return { ir, errors };
   }
 
   // 6. Standard pipeline: diagram layout + edge routing + IR emission
-  const ir = emitIR(resolvedAST, theme);
+  let ir = emitIR(resolvedAST, theme);
+
+  // 7. Post-processing: apply @overrides to IR bounds
+  if (overrides.size > 0) {
+    ir = applyOverridesToIR(ir, overrides);
+  }
 
   return { ir, errors };
 }

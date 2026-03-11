@@ -11,3 +11,5 @@ export { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js
 export type { TreeLevelInfo, FlowLayerInfo } from './layout-analysis.js';
 export { createScaleContext, computeBaseUnit, computeGap, computeFontSize, computePadding, countElements } from './scale-system.js';
 export type { ScaleContext, GapType, TextRole } from './scale-system.js';
+export { extractOverrides, applyOverridesToIR } from './apply-overrides.js';
+export type { OverrideEntry, OverrideMap } from './apply-overrides.js';

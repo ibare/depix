@@ -30,3 +30,5 @@ export * from './scene/index.js';
 
 export { compile } from './compiler.js';
 export type { CompileOptions, CompileResult } from './compiler.js';
+
+export { serialize } from './serializer.js';

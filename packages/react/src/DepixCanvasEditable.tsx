@@ -41,9 +41,11 @@ import {
   updateText as irUpdateText,
   moveElement as irMoveElement,
 } from '@depix/editor';
+import type { DepixTheme } from '@depix/core';
 import type { ToolType } from './types.js';
 import { FloatingToolbar } from './components/FloatingToolbar.js';
 import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
+import { DepixDSLEditor } from './DepixDSLEditor.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,6 +84,14 @@ export interface DepixCanvasEditableProps {
   showPropertyPanel?: boolean;
   /** Show debug overlay with element bounding boxes. Default: false */
   debug?: boolean;
+
+  // ---- DSL-first editing props (optional) ----
+  /** DSL source text. When provided with onDSLChange, enables DSL-first edit mode. */
+  dsl?: string;
+  /** Called when DSL text changes via editor actions. */
+  onDSLChange?: (dsl: string) => void;
+  /** Theme for DSL compilation. */
+  dslTheme?: DepixTheme;
 }
 
 export interface DepixCanvasEditableRef {
@@ -178,6 +188,9 @@ export const DepixCanvasEditable = forwardRef<
     showToolbar = true,
     showPropertyPanel = true,
     debug = false,
+    dsl,
+    onDSLChange,
+    dslTheme,
   } = props;
 
   const generatedId = useId();
@@ -186,12 +199,17 @@ export const DepixCanvasEditable = forwardRef<
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DepixEngine | null>(null);
 
+  // ---- DSL mode flag ------------------------------------------------------
+
+  const isDSLMode = !!dsl && !!onDSLChange;
+
   // ---- Edit mode state ---------------------------------------------------
 
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [isHovered, setIsHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const snapshotRef = useRef<DepixIR | null>(null);
+  const dslSnapshotRef = useRef<string | null>(null);
 
   // ---- Internal tool state (used only in self-managed edit mode) ----------
 
@@ -386,8 +404,8 @@ export const DepixCanvasEditable = forwardRef<
   // Only active when in edit mode.
 
   useEffect(() => {
-    if (!isEditActive) {
-      // Teardown on edit mode exit
+    if (!isEditActive || isDSLMode) {
+      // Teardown on edit mode exit (or DSL mode — no freeform handles)
       if (transformerRef.current) {
         transformerRef.current.nodes([]);
         transformerRef.current.destroy();
@@ -635,14 +653,18 @@ export const DepixCanvasEditable = forwardRef<
 
   const enterEditMode = useCallback(() => {
     snapshotRef.current = structuredClone(ir);
+    if (isDSLMode) {
+      dslSnapshotRef.current = dsl!;
+    }
     setIsEditing(true);
     setInternalTool('select');
     onEditModeChange?.(true);
-  }, [ir, onEditModeChange]);
+  }, [ir, onEditModeChange, isDSLMode, dsl]);
 
   const handleConfirm = useCallback(() => {
     // Commit: the current ir is already the latest via onIRChange
     snapshotRef.current = null;
+    dslSnapshotRef.current = null;
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
@@ -654,10 +676,14 @@ export const DepixCanvasEditable = forwardRef<
       onIRChange(snapshotRef.current);
       snapshotRef.current = null;
     }
+    if (isDSLMode && dslSnapshotRef.current !== null) {
+      onDSLChange!(dslSnapshotRef.current);
+      dslSnapshotRef.current = null;
+    }
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
-  }, [onIRChange, onEditModeChange]);
+  }, [onIRChange, onEditModeChange, isDSLMode, onDSLChange]);
 
   // ---- IR manipulation callbacks -----------------------------------------
 
@@ -1059,8 +1085,21 @@ export const DepixCanvasEditable = forwardRef<
         );
       })()}
 
-      {/* Edit mode: floating panels */}
-      {showEditUI && showToolbar && panelPositions && (
+      {/* Edit mode: DSL-first overlay OR freeform panels */}
+      {showEditUI && isDSLMode && panelPositions && (
+        <DepixDSLEditor
+          dsl={dsl!}
+          onDSLChange={onDSLChange!}
+          theme={dslTheme}
+          width={width}
+          height={height}
+          panelPositions={panelPositions}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
+
+      {showEditUI && !isDSLMode && showToolbar && panelPositions && (
         <FloatingToolbar
           tool={tool}
           onToolChange={toolProp ? (props as any).onToolChange ?? (() => {}) : setInternalTool}
@@ -1079,7 +1118,7 @@ export const DepixCanvasEditable = forwardRef<
         />
       )}
 
-      {showEditUI && showPropertyPanel && panelPositions && (
+      {showEditUI && !isDSLMode && showPropertyPanel && panelPositions && (
         <FloatingPropertyPanel
           elements={selectedElements}
           onStyleChange={handleStyleChange}

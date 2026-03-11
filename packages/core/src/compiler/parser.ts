@@ -140,6 +140,16 @@ class Parser {
       return { key, value, body, loc };
     }
 
+    // @overrides { #id { x:10, y:20, w:30, h:40 } ... }
+    if (key === 'overrides') {
+      this.skipNewlines();
+      let body: ASTNode[] | undefined;
+      if (this.check('BRACE_OPEN')) {
+        body = this.parseOverridesBody();
+      }
+      return { key, value: '', body, loc };
+    }
+
     // Collect value tokens until newline or EOF
     const valueParts: string[] = [];
     while (!this.isAtEnd() && !this.check('NEWLINE') && !this.check('EOF')) {
@@ -446,6 +456,86 @@ class Parser {
     }
 
     return rows;
+  }
+
+  // ---- Overrides body { #id { x:10, y:20 } ... } -------------------------
+
+  /**
+   * Parse an @overrides block body: { #id { key: value, ... } ... }
+   * Each override entry becomes an ASTElement with elementType 'override',
+   * id from the hash, and override values stored in props.
+   */
+  private parseOverridesBody(): ASTNode[] {
+    this.advance(); // {
+    this.skipNewlines();
+    const entries: ASTNode[] = [];
+
+    while (!this.isAtEnd() && !this.check('BRACE_CLOSE')) {
+      if (this.check('HASH')) {
+        const hashTok = this.advance();
+        const id = hashTok.value;
+        const loc = { line: hashTok.line, column: hashTok.column };
+
+        const props: Record<string, string | number> = {};
+        this.skipNewlines();
+
+        if (this.check('BRACE_OPEN')) {
+          this.advance(); // {
+          this.skipNewlines();
+
+          while (!this.isAtEnd() && !this.check('BRACE_CLOSE')) {
+            if (
+              this.check('IDENTIFIER') ||
+              this.check('ELEMENT_TYPE') ||
+              this.check('BLOCK_TYPE') ||
+              this.check('FLAG')
+            ) {
+              const key = this.advance().value;
+              if (this.check('COLON')) {
+                this.advance(); // :
+                const value = this.parsePropertyValue();
+                props[key] = value;
+              }
+            } else {
+              this.error(`Unexpected token in override block: ${this.current().type}`, this.current());
+              this.advance();
+            }
+            this.skipComma();
+            this.skipNewlines();
+          }
+
+          if (this.check('BRACE_CLOSE')) {
+            this.advance(); // }
+          } else {
+            this.error('Unclosed override entry block', this.current());
+          }
+        }
+
+        entries.push({
+          kind: 'element',
+          elementType: 'override',
+          id,
+          label: undefined,
+          props,
+          style: {},
+          flags: [],
+          children: [],
+          loc,
+        } as ASTElement);
+      } else {
+        this.error(`Expected #id in @overrides block, got ${this.current().type}`, this.current());
+        this.advance();
+      }
+      this.skipNewlines();
+    }
+
+    if (this.check('BRACE_CLOSE')) {
+      this.advance(); // }
+    } else {
+      this.error('Unclosed @overrides block', this.current());
+    }
+
+    return entries;
   }
 
   // ---- Property block { key: value, flag, ... } with nested elements ------

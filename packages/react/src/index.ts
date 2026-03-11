@@ -96,3 +96,35 @@ export {
   parseAllDepixBlocks,
 } from './tiptap/index.js';
 export type { DepixBlockAttrs, DepixBlockConfig } from './tiptap/index.js';
+
+// DSL Editor
+export { DepixDSLEditor } from './DepixDSLEditor.js';
+export type { DepixDSLEditorProps } from './DepixDSLEditor.js';
+
+// DSL Editor Hooks
+export { useDSLSync } from './hooks/useDSLSync.js';
+export type { UseDSLSyncOptions, UseDSLSyncReturn, SceneInfo, SlotInfo } from './hooks/useDSLSync.js';
+
+export { useOverrideDrag } from './hooks/useOverrideDrag.js';
+export type { UseOverrideDragOptions, UseOverrideDragReturn } from './hooks/useOverrideDrag.js';
+
+// DSL Editor Components
+export { SceneStrip } from './components/editor/SceneStrip.js';
+export type { SceneStripProps, SceneStripScene } from './components/editor/SceneStrip.js';
+
+export { LayoutPicker } from './components/editor/LayoutPicker.js';
+export type { LayoutPickerProps } from './components/editor/LayoutPicker.js';
+
+export { SlotOverlay } from './components/editor/SlotOverlay.js';
+export type { SlotOverlayProps, CoordinateTransform } from './components/editor/SlotOverlay.js';
+
+export { ContentTypePicker } from './components/editor/ContentTypePicker.js';
+export type { ContentTypePickerProps } from './components/editor/ContentTypePicker.js';
+
+export { ContextBar } from './components/editor/ContextBar.js';
+export type { ContextBarProps } from './components/editor/ContextBar.js';
+
+export { EditorPropertyPanel } from './components/editor/EditorPropertyPanel.js';
+export type { EditorPropertyPanelProps } from './components/editor/EditorPropertyPanel.js';
+
+export { EDITOR_COLORS } from './components/editor/editor-colors.js';

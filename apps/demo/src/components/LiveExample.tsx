@@ -117,6 +117,9 @@ export function LiveExample({
             width={canvasWidth}
             height={canvasHeight}
             debug={debug}
+            dsl={dsl}
+            onDSLChange={setDsl}
+            dslTheme={theme}
           />
         ) : (
           <span className="text-muted">No preview</span>
