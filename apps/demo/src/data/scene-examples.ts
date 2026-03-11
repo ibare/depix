@@ -2,14 +2,38 @@ export interface SceneExample {
   id: string;
   title: string;
   description: string;
+  layout: string;
   dsl: string;
 }
 
 export const SCENE_EXAMPLES: SceneExample[] = [
+  // ---------------------------------------------------------------------------
+  // Layout Presets — 14 layouts, one example each
+  // ---------------------------------------------------------------------------
   {
-    id: 'title-scene',
-    title: 'Title Scene',
-    description: '표지 슬라이드. 중앙에 큰 제목과 부제를 배치한다.',
+    id: 'layout-full',
+    title: 'Full Layout',
+    description: '전체 캔버스를 body 슬롯 하나로 사용. 다이어그램을 꽉 채워 배치할 때 적합.',
+    layout: 'full',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "system" {
+  layout: full
+  body: flow direction:right {
+    node "Client" #a { color: primary }
+    node "Server" #b { color: accent }
+    node "Database" #c { shape: diamond, color: success }
+    #a -> #b "API"
+    #b -> #c
+  }
+}`,
+  },
+  {
+    id: 'layout-center',
+    title: 'Center Layout',
+    description: '중앙에 내용을 배치. 타이틀, 인용문, 강조 메시지에 적합.',
+    layout: 'center',
     dsl: `@presentation
 @ratio 16:9
 
@@ -23,24 +47,78 @@ scene "cover" {
 }`,
   },
   {
-    id: 'statement-scene',
-    title: 'Statement Scene',
-    description: '핵심 메시지 하나를 크게 강조하는 레이아웃.',
+    id: 'layout-split',
+    title: 'Split Layout',
+    description: '좌우 2분할. left, right 슬롯으로 나란히 배치.',
+    layout: 'split',
     dsl: `@presentation
 @ratio 16:9
 
-scene "message" {
-  layout: center
-  body: column {
-    heading "Simple DSL, Beautiful Slides"
-    label "No design tools needed"
+scene "compare" {
+  layout: split
+  left: column {
+    heading "Plan A"
+    label "Simple and fast"
+    label "Low cost"
+    label "Basic support"
+  }
+  right: column {
+    heading "Plan B"
+    label "Feature-rich"
+    label "Premium pricing"
+    label "Priority support"
   }
 }`,
   },
   {
-    id: 'bullets-scene',
-    title: 'Bullets Scene',
-    description: '제목과 핵심 포인트 목록을 보여주는 가장 기본적인 레이아웃.',
+    id: 'layout-rows',
+    title: 'Rows Layout',
+    description: '상하 2분할. top, bottom 슬롯으로 위아래 배치.',
+    layout: 'rows',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "summary" {
+  layout: rows
+  top: column {
+    heading "Executive Summary"
+    label "Revenue increased by 40% year over year"
+  }
+  bottom: column {
+    heading "Key Takeaways"
+    label "Customer satisfaction at all-time high"
+    label "Market share expanded to 3 new regions"
+  }
+}`,
+  },
+  {
+    id: 'layout-sidebar',
+    title: 'Sidebar Layout',
+    description: '메인 + 사이드바. main은 넓게, side는 좁게 배치.',
+    layout: 'sidebar',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "dashboard" {
+  layout: sidebar
+  main: column {
+    heading "Dashboard Overview"
+    label "Key metrics and performance indicators"
+    label "Real-time monitoring data"
+  }
+  side: column {
+    label "Navigation"
+    label "Settings"
+    label "Profile"
+    label "Help"
+  }
+}`,
+  },
+  {
+    id: 'layout-header',
+    title: 'Header Layout',
+    description: '상단 헤더 + 하단 본문. 가장 기본적인 프레젠테이션 레이아웃.',
+    layout: 'header',
     dsl: `@presentation
 @ratio 16:9
 
@@ -56,38 +134,10 @@ scene "agenda" {
 }`,
   },
   {
-    id: 'big-number-scene',
-    title: 'Big Number Scene',
-    description: '숫자 지표를 크게 강조하는 레이아웃.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "metrics" {
-  layout: header-grid
-  header: heading "2025 Q1 Results"
-  cell: stat "340%" { label: "Revenue Growth" }
-  cell: stat "1.2M" { label: "Active Users" }
-  cell: stat "99.9%" { label: "Uptime SLA" }
-}`,
-  },
-  {
-    id: 'quote-scene',
-    title: 'Quote Scene',
-    description: '인용문을 중앙에 크게 배치하는 레이아웃.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "inspiration" {
-  layout: center
-  body: quote "The best way to predict the future is to invent it." {
-    attribution: "Alan Kay"
-  }
-}`,
-  },
-  {
-    id: 'two-column-scene',
-    title: 'Two Column Scene',
-    description: '좌우 2분할 비교 레이아웃.',
+    id: 'layout-header-split',
+    title: 'Header-Split Layout',
+    description: '상단 헤더 + 좌우 분할. 비교, 2단 구성에 적합.',
+    layout: 'header-split',
     dsl: `@presentation
 @ratio 16:9
 
@@ -109,9 +159,170 @@ scene "compare" {
 }`,
   },
   {
+    id: 'layout-header-rows',
+    title: 'Header-Rows Layout',
+    description: '상단 헤더 + 상하 분할 본문.',
+    layout: 'header-rows',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "analysis" {
+  layout: header-rows
+  header: heading "Analysis Results"
+  top: column {
+    heading "Findings" { level: 2 }
+    label "Performance improved by 60%"
+    label "Error rate reduced to 0.1%"
+  }
+  bottom: column {
+    heading "Recommendations" { level: 2 }
+    label "Scale infrastructure by Q3"
+    label "Implement automated monitoring"
+  }
+}`,
+  },
+  {
+    id: 'layout-header-sidebar',
+    title: 'Header-Sidebar Layout',
+    description: '상단 헤더 + 메인/사이드바 본문.',
+    layout: 'header-sidebar',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "workspace" {
+  layout: header-sidebar
+  header: heading "Project Workspace"
+  main: column {
+    heading "Editor" { level: 2 }
+    label "Main editing area"
+    label "Code and preview panels"
+  }
+  side: column {
+    label "Files"
+    label "Search"
+    label "Extensions"
+  }
+}`,
+  },
+  {
+    id: 'layout-grid',
+    title: 'Grid Layout',
+    description: '균등 그리드. cell 슬롯을 반복하여 N개 셀 배치.',
+    layout: 'grid',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "overview" {
+  layout: grid
+  cell: column {
+    heading "Speed"
+    label "Sub-50ms response"
+  }
+  cell: column {
+    heading "Scale"
+    label "10K+ concurrent"
+  }
+  cell: column {
+    heading "Security"
+    label "SOC2 compliant"
+  }
+  cell: column {
+    heading "Support"
+    label "24/7 available"
+  }
+}`,
+  },
+  {
+    id: 'layout-header-grid',
+    title: 'Header-Grid Layout',
+    description: '상단 헤더 + 그리드 본문. 지표, 아이콘 그리드에 적합.',
+    layout: 'header-grid',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "metrics" {
+  layout: header-grid
+  header: heading "2025 Q1 Results"
+  cell: stat "340%" { label: "Revenue Growth" }
+  cell: stat "1.2M" { label: "Active Users" }
+  cell: stat "99.9%" { label: "Uptime SLA" }
+}`,
+  },
+  {
+    id: 'layout-focus',
+    title: 'Focus Layout',
+    description: '중심 포커스 + 하단 셀들. 주요 항목 강조에 적합.',
+    layout: 'focus',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "spotlight" {
+  layout: focus
+  focus: column {
+    heading "Core Platform"
+    label "The unified engine powering everything"
+  }
+  cell: label "API"
+  cell: label "SDK"
+  cell: label "CLI"
+}`,
+  },
+  {
+    id: 'layout-header-focus',
+    title: 'Header-Focus Layout',
+    description: '헤더 + 포커스 + 셀. 가장 풍부한 계층 구조.',
+    layout: 'header-focus',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "product" {
+  layout: header-focus
+  header: heading "Product Line"
+  focus: stat "1M+" { label: "Total Users" }
+  cell: label "Enterprise"
+  cell: label "Startup"
+  cell: label "Individual"
+}`,
+  },
+  {
+    id: 'layout-custom',
+    title: 'Custom Layout',
+    description: '자유 배치. cell 슬롯이 세로로 쌓인다. layout 미지정 시 기본값.',
+    layout: 'custom',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "agenda" {
+  layout: custom
+  cell: heading "Part 1: Introduction"
+  cell: heading "Part 2: Deep Dive"
+  cell: heading "Part 3: Conclusion"
+}`,
+  },
+
+  // ---------------------------------------------------------------------------
+  // Applied Examples — real-world presentation patterns
+  // ---------------------------------------------------------------------------
+  {
+    id: 'quote-scene',
+    title: 'Quote Scene',
+    description: '인용문을 중앙에 크게 배치하는 레이아웃.',
+    layout: 'center',
+    dsl: `@presentation
+@ratio 16:9
+
+scene "inspiration" {
+  layout: center
+  body: quote "The best way to predict the future is to invent it." {
+    attribution: "Alan Kay"
+  }
+}`,
+  },
+  {
     id: 'three-column-scene',
     title: 'Three Column Scene',
     description: '3분할 레이아웃으로 기능을 나열한다.',
+    layout: 'header-grid',
     dsl: `@presentation
 @ratio 16:9
 
@@ -139,6 +350,7 @@ scene "features" {
     id: 'image-text-scene',
     title: 'Image + Text Scene',
     description: '이미지와 텍스트를 좌우로 배치하는 레이아웃. 제품 소개에 적합.',
+    layout: 'header-split',
     dsl: `@presentation
 @ratio 16:9
 
@@ -157,6 +369,7 @@ scene "product" {
     id: 'icon-grid-scene',
     title: 'Icon Grid Scene',
     description: '아이콘과 설명을 그리드로 배치. SaaS 기능 소개에 적합.',
+    layout: 'header-grid',
     dsl: `@presentation
 @ratio 16:9
 
@@ -173,6 +386,7 @@ scene "features" {
     id: 'timeline-scene',
     title: 'Timeline Scene',
     description: '수평 타임라인으로 단계별 프로세스를 보여주는 레이아웃.',
+    layout: 'header-grid',
     dsl: `@presentation
 @ratio 16:9
 
@@ -186,78 +400,10 @@ scene "roadmap" {
 }`,
   },
   {
-    id: 'split-title-scene',
-    title: 'Split Title Scene',
-    description: '좌우 반반 표지. 한쪽에 제목, 다른 쪽에 이미지를 배치한다.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "split-cover" {
-  layout: header-split
-  header: heading "Depix 2025"
-  left: column {
-    heading "Next-Gen DSL Engine" { level: 2 }
-    label "Declarative diagrams"
-    label "Presentation mode"
-    label "Real-time collaboration"
-  }
-  right: image "hero-visual.png" { alt: "Hero Visual" }
-}`,
-  },
-  {
-    id: 'section-divider-scene',
-    title: 'Section Divider Scene',
-    description: '섹션 구분용 슬라이드. 짧은 제목으로 주제 전환을 알린다.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "section" {
-  layout: center
-  body: column {
-    heading "Part 2"
-    label "Architecture Deep Dive"
-  }
-}`,
-  },
-  {
-    id: 'closing-scene',
-    title: 'Closing Scene',
-    description: '마무리 슬라이드. 감사 인사 또는 연락처를 표시한다.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "closing" {
-  layout: center
-  body: column {
-    heading "Thank You"
-    label "Questions & Discussion"
-    label "team@depix.dev"
-  }
-}`,
-  },
-  {
-    id: 'agenda-scene',
-    title: 'Agenda Scene',
-    description: '목차 슬라이드. 발표 순서를 번호로 정리한다.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "agenda" {
-  layout: header
-  header: heading "Agenda"
-  body: bullet {
-    item "1. Introduction & Background"
-    item "2. Problem Statement"
-    item "3. Proposed Solution"
-    item "4. Demo & Results"
-    item "5. Q&A"
-  }
-}`,
-  },
-  {
     id: 'comparison-scene',
     title: 'Comparison Scene',
     description: 'Before/After 비교 레이아웃. 변화 전후를 나란히 보여준다.',
+    layout: 'header-split',
     dsl: `@presentation
 @ratio 16:9
 
@@ -281,42 +427,10 @@ scene "comparison" {
 }`,
   },
   {
-    id: 'process-scene',
-    title: 'Process Scene',
-    description: '번호가 있는 단계별 프로세스. 워크플로우 설명에 적합.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "process" {
-  layout: header-grid
-  header: heading "How It Works"
-  cell: step "1" { label: "Write DSL" }
-  cell: step "2" { label: "Compile to IR" }
-  cell: step "3" { label: "Render Canvas" }
-  cell: step "4" { label: "Export PNG" }
-}`,
-  },
-  {
-    id: 'image-full-scene',
-    title: 'Image Full Scene',
-    description: '전체 이미지 배경 위에 텍스트를 오버레이하는 레이아웃.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "hero" {
-  layout: header-split
-  header: heading "Built for Scale"
-  left: image "full-background.png" { alt: "Background" }
-  right: column {
-    label "Enterprise-grade performance"
-    label "from day one"
-  }
-}`,
-  },
-  {
     id: 'full-presentation',
     title: 'Full Presentation (5 Slides)',
-    description: '여러 레이아웃을 조합한 완성된 프레젠테이션 예시. 첫 번째 슬라이드가 렌더링된다.',
+    description: '여러 레이아웃을 조합한 완성된 프레젠테이션 예시.',
+    layout: 'center',
     dsl: `@presentation
 @ratio 16:9
 @transition fade
@@ -362,10 +476,15 @@ scene "closing" {
   }
 }`,
   },
+
+  // ---------------------------------------------------------------------------
+  // Data — table & chart in presentation
+  // ---------------------------------------------------------------------------
   {
     id: 'table-scene',
     title: 'Table Scene',
     description: '데이터를 표로 시각화하는 레이아웃. 인라인 데이터를 바로 정의한다.',
+    layout: 'header',
     dsl: `@presentation
 @ratio 16:9
 
@@ -384,7 +503,8 @@ scene "metrics" {
   {
     id: 'chart-scene',
     title: 'Chart Scene',
-    description: '@data로 정의한 데이터를 차트로 시각화한다. 같은 데이터를 표와 차트로 각각 보여준다.',
+    description: '@data로 정의한 데이터를 차트로 시각화한다.',
+    layout: 'header',
     dsl: `@presentation
 @ratio 16:9
 
@@ -408,10 +528,15 @@ scene "trend" {
   body: chart "revenue" type:bar x:"Quarter" y:"Revenue"
 }`,
   },
+
+  // ---------------------------------------------------------------------------
+  // Diagrams in Scene — flow, tree, layers, grid
+  // ---------------------------------------------------------------------------
   {
     id: 'flow-diagram-scene',
     title: 'Flow Diagram Scene',
-    description: 'scene 안에 flow 다이어그램을 직접 배치한다. Full 모드로 렌더링된다.',
+    description: 'scene 안에 flow 다이어그램을 직접 배치한다.',
+    layout: 'full',
     dsl: `@presentation
 @ratio 16:9
 
@@ -435,6 +560,7 @@ scene "architecture" {
     id: 'tree-diagram-scene',
     title: 'Tree Diagram Scene',
     description: 'scene 안에 tree 다이어그램으로 조직도를 표현한다.',
+    layout: 'full',
     dsl: `@presentation
 @ratio 16:9
 
@@ -463,6 +589,7 @@ scene "org-chart" {
     id: 'layers-diagram-scene',
     title: 'Layers Diagram Scene',
     description: 'scene 안에 layers로 아키텍처 스택을 표현한다.',
+    layout: 'full',
     dsl: `@presentation
 @ratio 16:9
 
@@ -478,36 +605,10 @@ scene "tech-stack" {
 }`,
   },
   {
-    id: 'grid-diagram-scene',
-    title: 'Grid Diagram Scene',
-    description: 'scene 안에 grid로 기술 비교표를 다이어그램으로 표현한다.',
-    dsl: `@presentation
-@ratio 16:9
-
-scene "tech-comparison" {
-  layout: full
-  body: grid cols:4 {
-    cell "" { header }
-    cell "Frontend" { header }
-    cell "Backend" { header }
-    cell "DevOps" { header }
-
-    cell "Language" { header }
-    cell "TypeScript" { color: primary }
-    cell "Go" { color: info }
-    cell "Python" { color: success }
-
-    cell "Framework" { header }
-    cell "React" { color: accent }
-    cell "Echo" { color: info }
-    cell "Ansible" { color: warning }
-  }
-}`,
-  },
-  {
     id: 'mixed-diagram-scene',
     title: 'Mixed Diagrams (Multi-Scene)',
     description: '여러 scene에 서로 다른 다이어그램 유형을 배치한 프레젠테이션.',
+    layout: 'center',
     dsl: `@presentation
 @ratio 16:9
 @transition slide-left

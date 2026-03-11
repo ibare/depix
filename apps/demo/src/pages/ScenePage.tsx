@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SCENE_EXAMPLES } from '../data/scene-examples';
 import { LiveExample } from '../components/LiveExample';
+import { LayoutMinimap } from '../components/LayoutMinimap';
 
 export function ScenePage({ debug }: { debug?: boolean }) {
   const [activeIdx, setActiveIdx] = useState(0);
@@ -12,7 +13,7 @@ export function ScenePage({ debug }: { debug?: boolean }) {
         <h1 className="scene-page__title">Slide DSL</h1>
         <p className="scene-page__subtitle">
           <code>@presentation</code> 디렉티브로 슬라이드 모드 활성화.
-          8가지 레이아웃으로 프레젠테이션을 선언적으로 작성한다.
+          14가지 슬롯 기반 레이아웃으로 프레젠테이션을 선언적으로 작성한다.
         </p>
       </section>
 
@@ -25,7 +26,8 @@ export function ScenePage({ debug }: { debug?: boolean }) {
                   className={`scene-page__example-btn${i === activeIdx ? ' active' : ''}`}
                   onClick={() => setActiveIdx(i)}
                 >
-                  {ex.title}
+                  <span className="scene-page__btn-title">{ex.title}</span>
+                  <span className="scene-page__btn-layout">{ex.layout}</span>
                 </button>
               </li>
             ))}
@@ -34,8 +36,11 @@ export function ScenePage({ debug }: { debug?: boolean }) {
 
         <div className="scene-page__main">
           <div className="scene-page__example-header">
-            <h2 className="scene-page__example-title">{example.title}</h2>
-            <p className="scene-page__example-desc">{example.description}</p>
+            <div className="scene-page__example-header-text">
+              <h2 className="scene-page__example-title">{example.title}</h2>
+              <p className="scene-page__example-desc">{example.description}</p>
+            </div>
+            <LayoutMinimap layout={example.layout} />
           </div>
           <LiveExample
             key={example.id}
