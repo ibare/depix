@@ -96,6 +96,106 @@ scene "Content" {
           },
         ],
       },
+      {
+        id: 'presentation',
+        title: '@presentation',
+        description: '프레젠테이션 모드를 활성화한다. scene 블록과 함께 사용하여 슬라이드 기반 프레젠테이션을 만든다.',
+        syntax: '@presentation',
+        examples: [
+          {
+            label: '프레젠테이션 모드',
+            dsl: `@presentation
+
+scene "Title" {
+  layout: title
+  heading "Depix Presentation"
+  text "DSL로 슬라이드를 선언적으로 작성"
+}
+
+scene "Content" {
+  layout: bullets
+  heading "주요 기능"
+  bullet "선언적 DSL"
+  bullet "시맨틱 컬러"
+  bullet "다양한 레이아웃"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'style',
+        title: '@style',
+        description: '렌더링 스타일을 지정한다. sketch를 사용하면 손으로 그린 듯한 느낌을 준다.',
+        syntax: '@style sketch',
+        examples: [
+          {
+            label: 'Sketch 스타일',
+            dsl: `@page 16:9
+@style sketch
+
+flow direction:right {
+  node "Idea" #a { color: primary }
+  node "Design" #b { color: info }
+  node "Build" #c { color: success }
+
+  #a -> #b
+  #b -> #c
+}`,
+          },
+        ],
+      },
+      {
+        id: 'transition',
+        title: '@transition',
+        description: '씬 간 전환 애니메이션을 지정한다.',
+        syntax: '@transition fade | slide-left | slide-right | slide-up | slide-down | zoom-in | zoom-out',
+        examples: [
+          {
+            label: 'Fade 전환',
+            dsl: `@presentation
+@transition fade
+
+scene "First" {
+  layout: title
+  heading "Slide 1"
+}
+
+scene "Second" {
+  layout: title
+  heading "Slide 2"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'data',
+        title: '@data',
+        description: '이름이 있는 데이터 블록을 정의한다. table이나 chart에서 참조하여 같은 데이터를 다양한 형태로 시각화할 수 있다.',
+        syntax: '@data "name" { "col1" "col2" \\n "val1" val2 ... }',
+        examples: [
+          {
+            label: '@data + table + chart',
+            dsl: `@presentation
+
+@data "revenue" {
+  "Quarter" "Revenue"
+  "Q1" 120
+  "Q2" 185
+  "Q3" 240
+}
+
+scene "numbers" {
+  heading "Sales Data"
+  table "revenue"
+}
+
+scene "trend" {
+  heading "Revenue Trend"
+  chart "revenue" type:bar x:"Quarter" y:"Revenue"
+}`,
+          },
+        ],
+      },
     ],
   },
   {
@@ -264,6 +364,81 @@ layers {
           },
         ],
       },
+      {
+        id: 'table',
+        title: 'table',
+        description: '데이터를 표 형태로 시각화한다. 인라인 데이터를 직접 넣거나, @data 블록을 참조할 수 있다.',
+        syntax: 'table { "col1" "col2" \\n "val1" val2 } | table "dataName"',
+        examples: [
+          {
+            label: '인라인 테이블',
+            dsl: `@page 16:9
+
+table {
+  "Name" "Score"
+  "Alice" 95
+  "Bob" 88
+}`,
+          },
+          {
+            label: '@data 참조 테이블',
+            dsl: `@data "sales" {
+  "Quarter" "Revenue"
+  "Q1" 120
+  "Q2" 185
+}
+
+table "sales"`,
+          },
+        ],
+      },
+      {
+        id: 'chart',
+        title: 'chart',
+        description: '@data 블록의 데이터를 차트로 시각화한다. bar, line, pie 3가지 타입을 지원.',
+        syntax: 'chart "dataName" type:bar|line|pie x:"colName" y:"colName"',
+        examples: [
+          {
+            label: 'Bar 차트',
+            dsl: `@data "revenue" {
+  "Quarter" "Revenue"
+  "Q1" 120
+  "Q2" 185
+  "Q3" 240
+}
+
+chart "revenue" type:bar x:"Quarter" y:"Revenue"`,
+          },
+          {
+            label: 'Pie 차트',
+            dsl: `@data "share" {
+  "Browser" "Share"
+  "Chrome" 65
+  "Firefox" 20
+  "Safari" 15
+}
+
+chart "share" type:pie x:"Browser" y:"Share"`,
+          },
+        ],
+      },
+      {
+        id: 'canvas',
+        title: 'canvas',
+        description: '저수준 자유 배치. x, y, w, h를 직접 지정하여 요소를 절대 좌표로 배치한다.',
+        syntax: 'canvas { rect "label" { x:N, y:N, w:N, h:N } ... }',
+        examples: [
+          {
+            label: '자유 배치',
+            dsl: `@page 16:9
+
+canvas {
+  rect "Box" { x:10, y:10, w:200, h:100 }
+  circle "Dot" { x:300, y:60, r:30 }
+}`,
+          },
+        ],
+      },
     ],
   },
   {
@@ -296,16 +471,26 @@ box "Features" {
         id: 'node',
         title: 'node',
         description: '연결 가능한 다이어그램 노드. shape으로 모양을 지정한다.',
-        syntax: 'node "Label" #id { shape: rect|circle|diamond|pill|hexagon }',
+        syntax: 'node "Label" #id { shape: rect|circle|diamond|pill|hexagon|triangle|parallelogram|ellipse }',
         examples: [
           {
-            label: 'Node shapes',
+            label: '기본 shapes',
             dsl: `@page 16:9
 
 flow direction:right {
   node "Rect" { shape: rect, color: primary }
   node "Circle" { shape: circle, color: info }
   node "Diamond" { shape: diamond, color: warning }
+}`,
+          },
+          {
+            label: '확장 shapes',
+            dsl: `@page 16:9
+
+flow direction:right {
+  node "Pill" { shape: pill, color: success }
+  node "Hexagon" { shape: hexagon, color: accent }
+  node "Triangle" { shape: triangle, color: danger }
 }`,
           },
         ],
@@ -350,11 +535,11 @@ stack direction:row gap:sm {
       {
         id: 'list',
         title: 'list',
-        description: '항목 나열. box 안에 넣거나 독립적으로 사용.',
+        description: '항목 나열. box 안에 넣거나 독립적으로 사용. ordered 플래그로 순서 목록을 만든다.',
         syntax: 'list ["item1", "item2", ...] | list ordered [...]',
         examples: [
           {
-            label: 'Standalone list',
+            label: 'Unordered list',
             dsl: `@page 16:9
 
 stack direction:row gap:lg {
@@ -366,6 +551,19 @@ stack direction:row gap:lg {
       "Gamma"
     ]
   }
+}`,
+          },
+          {
+            label: 'Ordered list',
+            dsl: `@page 16:9
+
+box "Steps" {
+  color: info
+  list ordered [
+    "First"
+    "Second"
+    "Third"
+  ]
 }`,
           },
         ],
@@ -385,6 +583,38 @@ stack direction:col gap:md {
   divider "separator"
   label "Below" { bold }
 }`,
+          },
+        ],
+      },
+      {
+        id: 'icon',
+        title: 'icon',
+        description: '아이콘을 표시한다. 노드나 아이템에 icon 속성으로 지정할 수도 있다.',
+        syntax: 'icon "name" { color: ... }',
+        examples: [
+          {
+            label: 'Icon 표시',
+            dsl: `@page 16:9
+
+stack direction:row gap:md {
+  icon "star"
+  icon "heart" { color: danger }
+  icon "check" { color: success }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'image',
+        title: 'image',
+        description: '이미지를 표시한다. fit 속성으로 맞춤 방식을 지정한다.',
+        syntax: 'image "url" { fit: contain|cover|fill }',
+        examples: [
+          {
+            label: 'Image 요소',
+            dsl: `@page 16:9
+
+image "https://picsum.photos/400/200" { fit: cover }`,
           },
         ],
       },
@@ -523,7 +753,7 @@ stack direction:col gap:lg {
         id: 'flags',
         title: 'Flags',
         description: 'Boolean 속성. 키만 적으면 true.',
-        syntax: '{ bold } | { italic } | { underline } | { header } | { outline } | { center }',
+        syntax: '{ bold } | { italic } | { underline } | { strikethrough } | { center } | { outline } | { header } | { ordered }',
         examples: [
           {
             label: 'Text flags',
@@ -532,7 +762,227 @@ stack direction:col gap:lg {
 stack direction:col gap:sm {
   label "Bold text" { bold }
   label "Italic text" { italic }
+  label "Strikethrough" { strikethrough }
   label "Bold + Center" { bold, center }
+}`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'scene-layouts',
+    title: '6. Scene Layouts',
+    sections: [
+      {
+        id: 'layout-title',
+        title: 'title',
+        description: '타이틀 슬라이드. 큰 heading과 보조 text를 중앙에 배치한다.',
+        syntax: 'scene "..." { layout: title, heading "...", text "..." }',
+        examples: [
+          {
+            label: 'Title 레이아웃',
+            dsl: `@presentation
+
+scene "Title" {
+  layout: title
+  heading "Welcome to Depix"
+  text "Declarative Diagram DSL"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-statement',
+        title: 'statement',
+        description: '핵심 메시지를 강조하는 레이아웃. heading을 크게 표시한다.',
+        syntax: 'scene "..." { layout: statement, heading "...", text "..." }',
+        examples: [
+          {
+            label: 'Statement 레이아웃',
+            dsl: `@presentation
+
+scene "Statement" {
+  layout: statement
+  heading "코드로 표현하는 다이어그램"
+  text "선언적 DSL이 시각적 편집을 대체한다"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-bullets',
+        title: 'bullets',
+        description: '불릿 포인트 목록. heading 아래에 bullet 항목들을 나열한다.',
+        syntax: 'scene "..." { layout: bullets, heading "...", bullet "..." ... }',
+        examples: [
+          {
+            label: 'Bullets 레이아웃',
+            dsl: `@presentation
+
+scene "Key Points" {
+  layout: bullets
+  heading "주요 특징"
+  bullet "선언적 DSL 문법"
+  bullet "시맨틱 컬러 시스템"
+  bullet "10가지 슬라이드 레이아웃"
+  bullet "실시간 미리보기"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-two-column',
+        title: 'two-column',
+        description: '2단 레이아웃. heading 아래에 두 개의 column 블록을 배치한다.',
+        syntax: 'scene "..." { layout: two-column, heading "...", column { ... }, column { ... } }',
+        examples: [
+          {
+            label: 'Two-column 레이아웃',
+            dsl: `@presentation
+
+scene "Comparison" {
+  layout: two-column
+  heading "Before vs After"
+  column {
+    bullet "수동 드래그"
+    bullet "픽셀 단위 조정"
+    bullet "재사용 불가"
+  }
+  column {
+    bullet "선언적 코드"
+    bullet "자동 레이아웃"
+    bullet "버전 관리 가능"
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-three-column',
+        title: 'three-column',
+        description: '3단 레이아웃. heading 아래에 세 개의 column 블록을 배치한다.',
+        syntax: 'scene "..." { layout: three-column, heading "...", column { ... } x3 }',
+        examples: [
+          {
+            label: 'Three-column 레이아웃',
+            dsl: `@presentation
+
+scene "Plans" {
+  layout: three-column
+  heading "Pricing"
+  column {
+    bullet "Free"
+    bullet "5 diagrams"
+    bullet "Basic export"
+  }
+  column {
+    bullet "Pro"
+    bullet "Unlimited"
+    bullet "All formats"
+  }
+  column {
+    bullet "Enterprise"
+    bullet "Custom"
+    bullet "Priority support"
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-big-number',
+        title: 'big-number',
+        description: '큰 수치를 강조하는 레이아웃. stat 요소로 수치와 설명을 표시한다.',
+        syntax: 'scene "..." { layout: big-number, stat "value" { subtitle: "..." } ... }',
+        examples: [
+          {
+            label: 'Big-number 레이아웃',
+            dsl: `@presentation
+
+scene "Metrics" {
+  layout: big-number
+  stat "99.9%" { subtitle: "Uptime" }
+  stat "50ms" { subtitle: "Avg Response" }
+  stat "10K+" { subtitle: "Daily Users" }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-quote',
+        title: 'quote',
+        description: '인용문 레이아웃. 큰 인용 텍스트와 출처를 표시한다.',
+        syntax: 'scene "..." { layout: quote, quote "text" { attribution: "author" } }',
+        examples: [
+          {
+            label: 'Quote 레이아웃',
+            dsl: `@presentation
+
+scene "Inspiration" {
+  layout: quote
+  quote "The best way to predict the future is to invent it." {
+    attribution: "Alan Kay"
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-image-text',
+        title: 'image-text',
+        description: '이미지와 텍스트를 나란히 배치하는 레이아웃.',
+        syntax: 'scene "..." { layout: image-text, heading "...", image "url", text "..." }',
+        examples: [
+          {
+            label: 'Image-text 레이아웃',
+            dsl: `@presentation
+
+scene "Product" {
+  layout: image-text
+  heading "Our Product"
+  image "https://picsum.photos/400/300"
+  text "A powerful diagram editor built with modern web technologies."
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-icon-grid',
+        title: 'icon-grid',
+        description: '아이콘과 라벨을 그리드로 배치하는 레이아웃. 기능 소개에 적합.',
+        syntax: 'scene "..." { layout: icon-grid, heading "...", item "label" { icon: "name" } ... }',
+        examples: [
+          {
+            label: 'Icon-grid 레이아웃',
+            dsl: `@presentation
+
+scene "Features" {
+  layout: icon-grid
+  heading "What We Offer"
+  item "Speed" { icon: "zap" }
+  item "Security" { icon: "shield" }
+  item "Scale" { icon: "globe" }
+  item "Support" { icon: "headphones" }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-timeline',
+        title: 'timeline',
+        description: '시간순 이벤트를 나열하는 레이아웃. step 요소로 각 단계를 표현한다.',
+        syntax: 'scene "..." { layout: timeline, step "date" { text "description" } ... }',
+        examples: [
+          {
+            label: 'Timeline 레이아웃',
+            dsl: `@presentation
+
+scene "History" {
+  layout: timeline
+  step "2020" { text: "Project started" }
+  step "2022" { text: "Series A funding" }
+  step "2024" { text: "Global launch" }
 }`,
           },
         ],
