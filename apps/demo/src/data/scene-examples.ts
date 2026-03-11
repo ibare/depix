@@ -14,10 +14,12 @@ export const SCENE_EXAMPLES: SceneExample[] = [
 @ratio 16:9
 
 scene "cover" {
-  layout: title
-  heading "Depix Slide DSL"
-  label "Declarative Presentations"
-  label "2025 Q1"
+  layout: center
+  body: column {
+    heading "Depix Slide DSL"
+    label "Declarative Presentations"
+    label "2025 Q1"
+  }
 }`,
   },
   {
@@ -28,9 +30,11 @@ scene "cover" {
 @ratio 16:9
 
 scene "message" {
-  layout: statement
-  heading "Simple DSL, Beautiful Slides"
-  label "No design tools needed"
+  layout: center
+  body: column {
+    heading "Simple DSL, Beautiful Slides"
+    label "No design tools needed"
+  }
 }`,
   },
   {
@@ -41,9 +45,9 @@ scene "message" {
 @ratio 16:9
 
 scene "agenda" {
-  layout: bullets
-  heading "Why Depix?"
-  bullet {
+  layout: header
+  header: heading "Why Depix?"
+  body: bullet {
     item "Declarative: describe what, not how"
     item "Version-controlled: diffs that make sense"
     item "Themeable: one theme, all slides"
@@ -59,11 +63,11 @@ scene "agenda" {
 @ratio 16:9
 
 scene "metrics" {
-  layout: big-number
-  heading "2025 Q1 Results"
-  stat "340%" { label: "Revenue Growth" }
-  stat "1.2M" { label: "Active Users" }
-  stat "99.9%" { label: "Uptime SLA" }
+  layout: header-grid
+  header: heading "2025 Q1 Results"
+  cell: stat "340%" { label: "Revenue Growth" }
+  cell: stat "1.2M" { label: "Active Users" }
+  cell: stat "99.9%" { label: "Uptime SLA" }
 }`,
   },
   {
@@ -74,8 +78,8 @@ scene "metrics" {
 @ratio 16:9
 
 scene "inspiration" {
-  layout: quote
-  quote "The best way to predict the future is to invent it." {
+  layout: center
+  body: quote "The best way to predict the future is to invent it." {
     attribution: "Alan Kay"
   }
 }`,
@@ -88,15 +92,15 @@ scene "inspiration" {
 @ratio 16:9
 
 scene "compare" {
-  layout: two-column
-  heading "Before vs After"
-  column {
+  layout: header-split
+  header: heading "Before vs After"
+  left: column {
     heading "Before" { level: 2 }
     label "Manual diagram tools"
     label "Hours of tweaking"
     label "Hard to version control"
   }
-  column {
+  right: column {
     heading "After" { level: 2 }
     label "Declarative DSL"
     label "Instant rendering"
@@ -112,19 +116,19 @@ scene "compare" {
 @ratio 16:9
 
 scene "features" {
-  layout: three-column
-  heading "Core Features"
-  column {
+  layout: header-grid
+  header: heading "Core Features"
+  cell: column {
     heading "Parse" { level: 2 }
     label "DSL v2 Tokenizer"
     label "Error recovery"
   }
-  column {
+  cell: column {
     heading "Compile" { level: 2 }
     label "13-pass pipeline"
     label "Theme resolution"
   }
-  column {
+  cell: column {
     heading "Render" { level: 2 }
     label "Canvas output"
     label "PNG export"
@@ -139,12 +143,14 @@ scene "features" {
 @ratio 16:9
 
 scene "product" {
-  layout: image-text
-  heading "Product Overview"
-  image "product-screenshot.png" { alt: "Product Screenshot" }
-  label "A powerful DSL for creating presentations"
-  label "No design tools required"
-  label "Version-controlled and git-friendly"
+  layout: header-split
+  header: heading "Product Overview"
+  left: image "product-screenshot.png" { alt: "Product Screenshot" }
+  right: column {
+    label "A powerful DSL for creating presentations"
+    label "No design tools required"
+    label "Version-controlled and git-friendly"
+  }
 }`,
   },
   {
@@ -155,12 +161,12 @@ scene "product" {
 @ratio 16:9
 
 scene "features" {
-  layout: icon-grid
-  heading "Platform Features"
-  icon "P" { label: "Parse", description: "Tokenizer + error recovery" }
-  icon "C" { label: "Compile", description: "13-pass pipeline" }
-  icon "R" { label: "Render", description: "Canvas + PNG export" }
-  icon "E" { label: "Edit", description: "Real-time collaboration" }
+  layout: header-grid
+  header: heading "Platform Features"
+  cell: icon "P" { label: "Parse", description: "Tokenizer + error recovery" }
+  cell: icon "C" { label: "Compile", description: "13-pass pipeline" }
+  cell: icon "R" { label: "Render", description: "Canvas + PNG export" }
+  cell: icon "E" { label: "Edit", description: "Real-time collaboration" }
 }`,
   },
   {
@@ -171,12 +177,12 @@ scene "features" {
 @ratio 16:9
 
 scene "roadmap" {
-  layout: timeline
-  heading "Product Roadmap 2025"
-  step "Q1" { label: "Research & Design" }
-  step "Q2" { label: "Core Development" }
-  step "Q3" { label: "Beta Launch" }
-  step "Q4" { label: "GA Release" }
+  layout: header-grid
+  header: heading "Product Roadmap 2025"
+  cell: step "Q1" { label: "Research & Design" }
+  cell: step "Q2" { label: "Core Development" }
+  cell: step "Q3" { label: "Beta Launch" }
+  cell: step "Q4" { label: "GA Release" }
 }`,
   },
   {
@@ -187,17 +193,15 @@ scene "roadmap" {
 @ratio 16:9
 
 scene "split-cover" {
-  layout: two-column
-  heading "Depix 2025"
-  column {
+  layout: header-split
+  header: heading "Depix 2025"
+  left: column {
     heading "Next-Gen DSL Engine" { level: 2 }
     label "Declarative diagrams"
     label "Presentation mode"
     label "Real-time collaboration"
   }
-  column {
-    image "hero-visual.png" { alt: "Hero Visual" }
-  }
+  right: image "hero-visual.png" { alt: "Hero Visual" }
 }`,
   },
   {
@@ -208,9 +212,11 @@ scene "split-cover" {
 @ratio 16:9
 
 scene "section" {
-  layout: statement
-  heading "Part 2"
-  label "Architecture Deep Dive"
+  layout: center
+  body: column {
+    heading "Part 2"
+    label "Architecture Deep Dive"
+  }
 }`,
   },
   {
@@ -221,10 +227,12 @@ scene "section" {
 @ratio 16:9
 
 scene "closing" {
-  layout: title
-  heading "Thank You"
-  label "Questions & Discussion"
-  label "team@depix.dev"
+  layout: center
+  body: column {
+    heading "Thank You"
+    label "Questions & Discussion"
+    label "team@depix.dev"
+  }
 }`,
   },
   {
@@ -235,9 +243,9 @@ scene "closing" {
 @ratio 16:9
 
 scene "agenda" {
-  layout: bullets
-  heading "Agenda"
-  bullet {
+  layout: header
+  header: heading "Agenda"
+  body: bullet {
     item "1. Introduction & Background"
     item "2. Problem Statement"
     item "3. Proposed Solution"
@@ -254,16 +262,16 @@ scene "agenda" {
 @ratio 16:9
 
 scene "comparison" {
-  layout: two-column
-  heading "Migration Impact"
-  column {
+  layout: header-split
+  header: heading "Migration Impact"
+  left: column {
     heading "Before" { level: 2 }
     label "Manual deployments"
     label "4-hour release cycles"
     label "Frequent rollbacks"
     label "No visibility"
   }
-  column {
+  right: column {
     heading "After" { level: 2 }
     label "Fully automated CI/CD"
     label "15-minute releases"
@@ -280,12 +288,12 @@ scene "comparison" {
 @ratio 16:9
 
 scene "process" {
-  layout: timeline
-  heading "How It Works"
-  step "1" { label: "Write DSL" }
-  step "2" { label: "Compile to IR" }
-  step "3" { label: "Render Canvas" }
-  step "4" { label: "Export PNG" }
+  layout: header-grid
+  header: heading "How It Works"
+  cell: step "1" { label: "Write DSL" }
+  cell: step "2" { label: "Compile to IR" }
+  cell: step "3" { label: "Render Canvas" }
+  cell: step "4" { label: "Export PNG" }
 }`,
   },
   {
@@ -296,11 +304,13 @@ scene "process" {
 @ratio 16:9
 
 scene "hero" {
-  layout: image-text
-  heading "Built for Scale"
-  image "full-background.png" { alt: "Background" }
-  label "Enterprise-grade performance"
-  label "from day one"
+  layout: header-split
+  header: heading "Built for Scale"
+  left: image "full-background.png" { alt: "Background" }
+  right: column {
+    label "Enterprise-grade performance"
+    label "from day one"
+  }
 }`,
   },
   {
@@ -312,21 +322,25 @@ scene "hero" {
 @transition fade
 
 scene "title" {
-  layout: title
-  heading "AI Strategy 2025"
-  label "Transforming Our Business"
+  layout: center
+  body: column {
+    heading "AI Strategy 2025"
+    label "Transforming Our Business"
+  }
 }
 
 scene "why" {
-  layout: statement
-  heading "AI is not optional anymore"
-  label "Every competitor is investing"
+  layout: center
+  body: column {
+    heading "AI is not optional anymore"
+    label "Every competitor is investing"
+  }
 }
 
 scene "plan" {
-  layout: bullets
-  heading "Our 3-Step Plan"
-  bullet {
+  layout: header
+  header: heading "Our 3-Step Plan"
+  body: bullet {
     item "Assess: audit current workflows"
     item "Pilot: run 3 AI experiments in Q2"
     item "Scale: roll out winners company-wide"
@@ -334,16 +348,16 @@ scene "plan" {
 }
 
 scene "impact" {
-  layout: big-number
-  heading "Expected Impact"
-  stat "+60%" { label: "Productivity" }
-  stat "-35%" { label: "Manual Work" }
-  stat "3x" { label: "Faster Delivery" }
+  layout: header-grid
+  header: heading "Expected Impact"
+  cell: stat "+60%" { label: "Productivity" }
+  cell: stat "-35%" { label: "Manual Work" }
+  cell: stat "3x" { label: "Faster Delivery" }
 }
 
 scene "closing" {
-  layout: quote
-  quote "The future belongs to those who prepare for it today." {
+  layout: center
+  body: quote "The future belongs to those who prepare for it today." {
     attribution: "Malcolm X"
   }
 }`,
@@ -356,9 +370,9 @@ scene "closing" {
 @ratio 16:9
 
 scene "metrics" {
-  layout: bullets
-  heading "Q1 Performance"
-  table {
+  layout: header
+  header: heading "Q1 Performance"
+  body: table {
     "Metric" "Target" "Actual" "Status"
     "Revenue" 500 520 "Exceeded"
     "Users" 10000 9800 "On Track"
@@ -383,26 +397,27 @@ scene "metrics" {
 }
 
 scene "numbers" {
-  layout: bullets
-  heading "Revenue Overview"
-  table "revenue"
+  layout: header
+  header: heading "Revenue Overview"
+  body: table "revenue"
 }
 
 scene "trend" {
-  layout: bullets
-  heading "Revenue Trend"
-  chart "revenue" type:bar x:"Quarter" y:"Revenue"
+  layout: header
+  header: heading "Revenue Trend"
+  body: chart "revenue" type:bar x:"Quarter" y:"Revenue"
 }`,
   },
   {
     id: 'flow-diagram-scene',
     title: 'Flow Diagram Scene',
-    description: 'layout 없이 scene 안에 flow 다이어그램을 직접 배치한다. Custom 모드로 렌더링된다.',
+    description: 'scene 안에 flow 다이어그램을 직접 배치한다. Full 모드로 렌더링된다.',
     dsl: `@presentation
 @ratio 16:9
 
 scene "architecture" {
-  flow direction:right {
+  layout: full
+  body: flow direction:right {
     node "Client" #client { color: muted }
     node "API Gateway" #gw { color: accent }
     node "Auth Service" #auth { color: primary }
@@ -424,7 +439,8 @@ scene "architecture" {
 @ratio 16:9
 
 scene "org-chart" {
-  tree direction:down {
+  layout: full
+  body: tree direction:down {
     node "CEO" {
       node "CTO" {
         node "Frontend"
@@ -451,7 +467,8 @@ scene "org-chart" {
 @ratio 16:9
 
 scene "tech-stack" {
-  layers {
+  layout: full
+  body: layers {
     layer "Presentation" { color: primary }
     layer "Application Logic" { color: accent }
     layer "Domain Model" { color: info }
@@ -468,7 +485,8 @@ scene "tech-stack" {
 @ratio 16:9
 
 scene "tech-comparison" {
-  grid cols:4 {
+  layout: full
+  body: grid cols:4 {
     cell "" { header }
     cell "Frontend" { header }
     cell "Backend" { header }
@@ -495,13 +513,16 @@ scene "tech-comparison" {
 @transition slide-left
 
 scene "cover" {
-  layout: title
-  heading "System Architecture"
-  label "Technical Overview"
+  layout: center
+  body: column {
+    heading "System Architecture"
+    label "Technical Overview"
+  }
 }
 
 scene "data-flow" {
-  flow direction:right {
+  layout: full
+  body: flow direction:right {
     node "Ingestion" #in { color: primary }
     node "Processing" #proc { color: accent }
     node "Storage" #store { shape: diamond, color: success }
@@ -514,7 +535,8 @@ scene "data-flow" {
 }
 
 scene "team" {
-  tree direction:down {
+  layout: full
+  body: tree direction:down {
     node "Tech Lead" {
       node "Frontend" {
         node "React"
@@ -529,7 +551,8 @@ scene "team" {
 }
 
 scene "stack" {
-  layers {
+  layout: full
+  body: layers {
     layer "CDN + Edge" { color: muted }
     layer "Frontend App" { color: primary }
     layer "API Gateway" { color: accent }

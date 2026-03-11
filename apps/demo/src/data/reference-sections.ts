@@ -107,17 +107,21 @@ scene "Content" {
             dsl: `@presentation
 
 scene "Title" {
-  layout: title
-  heading "Depix Presentation"
-  text "DSL로 슬라이드를 선언적으로 작성"
+  layout: center
+  body: column {
+    heading "Depix Presentation"
+    label "DSL로 슬라이드를 선언적으로 작성"
+  }
 }
 
 scene "Content" {
-  layout: bullets
-  heading "주요 기능"
-  bullet "선언적 DSL"
-  bullet "시맨틱 컬러"
-  bullet "다양한 레이아웃"
+  layout: header
+  header: heading "주요 기능"
+  body: bullet {
+    item "선언적 DSL"
+    item "시맨틱 컬러"
+    item "다양한 레이아웃"
+  }
 }`,
           },
         ],
@@ -156,13 +160,13 @@ flow direction:right {
 @transition fade
 
 scene "First" {
-  layout: title
-  heading "Slide 1"
+  layout: center
+  body: heading "Slide 1"
 }
 
 scene "Second" {
-  layout: title
-  heading "Slide 2"
+  layout: center
+  body: heading "Slide 2"
 }`,
           },
         ],
@@ -185,13 +189,15 @@ scene "Second" {
 }
 
 scene "numbers" {
-  heading "Sales Data"
-  table "revenue"
+  layout: header
+  header: heading "Sales Data"
+  body: table "revenue"
 }
 
 scene "trend" {
-  heading "Revenue Trend"
-  chart "revenue" type:bar x:"Quarter" y:"Revenue"
+  layout: header
+  header: heading "Revenue Trend"
+  body: chart "revenue" type:bar x:"Quarter" y:"Revenue"
 }`,
           },
         ],
@@ -775,214 +781,297 @@ stack direction:col gap:sm {
     title: '6. Scene Layouts',
     sections: [
       {
-        id: 'layout-title',
-        title: 'title',
-        description: '타이틀 슬라이드. 큰 heading과 보조 text를 중앙에 배치한다.',
-        syntax: 'scene "..." { layout: title, heading "...", text "..." }',
+        id: 'layout-full',
+        title: 'full',
+        description: '전체 캔버스를 body 슬롯 하나로 사용. 다이어그램을 꽉 채워 표시할 때 사용한다.',
+        syntax: 'scene "..." { layout: full, body: ... }',
         examples: [
           {
-            label: 'Title 레이아웃',
+            label: 'Full 레이아웃',
+            dsl: `@presentation
+
+scene "System" {
+  layout: full
+  body: flow direction:right {
+    node "Client" #a { color: primary }
+    node "Server" #b { color: accent }
+    #a -> #b "API"
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-center',
+        title: 'center',
+        description: '중앙에 내용을 배치. 타이틀, 인용문, 강조 메시지에 적합.',
+        syntax: 'scene "..." { layout: center, body: ... }',
+        examples: [
+          {
+            label: 'Center 레이아웃',
             dsl: `@presentation
 
 scene "Title" {
-  layout: title
-  heading "Welcome to Depix"
-  text "Declarative Diagram DSL"
+  layout: center
+  body: column {
+    heading "Welcome to Depix"
+    label "Declarative Diagram DSL"
+  }
 }`,
           },
         ],
       },
       {
-        id: 'layout-statement',
-        title: 'statement',
-        description: '핵심 메시지를 강조하는 레이아웃. heading을 크게 표시한다.',
-        syntax: 'scene "..." { layout: statement, heading "...", text "..." }',
+        id: 'layout-split',
+        title: 'split',
+        description: '좌우 2분할. left, right 슬롯으로 나란히 배치.',
+        syntax: 'scene "..." { layout: split, left: ..., right: ... }',
         examples: [
           {
-            label: 'Statement 레이아웃',
+            label: 'Split 레이아웃',
             dsl: `@presentation
 
-scene "Statement" {
-  layout: statement
-  heading "코드로 표현하는 다이어그램"
-  text "선언적 DSL이 시각적 편집을 대체한다"
+scene "Compare" {
+  layout: split
+  left: column {
+    heading "Before"
+    label "수동 드래그"
+    label "픽셀 단위 조정"
+  }
+  right: column {
+    heading "After"
+    label "선언적 코드"
+    label "자동 레이아웃"
+  }
 }`,
           },
         ],
       },
       {
-        id: 'layout-bullets',
-        title: 'bullets',
-        description: '불릿 포인트 목록. heading 아래에 bullet 항목들을 나열한다.',
-        syntax: 'scene "..." { layout: bullets, heading "...", bullet "..." ... }',
+        id: 'layout-rows',
+        title: 'rows',
+        description: '상하 2분할. top, bottom 슬롯으로 위아래 배치.',
+        syntax: 'scene "..." { layout: rows, top: ..., bottom: ... }',
         examples: [
           {
-            label: 'Bullets 레이아웃',
+            label: 'Rows 레이아웃',
+            dsl: `@presentation
+
+scene "Stack" {
+  layout: rows
+  top: heading "상단 영역"
+  bottom: label "하단 영역"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-sidebar',
+        title: 'sidebar',
+        description: '메인 + 사이드바. main은 넓게, side는 좁게 배치.',
+        syntax: 'scene "..." { layout: sidebar, main: ..., side: ... }',
+        examples: [
+          {
+            label: 'Sidebar 레이아웃',
+            dsl: `@presentation
+
+scene "Dashboard" {
+  layout: sidebar
+  main: heading "메인 콘텐츠"
+  side: column {
+    label "사이드 메뉴 1"
+    label "사이드 메뉴 2"
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-header',
+        title: 'header',
+        description: '상단 헤더 + 하단 본문. 가장 기본적인 프레젠테이션 레이아웃.',
+        syntax: 'scene "..." { layout: header, header: heading "...", body: ... }',
+        examples: [
+          {
+            label: 'Header 레이아웃',
             dsl: `@presentation
 
 scene "Key Points" {
-  layout: bullets
-  heading "주요 특징"
-  bullet "선언적 DSL 문법"
-  bullet "시맨틱 컬러 시스템"
-  bullet "10가지 슬라이드 레이아웃"
-  bullet "실시간 미리보기"
+  layout: header
+  header: heading "주요 특징"
+  body: bullet {
+    item "선언적 DSL 문법"
+    item "시맨틱 컬러 시스템"
+    item "14가지 슬라이드 레이아웃"
+    item "실시간 미리보기"
+  }
 }`,
           },
         ],
       },
       {
-        id: 'layout-two-column',
-        title: 'two-column',
-        description: '2단 레이아웃. heading 아래에 두 개의 column 블록을 배치한다.',
-        syntax: 'scene "..." { layout: two-column, heading "...", column { ... }, column { ... } }',
+        id: 'layout-header-split',
+        title: 'header-split',
+        description: '상단 헤더 + 좌우 분할. 비교, 2단 구성에 적합.',
+        syntax: 'scene "..." { layout: header-split, header: ..., left: ..., right: ... }',
         examples: [
           {
-            label: 'Two-column 레이아웃',
+            label: 'Header-split 레이아웃',
             dsl: `@presentation
 
 scene "Comparison" {
-  layout: two-column
-  heading "Before vs After"
-  column {
-    bullet "수동 드래그"
-    bullet "픽셀 단위 조정"
-    bullet "재사용 불가"
+  layout: header-split
+  header: heading "Before vs After"
+  left: column {
+    label "수동 드래그"
+    label "픽셀 단위 조정"
+    label "재사용 불가"
   }
-  column {
-    bullet "선언적 코드"
-    bullet "자동 레이아웃"
-    bullet "버전 관리 가능"
+  right: column {
+    label "선언적 코드"
+    label "자동 레이아웃"
+    label "버전 관리 가능"
   }
 }`,
           },
         ],
       },
       {
-        id: 'layout-three-column',
-        title: 'three-column',
-        description: '3단 레이아웃. heading 아래에 세 개의 column 블록을 배치한다.',
-        syntax: 'scene "..." { layout: three-column, heading "...", column { ... } x3 }',
+        id: 'layout-header-rows',
+        title: 'header-rows',
+        description: '상단 헤더 + 상하 분할 본문.',
+        syntax: 'scene "..." { layout: header-rows, header: ..., top: ..., bottom: ... }',
         examples: [
           {
-            label: 'Three-column 레이아웃',
+            label: 'Header-rows 레이아웃',
             dsl: `@presentation
 
-scene "Plans" {
-  layout: three-column
-  heading "Pricing"
-  column {
-    bullet "Free"
-    bullet "5 diagrams"
-    bullet "Basic export"
-  }
-  column {
-    bullet "Pro"
-    bullet "Unlimited"
-    bullet "All formats"
-  }
-  column {
-    bullet "Enterprise"
-    bullet "Custom"
-    bullet "Priority support"
-  }
+scene "Analysis" {
+  layout: header-rows
+  header: heading "분석 결과"
+  top: label "상단: 요약"
+  bottom: label "하단: 상세"
 }`,
           },
         ],
       },
       {
-        id: 'layout-big-number',
-        title: 'big-number',
-        description: '큰 수치를 강조하는 레이아웃. stat 요소로 수치와 설명을 표시한다.',
-        syntax: 'scene "..." { layout: big-number, stat "value" { subtitle: "..." } ... }',
+        id: 'layout-header-sidebar',
+        title: 'header-sidebar',
+        description: '상단 헤더 + 메인/사이드바 본문.',
+        syntax: 'scene "..." { layout: header-sidebar, header: ..., main: ..., side: ... }',
         examples: [
           {
-            label: 'Big-number 레이아웃',
+            label: 'Header-sidebar 레이아웃',
             dsl: `@presentation
 
-scene "Metrics" {
-  layout: big-number
-  stat "99.9%" { subtitle: "Uptime" }
-  stat "50ms" { subtitle: "Avg Response" }
-  stat "10K+" { subtitle: "Daily Users" }
-}`,
-          },
-        ],
-      },
-      {
-        id: 'layout-quote',
-        title: 'quote',
-        description: '인용문 레이아웃. 큰 인용 텍스트와 출처를 표시한다.',
-        syntax: 'scene "..." { layout: quote, quote "text" { attribution: "author" } }',
-        examples: [
-          {
-            label: 'Quote 레이아웃',
-            dsl: `@presentation
-
-scene "Inspiration" {
-  layout: quote
-  quote "The best way to predict the future is to invent it." {
-    attribution: "Alan Kay"
+scene "Overview" {
+  layout: header-sidebar
+  header: heading "Dashboard"
+  main: heading "메인 콘텐츠"
+  side: column {
+    label "Navigation"
+    label "Settings"
   }
 }`,
           },
         ],
       },
       {
-        id: 'layout-image-text',
-        title: 'image-text',
-        description: '이미지와 텍스트를 나란히 배치하는 레이아웃.',
-        syntax: 'scene "..." { layout: image-text, heading "...", image "url", text "..." }',
+        id: 'layout-grid',
+        title: 'grid',
+        description: '균등 그리드. cell 슬롯을 반복하여 N개 셀 배치.',
+        syntax: 'scene "..." { layout: grid, cell: ..., cell: ..., ... }',
         examples: [
           {
-            label: 'Image-text 레이아웃',
-            dsl: `@presentation
-
-scene "Product" {
-  layout: image-text
-  heading "Our Product"
-  image "https://picsum.photos/400/300"
-  text "A powerful diagram editor built with modern web technologies."
-}`,
-          },
-        ],
-      },
-      {
-        id: 'layout-icon-grid',
-        title: 'icon-grid',
-        description: '아이콘과 라벨을 그리드로 배치하는 레이아웃. 기능 소개에 적합.',
-        syntax: 'scene "..." { layout: icon-grid, heading "...", item "label" { icon: "name" } ... }',
-        examples: [
-          {
-            label: 'Icon-grid 레이아웃',
+            label: 'Grid 레이아웃',
             dsl: `@presentation
 
 scene "Features" {
-  layout: icon-grid
-  heading "What We Offer"
-  item "Speed" { icon: "zap" }
-  item "Security" { icon: "shield" }
-  item "Scale" { icon: "globe" }
-  item "Support" { icon: "headphones" }
+  layout: grid
+  cell: heading "Feature 1"
+  cell: heading "Feature 2"
+  cell: heading "Feature 3"
+  cell: heading "Feature 4"
 }`,
           },
         ],
       },
       {
-        id: 'layout-timeline',
-        title: 'timeline',
-        description: '시간순 이벤트를 나열하는 레이아웃. step 요소로 각 단계를 표현한다.',
-        syntax: 'scene "..." { layout: timeline, step "date" { text "description" } ... }',
+        id: 'layout-header-grid',
+        title: 'header-grid',
+        description: '상단 헤더 + 그리드 본문. 지표, 아이콘 그리드 등에 적합.',
+        syntax: 'scene "..." { layout: header-grid, header: ..., cell: ..., ... }',
         examples: [
           {
-            label: 'Timeline 레이아웃',
+            label: 'Header-grid 레이아웃',
             dsl: `@presentation
 
-scene "History" {
-  layout: timeline
-  step "2020" { text: "Project started" }
-  step "2022" { text: "Series A funding" }
-  step "2024" { text: "Global launch" }
+scene "Metrics" {
+  layout: header-grid
+  header: heading "KPI Dashboard"
+  cell: stat "99.9%" { label: "Uptime" }
+  cell: stat "50ms" { label: "Avg Response" }
+  cell: stat "10K+" { label: "Daily Users" }
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-focus',
+        title: 'focus',
+        description: '중심 포커스 + 하단 셀들. 주요 항목 강조에 적합.',
+        syntax: 'scene "..." { layout: focus, focus: ..., cell: ..., ... }',
+        examples: [
+          {
+            label: 'Focus 레이아웃',
+            dsl: `@presentation
+
+scene "Hero" {
+  layout: focus
+  focus: heading "핵심 기능"
+  cell: label "보조 1"
+  cell: label "보조 2"
+  cell: label "보조 3"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-header-focus',
+        title: 'header-focus',
+        description: '헤더 + 포커스 + 셀. 가장 풍부한 계층 구조.',
+        syntax: 'scene "..." { layout: header-focus, header: ..., focus: ..., cell: ..., ... }',
+        examples: [
+          {
+            label: 'Header-focus 레이아웃',
+            dsl: `@presentation
+
+scene "Product" {
+  layout: header-focus
+  header: heading "Product Line"
+  focus: stat "1M+" { label: "Total Users" }
+  cell: label "Enterprise"
+  cell: label "Startup"
+}`,
+          },
+        ],
+      },
+      {
+        id: 'layout-custom',
+        title: 'custom',
+        description: '자유 배치. cell 슬롯이 세로로 쌓인다. layout 미지정 시 기본값.',
+        syntax: 'scene "..." { layout: custom, cell: ..., cell: ..., ... }',
+        examples: [
+          {
+            label: 'Custom 레이아웃',
+            dsl: `@presentation
+
+scene "Freeform" {
+  layout: custom
+  cell: heading "Section A"
+  cell: label "Content goes here"
+  cell: label "More content"
 }`,
           },
         ],
