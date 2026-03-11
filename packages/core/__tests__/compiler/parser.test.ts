@@ -907,3 +907,159 @@ describe('Element with block child', () => {
     expect((bullet2.children[0] as ASTBlock).blockType).toBe('table');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Slot syntax: slotName: element/block
+// ---------------------------------------------------------------------------
+
+describe('Slot syntax in scene blocks', () => {
+  it('parses IDENTIFIER: element as slot assignment', () => {
+    const scene = firstScene(`
+      scene "S" {
+        layout: split
+        header: heading "Title"
+      }
+    `);
+    noErrors(`
+      scene "S" {
+        layout: split
+        header: heading "Title"
+      }
+    `);
+    const el = scene.children[0] as ASTElement;
+    expect(el.kind).toBe('element');
+    expect(el.elementType).toBe('heading');
+    expect(el.label).toBe('Title');
+    expect(el.slot).toBe('header');
+  });
+
+  it('parses IDENTIFIER: block as slot assignment', () => {
+    const scene = firstScene(`
+      scene "S" {
+        layout: split
+        main: flow direction:right {
+          node "A" #a
+          node "B" #b
+          #a -> #b
+        }
+      }
+    `);
+    noErrors(`
+      scene "S" {
+        layout: split
+        main: flow direction:right {
+          node "A" #a
+          node "B" #b
+          #a -> #b
+        }
+      }
+    `);
+    const block = scene.children[0] as ASTBlock;
+    expect(block.kind).toBe('block');
+    expect(block.blockType).toBe('flow');
+    expect(block.slot).toBe('main');
+    expect(block.props.direction).toBe('right');
+  });
+
+  it('parses ELEMENT_TYPE: element as slot (cell: heading)', () => {
+    const scene = firstScene(`
+      scene "S" {
+        layout: grid
+        cell: heading "F1"
+        cell: heading "F2"
+      }
+    `);
+    noErrors(`
+      scene "S" {
+        layout: grid
+        cell: heading "F1"
+        cell: heading "F2"
+      }
+    `);
+    const c1 = scene.children[0] as ASTElement;
+    const c2 = scene.children[1] as ASTElement;
+    expect(c1.slot).toBe('cell');
+    expect(c1.label).toBe('F1');
+    expect(c2.slot).toBe('cell');
+    expect(c2.label).toBe('F2');
+  });
+
+  it('preserves property parsing when value is not element/block', () => {
+    const scene = firstScene(`
+      scene "S" {
+        layout: split
+        ratio: 60
+      }
+    `);
+    expect(scene.props.layout).toBe('split');
+    expect(scene.props.ratio).toBe(60);
+    expect(scene.children).toHaveLength(0);
+  });
+
+  it('parses ELEMENT_TYPE: property (label: "text") as property', () => {
+    const scene = firstScene(`
+      scene "S" {
+        heading "Title" {
+          label: "subtitle"
+        }
+      }
+    `);
+    const el = scene.children[0] as ASTElement;
+    expect(el.props.label).toBe('subtitle');
+    expect(el.children).toHaveLength(0);
+  });
+
+  it('parses multiple slots with mixed types', () => {
+    const scene = firstScene(`
+      scene "S" {
+        layout: header-split
+        header: heading "Architecture"
+        left: flow {
+          node "A" #a
+        }
+        right: table {
+          "Col" "Val"
+          "x" "1"
+        }
+      }
+    `);
+    noErrors(`
+      scene "S" {
+        layout: header-split
+        header: heading "Architecture"
+        left: flow {
+          node "A" #a
+        }
+        right: table {
+          "Col" "Val"
+          "x" "1"
+        }
+      }
+    `);
+    expect(scene.children).toHaveLength(3);
+    const header = scene.children[0] as ASTElement;
+    const left = scene.children[1] as ASTBlock;
+    const right = scene.children[2] as ASTBlock;
+    expect(header.slot).toBe('header');
+    expect(header.elementType).toBe('heading');
+    expect(left.slot).toBe('left');
+    expect(left.blockType).toBe('flow');
+    expect(right.slot).toBe('right');
+    expect(right.blockType).toBe('table');
+  });
+
+  it('elements/blocks without slot have slot undefined', () => {
+    const scene = firstScene(`
+      scene "S" {
+        heading "No slot"
+        flow {
+          node "A" #a
+        }
+      }
+    `);
+    const el = scene.children[0] as ASTElement;
+    const block = scene.children[1] as ASTBlock;
+    expect(el.slot).toBeUndefined();
+    expect(block.slot).toBeUndefined();
+  });
+});

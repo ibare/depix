@@ -462,8 +462,27 @@ class Parser {
     while (!this.isAtEnd() && !this.check('BRACE_CLOSE')) {
       const tok = this.current();
 
-      // Flag
+      // Flag — or slot syntax: header: heading "Title"
       if (tok.type === 'FLAG') {
+        const nextTok = this.tokens[this.pos + 1];
+        if (nextTok && nextTok.type === 'COLON') {
+          const key = this.advance().value;
+          this.advance(); // :
+          if (this.parseSlotChild(key, children)) {
+            this.skipNewlines();
+            continue;
+          }
+          // Not a slot — parse as property value
+          const value = this.parsePropertyValue();
+          if (STYLE_KEYS.has(key)) {
+            style[key] = value;
+          } else {
+            props[key] = value;
+          }
+          this.skipComma();
+          this.skipNewlines();
+          continue;
+        }
         flags.push(this.advance().value);
         this.skipComma();
         this.skipNewlines();
@@ -471,12 +490,17 @@ class Parser {
       }
 
       // Nested element (or property with element-type name, e.g. `label: "value"`)
+      // Also handles slot syntax: cell: heading "Title"
       if (tok.type === 'ELEMENT_TYPE') {
-        // Look ahead: if followed by COLON, parse as property key
+        // Look ahead: if followed by COLON, parse as property key or slot
         const nextTok = this.tokens[this.pos + 1];
         if (nextTok && nextTok.type === 'COLON') {
           const key = this.advance().value;
           this.advance(); // :
+          if (this.parseSlotChild(key, children)) {
+            this.skipNewlines();
+            continue;
+          }
           const value = this.parsePropertyValue();
           if (STYLE_KEYS.has(key)) {
             style[key] = value;
@@ -507,11 +531,15 @@ class Parser {
         continue;
       }
 
-      // Property: key: value
+      // Property: key: value — OR slot assignment: slotName: element/block
       if (tok.type === 'IDENTIFIER') {
         const key = this.advance().value;
         if (this.check('COLON')) {
           this.advance(); // :
+          if (this.parseSlotChild(key, children)) {
+            this.skipNewlines();
+            continue;
+          }
           const value = this.parsePropertyValue();
           if (STYLE_KEYS.has(key)) {
             style[key] = value;
@@ -688,6 +716,44 @@ class Parser {
     }
 
     return items;
+  }
+
+  // ---- Slot child parsing (shared by IDENTIFIER, ELEMENT_TYPE, FLAG) ------
+
+  /**
+   * After consuming `key:`, try to parse a slot-assigned element or block.
+   * Returns true if a slot child was parsed, false if the caller should
+   * fall through to property-value parsing.
+   *
+   * ELEMENT_TYPE → always a slot (elements don't need `{}`).
+   * BLOCK_TYPE   → slot only if followed by a token that starts a block
+   *                declaration (STRING, HASH, IDENTIFIER, BRACE_OPEN, etc.),
+   *                not a line-ending token (NEWLINE, COMMA, BRACE_CLOSE, EOF)
+   *                which would indicate a bare property value like `layout: grid`.
+   */
+  private parseSlotChild(slotName: string, children: ASTNode[]): boolean {
+    if (this.check('ELEMENT_TYPE')) {
+      const el = this.parseElement();
+      el.slot = slotName;
+      children.push(el);
+      return true;
+    }
+    if (this.check('BLOCK_TYPE')) {
+      const afterBlock = this.tokens[this.pos + 1];
+      const isPropertyValue =
+        !afterBlock ||
+        afterBlock.type === 'NEWLINE' ||
+        afterBlock.type === 'COMMA' ||
+        afterBlock.type === 'BRACE_CLOSE' ||
+        afterBlock.type === 'EOF';
+      if (!isPropertyValue) {
+        const block = this.parseBlock();
+        block.slot = slotName;
+        children.push(block);
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---- Token helpers ------------------------------------------------------
