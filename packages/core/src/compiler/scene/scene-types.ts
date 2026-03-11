@@ -4,30 +4,10 @@
  * Types and classification utilities for scene compilation.
  */
 
-import type { ASTBlock, ASTElement, ASTNode } from '../ast.js';
+import type { ASTBlock } from '../ast.js';
 import type { SceneLayoutType } from '../layout/scene-layout.js';
 
 export type { SceneLayoutType } from '../layout/scene-layout.js';
-
-// ---------------------------------------------------------------------------
-// Scene content type
-// ---------------------------------------------------------------------------
-
-export type SceneContentType =
-  | 'heading'
-  | 'label'
-  | 'bullet'
-  | 'stat'
-  | 'quote'
-  | 'column'
-  | 'item'
-  | 'image'
-  | 'icon'
-  | 'step'
-  | 'table'
-  | 'chart'
-  | 'diagram'
-  | 'unknown';
 
 // ---------------------------------------------------------------------------
 // Layout classification
@@ -42,89 +22,12 @@ export function classifySceneLayout(sceneBlock: ASTBlock): SceneLayoutType {
   if (typeof layout !== 'string') return 'custom';
 
   switch (layout) {
-    // v2 slot-based layouts
     case 'full': case 'center': case 'split': case 'rows':
     case 'sidebar': case 'header': case 'header-split':
     case 'header-rows': case 'header-sidebar': case 'grid':
     case 'header-grid': case 'focus': case 'header-focus':
     case 'custom':
       return layout;
-    // v1 legacy layouts (kept for transition)
-    case 'title': return 'title';
-    case 'statement': return 'statement';
-    case 'bullets': return 'bullets';
-    case 'two-column': return 'two-column';
-    case 'three-column': return 'three-column';
-    case 'big-number': return 'big-number';
-    case 'quote': return 'quote';
-    case 'image-text': return 'image-text';
-    case 'icon-grid': return 'icon-grid';
-    case 'timeline': return 'timeline';
     default: return 'custom';
   }
-}
-
-// ---------------------------------------------------------------------------
-// Content type classification
-// ---------------------------------------------------------------------------
-
-/**
- * Classify an AST node's content type for scene layout purposes.
- */
-export function classifySceneContent(node: ASTNode): SceneContentType {
-  if (node.kind === 'block') {
-    if (node.blockType === 'column') return 'column';
-    if (node.blockType === 'table') return 'table';
-    if (node.blockType === 'chart') return 'chart';
-    // Diagram-like blocks: delegate to diagram pipeline when inside a scene
-    if (
-      node.blockType === 'flow' ||
-      node.blockType === 'tree' ||
-      node.blockType === 'layers' ||
-      node.blockType === 'grid' ||
-      node.blockType === 'stack' ||
-      node.blockType === 'group' ||
-      node.blockType === 'canvas'
-    ) return 'diagram';
-    return 'unknown';
-  }
-  if (node.kind === 'element') {
-    switch (node.elementType) {
-      case 'heading': return 'heading';
-      case 'label': return 'label';
-      case 'text': return 'label';
-      case 'bullet': return 'bullet';
-      case 'stat': return 'stat';
-      case 'quote': return 'quote';
-      case 'item': return 'item';
-      case 'image': return 'image';
-      case 'icon': return 'icon';
-      case 'step': return 'step';
-      default: return 'unknown';
-    }
-  }
-  return 'unknown';
-}
-
-/**
- * Extract heading level from an AST element.
- */
-export function getHeadingLevel(node: ASTElement): number {
-  const level = node.props.level;
-  if (typeof level === 'number') return level;
-  return 1;
-}
-
-/**
- * Count sub-items in a bullet or column node.
- */
-export function countSubItems(node: ASTNode): number {
-  if (node.kind === 'element') {
-    // bullet with nested item children
-    return node.children.filter(c => c.kind === 'element' && c.elementType === 'item').length;
-  }
-  if (node.kind === 'block') {
-    return node.children.filter(c => c.kind !== 'edge').length;
-  }
-  return 0;
 }

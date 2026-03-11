@@ -130,13 +130,15 @@ describe('E2E: same @data used in table and chart', () => {
 }
 
 scene "numbers" {
-  heading "Sales Data"
-  table "metrics"
+  layout: header
+  header: heading "Sales Data"
+  body: table "metrics"
 }
 
 scene "trend" {
-  heading "Revenue Trend"
-  chart "metrics" type:bar x:"Quarter" y:"Revenue"
+  layout: header
+  header: heading "Revenue Trend"
+  body: chart "metrics" type:bar x:"Quarter" y:"Revenue"
 }
 `;
     const { ir, errors } = compile(dsl);
@@ -195,8 +197,9 @@ describe('E2E: table in scene with heading', () => {
 @presentation
 
 scene "report" {
-  heading "Report"
-  table {
+  layout: header
+  header: heading "Report"
+  body: table {
     "Metric" "Value"
     "Users" 1000
     "Revenue" 5000
@@ -379,8 +382,9 @@ describe('E2E: line chart in scene (presentation mode)', () => {
 }
 
 scene "growth" {
-  heading "User Growth"
-  chart "metrics" type:line x:"Month" y:"Users"
+  layout: header
+  header: heading "User Growth"
+  body: chart "metrics" type:line x:"Month" y:"Users"
 }
 `;
     const { ir, errors } = compile(dsl);
@@ -410,8 +414,9 @@ describe('E2E: pie chart in scene (presentation mode)', () => {
 }
 
 scene "distribution" {
-  heading "Distribution"
-  chart "share" type:pie x:"Type" y:"Count"
+  layout: header
+  header: heading "Distribution"
+  body: chart "share" type:pie x:"Type" y:"Count"
 }
 `;
     const { ir, errors } = compile(dsl);

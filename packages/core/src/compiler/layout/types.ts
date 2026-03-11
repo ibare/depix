@@ -141,39 +141,6 @@ export interface LayersLayoutConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Scene layout types
-// ---------------------------------------------------------------------------
-
-/** Content type discriminator for scene layout children. */
-export type SceneContentType =
-  | 'heading'
-  | 'label'
-  | 'bullet'
-  | 'stat'
-  | 'quote'
-  | 'column'
-  | 'item'
-  | 'image'
-  | 'icon'
-  | 'step'
-  | 'table'
-  | 'chart'
-  | 'diagram';
-
-/**
- * Extended layout child for scene content.
- * Extends LayoutChild with content type information needed by scene layouts.
- */
-export interface SceneLayoutChild extends LayoutChild {
-  /** Semantic content type for positioning decisions. */
-  contentType: SceneContentType;
-  /** Optional level (e.g., heading level 1 or 2). */
-  level?: number;
-  /** Number of sub-items (for bullet/column children). */
-  itemCount?: number;
-}
-
-// ---------------------------------------------------------------------------
 // Table layout config
 // ---------------------------------------------------------------------------
 
@@ -198,28 +165,11 @@ export interface ChartLayoutConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Scene layout config
+// Scene layout config — slot-based
 // ---------------------------------------------------------------------------
 
+/** Scene layout config for slot-based layouts. */
 export interface SceneLayoutConfig {
-  /** Available space for the scene content. */
-  bounds: IRBounds;
-  /** Padding from scene edges (%). */
-  padding: number;
-  /** Height reserved for heading area (%). */
-  headingHeight: number;
-  /** Gap between columns (%). */
-  columnGap: number;
-  /** Gap between list items (%). */
-  itemGap: number;
-}
-
-// ---------------------------------------------------------------------------
-// Scene layout v2 — slot-based
-// ---------------------------------------------------------------------------
-
-/** Scene layout config for v2 slot-based layouts. */
-export interface SceneLayoutConfigV2 {
   /** Available space for the scene content. */
   bounds: IRBounds;
   /** Padding from scene edges (%). */
@@ -234,7 +184,7 @@ export interface SceneLayoutConfigV2 {
   direction?: string;
 }
 
-/** Result of a slot-based scene layout computation. */
+/** Result of a scene layout computation. */
 export interface SceneLayoutResult {
   /** Bounds of the full scene container. */
   containerBounds: IRBounds;
