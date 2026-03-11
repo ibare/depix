@@ -213,3 +213,31 @@ export interface SceneLayoutConfig {
   /** Gap between list items (%). */
   itemGap: number;
 }
+
+// ---------------------------------------------------------------------------
+// Scene layout v2 — slot-based
+// ---------------------------------------------------------------------------
+
+/** Scene layout config for v2 slot-based layouts. */
+export interface SceneLayoutConfigV2 {
+  /** Available space for the scene content. */
+  bounds: IRBounds;
+  /** Padding from scene edges (%). */
+  padding: number;
+  /** Height reserved for header slot (%). */
+  headerHeight: number;
+  /** Gap between slots (%). */
+  gap: number;
+  /** Ratio for asymmetric splits (sidebar main %, default 70). */
+  ratio?: number;
+  /** Direction for sidebar ('left' = side on left). */
+  direction?: string;
+}
+
+/** Result of a slot-based scene layout computation. */
+export interface SceneLayoutResult {
+  /** Bounds of the full scene container. */
+  containerBounds: IRBounds;
+  /** Slot name → bounds array (unique slots: length 1, cell: length N). */
+  slotBounds: Map<string, IRBounds[]>;
+}

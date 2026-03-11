@@ -49,6 +49,7 @@ export interface ASTBlock {
   label?: string;
   id?: string; // #id
   style: Record<string, string | number>;
+  slot?: string; // scene layout slot assignment ('header', 'body', 'main', etc.)
   loc: SourceLocation;
 }
 
@@ -67,6 +68,7 @@ export interface ASTElement {
   children: ASTNode[]; // nested elements (e.g., box can contain labels)
   items?: string[]; // list items for 'list' element
   values?: (string | number)[]; // row cell values (for table/data rows)
+  slot?: string; // scene layout slot assignment ('header', 'body', 'main', etc.)
   loc: SourceLocation;
 }
 

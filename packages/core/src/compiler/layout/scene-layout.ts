@@ -7,13 +7,28 @@
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { LayoutResult, SceneLayoutChild, SceneLayoutConfig } from './types.js';
+import type { LayoutResult, SceneLayoutChild, SceneLayoutConfig, SceneLayoutConfigV2, SceneLayoutResult } from './types.js';
 
 // ---------------------------------------------------------------------------
-// Layout type
+// Layout type (v1 — deprecated, kept for transition)
 // ---------------------------------------------------------------------------
 
 export type SceneLayoutType =
+  | 'full'
+  | 'center'
+  | 'split'
+  | 'rows'
+  | 'sidebar'
+  | 'header'
+  | 'header-split'
+  | 'header-rows'
+  | 'header-sidebar'
+  | 'grid'
+  | 'header-grid'
+  | 'focus'
+  | 'header-focus'
+  | 'custom'
+  // v1 legacy (will be removed after migration)
   | 'title'
   | 'statement'
   | 'bullets'
@@ -23,8 +38,7 @@ export type SceneLayoutType =
   | 'quote'
   | 'image-text'
   | 'icon-grid'
-  | 'timeline'
-  | 'custom';
+  | 'timeline';
 
 // ---------------------------------------------------------------------------
 // Dispatcher
@@ -50,6 +64,8 @@ export function layoutScene(
     case 'icon-grid': return layoutSceneIconGrid(children, config);
     case 'timeline': return layoutSceneTimeline(children, config);
     case 'custom': return layoutSceneCustom(children, config);
+    // v2 layout types — fall back to custom until v2 pipeline is wired
+    default: return layoutSceneCustom(children, config);
   }
 }
 

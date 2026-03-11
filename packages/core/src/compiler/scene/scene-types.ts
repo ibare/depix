@@ -42,6 +42,14 @@ export function classifySceneLayout(sceneBlock: ASTBlock): SceneLayoutType {
   if (typeof layout !== 'string') return 'custom';
 
   switch (layout) {
+    // v2 slot-based layouts
+    case 'full': case 'center': case 'split': case 'rows':
+    case 'sidebar': case 'header': case 'header-split':
+    case 'header-rows': case 'header-sidebar': case 'grid':
+    case 'header-grid': case 'focus': case 'header-focus':
+    case 'custom':
+      return layout;
+    // v1 legacy layouts (kept for transition)
     case 'title': return 'title';
     case 'statement': return 'statement';
     case 'bullets': return 'bullets';
@@ -52,7 +60,6 @@ export function classifySceneLayout(sceneBlock: ASTBlock): SceneLayoutType {
     case 'image-text': return 'image-text';
     case 'icon-grid': return 'icon-grid';
     case 'timeline': return 'timeline';
-    case 'custom': return 'custom';
     default: return 'custom';
   }
 }

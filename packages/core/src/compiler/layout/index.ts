@@ -25,4 +25,6 @@ export type {
   SceneLayoutChild,
   SceneLayoutConfig,
   SceneContentType,
+  SceneLayoutConfigV2,
+  SceneLayoutResult,
 } from './types.js';
