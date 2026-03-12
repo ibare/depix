@@ -207,4 +207,15 @@ describe('InspectorPanel — edge handle', () => {
     fireEvent.click(getByTestId('object-edge-handle'));
     expect(getByTestId('object-card').style.transform).toContain('translateX(-');
   });
+
+  it('edge handle is inside object card (moves together)', () => {
+    const { getByTestId } = render(
+      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    );
+    const card = getByTestId('object-card');
+    const handle = getByTestId('object-edge-handle');
+    // Card slides and handle is a child of card
+    expect(card.style.transform).toContain('translateX(-');
+    expect(card.contains(handle)).toBe(true);
+  });
 });
