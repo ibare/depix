@@ -37,7 +37,7 @@ export function EditorPropertyPanel({
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
-        zIndex: 1000,
+        zIndex: 10000,
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
         ...style,
       }}

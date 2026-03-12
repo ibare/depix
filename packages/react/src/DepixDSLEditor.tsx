@@ -157,7 +157,7 @@ export function DepixDSLEditor({
           position: 'fixed',
           top: panelPositions.toolbar.top,
           left: panelPositions.toolbar.left,
-          zIndex: 1000,
+          zIndex: 10000,
           display: 'flex',
           flexDirection: 'column',
           gap: 6,

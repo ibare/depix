@@ -211,6 +211,30 @@ export const DepixCanvasEditable = forwardRef<
   const snapshotRef = useRef<DepixIR | null>(null);
   const dslSnapshotRef = useRef<string | null>(null);
 
+  // ---- Fullscreen editing dimensions ------------------------------------
+
+  const [editDims, setEditDims] = useState<{ width: number; height: number } | null>(null);
+
+  /** Compute canvas size to fit within 80% of viewport, preserving aspect ratio. */
+  const computeEditDims = useCallback((aspectRatio: { width: number; height: number }) => {
+    const maxW = window.innerWidth * 0.8;
+    const maxH = window.innerHeight * 0.8;
+    const ar = aspectRatio.width / aspectRatio.height;
+    let w: number, h: number;
+    if (maxW / maxH > ar) {
+      h = maxH;
+      w = maxH * ar;
+    } else {
+      w = maxW;
+      h = maxW / ar;
+    }
+    return { width: Math.floor(w), height: Math.floor(h) };
+  }, []);
+
+  /** Effective canvas size: enlarged when editing, original otherwise. */
+  const effectiveWidth = editDims?.width ?? width;
+  const effectiveHeight = editDims?.height ?? height;
+
   // ---- Internal tool state (used only in self-managed edit mode) ----------
 
   const [internalTool, setInternalTool] = useState<ToolType>('select');
@@ -649,6 +673,29 @@ export const DepixCanvasEditable = forwardRef<
     return () => window.removeEventListener('keydown', handleKey);
   }, [isFullscreen, isEditing, ir.scenes.length]);
 
+  // ---- Lock body scroll while editing (prevent background scroll) ---------
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isEditing]);
+
+  // ---- Recompute editing dimensions on window resize ----------------------
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleResize = () => {
+      const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
+      setEditDims(computeEditDims(ar));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isEditing, ir.meta.aspectRatio, computeEditDims]);
+
   // ---- Edit mode management ----------------------------------------------
 
   const enterEditMode = useCallback(() => {
@@ -656,15 +703,18 @@ export const DepixCanvasEditable = forwardRef<
     if (isDSLMode) {
       dslSnapshotRef.current = dsl!;
     }
+    const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
+    setEditDims(computeEditDims(ar));
     setIsEditing(true);
     setInternalTool('select');
     onEditModeChange?.(true);
-  }, [ir, onEditModeChange, isDSLMode, dsl]);
+  }, [ir, onEditModeChange, isDSLMode, dsl, computeEditDims]);
 
   const handleConfirm = useCallback(() => {
     // Commit: the current ir is already the latest via onIRChange
     snapshotRef.current = null;
     dslSnapshotRef.current = null;
+    setEditDims(null);
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
@@ -680,6 +730,7 @@ export const DepixCanvasEditable = forwardRef<
       onDSLChange!(dslSnapshotRef.current);
       dslSnapshotRef.current = null;
     }
+    setEditDims(null);
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
@@ -947,10 +998,33 @@ export const DepixCanvasEditable = forwardRef<
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Canvas container */}
+      {/* Dimmed backdrop (only in edit mode) */}
+      {isEditing && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 9998,
+          }}
+        />
+      )}
+
+      {/* Canvas container — CSS changes from in-flow to fixed-centered when editing */}
       <div
         ref={containerRef}
-        style={{
+        style={isEditing ? {
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: effectiveWidth,
+          height: effectiveHeight,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        } : {
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -1091,8 +1165,8 @@ export const DepixCanvasEditable = forwardRef<
           dsl={dsl!}
           onDSLChange={onDSLChange!}
           theme={dslTheme}
-          width={width}
-          height={height}
+          width={effectiveWidth}
+          height={effectiveHeight}
           panelPositions={panelPositions}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
@@ -1113,6 +1187,7 @@ export const DepixCanvasEditable = forwardRef<
             position: 'fixed',
             top: `${panelPositions.toolbar.top}px`,
             left: `${panelPositions.toolbar.left}px`,
+            zIndex: 10000,
           }}
           draggable
         />
@@ -1140,6 +1215,7 @@ export const DepixCanvasEditable = forwardRef<
             position: 'fixed',
             top: `${panelPositions.panel.top}px`,
             left: `${panelPositions.panel.left}px`,
+            zIndex: 10000,
           }}
           draggable
         />
