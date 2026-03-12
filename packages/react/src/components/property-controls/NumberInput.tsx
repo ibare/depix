@@ -5,10 +5,35 @@
  * Supports inline label mode and a reset button via defaultValue.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from '@phosphor-icons/react';
 import { controlWrapperStyle, controlLabelStyle, controlInputStyle } from './control-styles.js';
 import { EDITOR_COLORS } from '../editor/editor-colors.js';
+
+// ---------------------------------------------------------------------------
+// Hide native number spinner (injected once)
+// ---------------------------------------------------------------------------
+
+const SPINNER_STYLE_ID = 'depix-hide-number-spinner';
+
+function useHideNumberSpinner() {
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(SPINNER_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = SPINNER_STYLE_ID;
+    style.textContent = [
+      '[data-control="number"] input[type="number"]::-webkit-outer-spin-button,',
+      '[data-control="number"] input[type="number"]::-webkit-inner-spin-button {',
+      '  -webkit-appearance: none; margin: 0;',
+      '}',
+      '[data-control="number"] input[type="number"] {',
+      '  -moz-appearance: textfield;',
+      '}',
+    ].join('\n');
+    document.head.appendChild(style);
+  }, []);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,6 +125,8 @@ export const NumberInput: React.FC<NumberInputProps> = ({
   defaultValue,
   inlineLabel = false,
 }) => {
+  useHideNumberSpinner();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const parsed = parseFloat(e.target.value);
     if (!isNaN(parsed)) {
