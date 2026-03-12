@@ -5,23 +5,17 @@
  * It is designed to be rendered inside DepixCanvasEditable when
  * DSL mode is active, replacing FloatingToolbar + FloatingPropertyPanel.
  *
- * All UI uses position: fixed (toolbar, property panel) or
+ * All UI uses position: fixed (inspector panel) or
  * position: absolute (slot overlay, content picker) to overlay
  * the existing canvas without changing its size.
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
 import type { DepixTheme } from '@depix/core';
-import { parse as parseDSL } from '@depix/core';
-import {
-  changeLayout as changeLayoutMutation,
-  addSlotContent as addSlotContentMutation,
-} from '@depix/editor';
-import { LayoutPicker } from './components/editor/LayoutPicker.js';
+import { addSlotContent as addSlotContentMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { ContentTypePicker } from './components/editor/ContentTypePicker.js';
 import { InspectorPanel } from './components/editor/InspectorPanel.js';
-import { EDITOR_COLORS } from './components/editor/editor-colors.js';
 import { useDSLSync } from './hooks/useDSLSync.js';
 
 // ---------------------------------------------------------------------------
@@ -73,30 +67,11 @@ export function DepixDSLEditor({
   } | null>(null);
 
   // --- Derived state from DSL ----------------------------------------------
-  const { ir, scenes, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
-
-  const currentLayout = useMemo(() => {
-    try {
-      const { ast } = parseDSL(dsl);
-      const scene = ast.scenes[activeSceneIndex];
-      return scene?.props?.layout ?? 'full';
-    } catch {
-      return 'full';
-    }
-  }, [dsl, activeSceneIndex]);
+  const { ir, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
 
   // --- DSL mutation callbacks ----------------------------------------------
-  const handleLayoutChange = useCallback(
-    (layout: string) => {
-      const newDsl = changeLayoutMutation(dsl, activeSceneIndex, layout);
-      onDSLChange(newDsl);
-    },
-    [dsl, onDSLChange, activeSceneIndex],
-  );
-
   const handleSlotClick = useCallback(
     (slotName: string) => {
-      // Position picker at center of canvas area
       const x = width / 2;
       const y = height / 2;
       setPickerSlot({ name: slotName, position: { x, y } });
@@ -126,88 +101,9 @@ export function DepixDSLEditor({
     [width, height],
   );
 
-  // --- Scene navigation in toolbar ----------------------------------------
-  const sceneLabel = scenes[activeSceneIndex]?.title ?? `Scene ${activeSceneIndex + 1}`;
-  const hasMultiScenes = scenes.length > 1;
-
-  const goPrevScene = useCallback(() => {
-    setActiveSceneIndex((i) => Math.max(0, i - 1));
-  }, []);
-
-  const goNextScene = useCallback(() => {
-    setActiveSceneIndex((i) => Math.min(scenes.length - 1, i + 1));
-  }, [scenes.length]);
-
   // --- Render (overlay elements only) ------------------------------------
   return (
     <>
-      {/* ── Toolbar (position: fixed, left side of canvas) ── */}
-      <div
-        style={{
-          position: 'fixed',
-          top: panelPositions.toolbar.top,
-          left: panelPositions.toolbar.left,
-          zIndex: 10000,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          pointerEvents: 'auto',
-        }}
-      >
-        {/* Layout picker */}
-        <LayoutPicker
-          currentLayout={String(currentLayout)}
-          onLayoutChange={handleLayoutChange}
-        />
-
-        {/* Scene nav (only when multi-scene) */}
-        {hasMultiScenes && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              background: EDITOR_COLORS.bgLight,
-              border: `1px solid ${EDITOR_COLORS.border}`,
-              borderRadius: 6,
-              padding: '2px 6px',
-            }}
-          >
-            <button
-              onClick={goPrevScene}
-              disabled={activeSceneIndex === 0}
-              style={navBtnStyle}
-              title="Previous scene"
-            >
-              ‹
-            </button>
-            <span
-              style={{
-                fontSize: 11,
-                color: EDITOR_COLORS.text,
-                minWidth: 40,
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: 100,
-              }}
-            >
-              {sceneLabel}
-            </span>
-            <button
-              onClick={goNextScene}
-              disabled={activeSceneIndex >= scenes.length - 1}
-              style={navBtnStyle}
-              title="Next scene"
-            >
-              ›
-            </button>
-          </div>
-        )}
-
-      </div>
-
       {/* ── Inspector panel (position: fixed, draggable) ── */}
       <InspectorPanel
         ir={ir}
@@ -261,17 +157,3 @@ export function DepixDSLEditor({
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Internal styles
-// ---------------------------------------------------------------------------
-
-const navBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: EDITOR_COLORS.textMuted,
-  cursor: 'pointer',
-  fontSize: 14,
-  padding: '0 2px',
-  lineHeight: 1,
-};

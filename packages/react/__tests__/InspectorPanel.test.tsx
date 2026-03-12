@@ -1,7 +1,8 @@
 /**
  * InspectorPanel Tests
  *
- * Tests: shell, tab switching, drag, cancel/done, badges, companion panel.
+ * Tests: shell, tab switching, drag, cancel/done, badges,
+ * object card sliding, edge handle.
  */
 
 import React from 'react';
@@ -29,6 +30,18 @@ function defaultProps(overrides: Partial<InspectorPanelProps> = {}): InspectorPa
   };
 }
 
+const irWithElement = {
+  meta: { aspectRatio: { width: 16, height: 9 }, background: { type: 'solid' as const, color: '#fff' } },
+  scenes: [
+    {
+      name: 'Scene 1',
+      elements: [
+        { id: 'el-1', type: 'shape' as const, bounds: { x: 0, y: 0, w: 10, h: 10 }, style: {} },
+      ],
+    },
+  ],
+};
+
 afterEach(cleanup);
 
 // ---------------------------------------------------------------------------
@@ -43,13 +56,13 @@ describe('InspectorPanel — rendering', () => {
     expect(panel.getAttribute('aria-label')).toBe('Inspector panel');
   });
 
-  it('renders 4 tab buttons', () => {
+  it('renders 3 tab buttons (Layers, Canvas, Scenes)', () => {
     const { container } = render(<InspectorPanel {...defaultProps()} />);
     const tabButtons = container.querySelectorAll('[data-panel-tab]');
-    expect(tabButtons).toHaveLength(4);
+    expect(tabButtons).toHaveLength(3);
 
     const tabIds = Array.from(tabButtons).map((btn) => btn.getAttribute('data-panel-tab'));
-    expect(tabIds).toEqual(['object', 'layers', 'canvas', 'scenes']);
+    expect(tabIds).toEqual(['layers', 'canvas', 'scenes']);
   });
 
   it('renders Cancel and Done buttons', () => {
@@ -69,27 +82,15 @@ describe('InspectorPanel — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('InspectorPanel — tab switching', () => {
-  it('shows Object tab content by default', () => {
+  it('shows Layers tab content by default', () => {
     const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
-    expect(getByTestId('tab-content-object')).toBeDefined();
-  });
-
-  it('switches to Layers tab on click', () => {
-    const { container, getByTestId, queryByTestId } = render(
-      <InspectorPanel {...defaultProps()} />,
-    );
-    const layersTab = container.querySelector('[data-panel-tab="layers"]') as HTMLElement;
-    fireEvent.click(layersTab);
-
     expect(getByTestId('tab-content-layers')).toBeDefined();
-    expect(queryByTestId('tab-content-object')).toBeNull();
   });
 
   it('switches to Canvas tab on click', () => {
     const { container, getByTestId } = render(<InspectorPanel {...defaultProps()} />);
     const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
     fireEvent.click(canvasTab);
-
     expect(getByTestId('tab-content-canvas')).toBeDefined();
   });
 
@@ -97,7 +98,6 @@ describe('InspectorPanel — tab switching', () => {
     const { container, getByTestId } = render(<InspectorPanel {...defaultProps()} />);
     const scenesTab = container.querySelector('[data-panel-tab="scenes"]') as HTMLElement;
     fireEvent.click(scenesTab);
-
     expect(getByTestId('tab-content-scenes')).toBeDefined();
   });
 });
@@ -110,7 +110,6 @@ describe('InspectorPanel — callbacks', () => {
   it('calls onCancel when Cancel is clicked', () => {
     const onCancel = vi.fn();
     const { getByTestId } = render(<InspectorPanel {...defaultProps({ onCancel })} />);
-
     fireEvent.click(getByTestId('inspector-cancel'));
     expect(onCancel).toHaveBeenCalledOnce();
   });
@@ -118,7 +117,6 @@ describe('InspectorPanel — callbacks', () => {
   it('calls onConfirm when Done is clicked', () => {
     const onConfirm = vi.fn();
     const { getByTestId } = render(<InspectorPanel {...defaultProps({ onConfirm })} />);
-
     fireEvent.click(getByTestId('inspector-done'));
     expect(onConfirm).toHaveBeenCalledOnce();
   });
@@ -129,25 +127,6 @@ describe('InspectorPanel — callbacks', () => {
 // ---------------------------------------------------------------------------
 
 describe('InspectorPanel — badges', () => {
-  it('shows element count badge on Layers tab', () => {
-    const ir = {
-      meta: { aspectRatio: { width: 16, height: 9 }, background: { type: 'solid' as const, color: '#fff' } },
-      scenes: [
-        {
-          name: 'Scene 1',
-          elements: [
-            { id: 'el-1', type: 'shape' as const, bounds: { x: 0, y: 0, w: 10, h: 10 }, style: {} },
-            { id: 'el-2', type: 'shape' as const, bounds: { x: 0, y: 0, w: 10, h: 10 }, style: {} },
-          ],
-        },
-      ],
-    };
-
-    const { container } = render(<InspectorPanel {...defaultProps({ ir: ir as any })} />);
-    const layersTab = container.querySelector('[data-panel-tab="layers"]') as HTMLElement;
-    expect(layersTab.textContent).toContain('2');
-  });
-
   it('shows scene count badge on Scenes tab', () => {
     const ir = {
       meta: { aspectRatio: { width: 16, height: 9 }, background: { type: 'solid' as const, color: '#fff' } },
@@ -165,58 +144,67 @@ describe('InspectorPanel — badges', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Companion panel (side expansion)
+// Object card (sliding behind main panel)
 // ---------------------------------------------------------------------------
 
-describe('InspectorPanel — companion panel', () => {
-  it('shows companion toggle on Object tab', () => {
+describe('InspectorPanel — object card', () => {
+  it('object card is hidden (translateX 0) when no selection', () => {
     const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
-    expect(getByTestId('companion-toggle')).toBeDefined();
+    const card = getByTestId('object-card');
+    expect(card.style.transform).toBe('translateX(0)');
   });
 
-  it('shows companion toggle on Layers tab', () => {
-    const { container, getByTestId } = render(<InspectorPanel {...defaultProps()} />);
-    const layersTab = container.querySelector('[data-panel-tab="layers"]') as HTMLElement;
-    fireEvent.click(layersTab);
-    expect(getByTestId('companion-toggle')).toBeDefined();
+  it('object card slides out when element is selected', () => {
+    const { getByTestId } = render(
+      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    );
+    const card = getByTestId('object-card');
+    expect(card.style.transform).toContain('translateX(-');
   });
 
-  it('hides companion toggle on Canvas tab', () => {
+  it('object card stays hidden on Canvas tab even with selection', () => {
+    const { container, getByTestId } = render(
+      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    );
+    const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
+    fireEvent.click(canvasTab);
+    const card = getByTestId('object-card');
+    expect(card.style.transform).toBe('translateX(0)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge handle
+// ---------------------------------------------------------------------------
+
+describe('InspectorPanel — edge handle', () => {
+  it('renders edge handle on Layers tab', () => {
+    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    expect(getByTestId('object-edge-handle')).toBeDefined();
+  });
+
+  it('hides edge handle on non-Layers tabs', () => {
     const { container, queryByTestId } = render(<InspectorPanel {...defaultProps()} />);
     const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
     fireEvent.click(canvasTab);
-    expect(queryByTestId('companion-toggle')).toBeNull();
+    expect(queryByTestId('object-edge-handle')).toBeNull();
   });
 
-  it('hides companion toggle on Scenes tab', () => {
-    const { container, queryByTestId } = render(<InspectorPanel {...defaultProps()} />);
-    const scenesTab = container.querySelector('[data-panel-tab="scenes"]') as HTMLElement;
-    fireEvent.click(scenesTab);
-    expect(queryByTestId('companion-toggle')).toBeNull();
+  it('edge handle click with selection calls onSelectElement(null)', () => {
+    const onSelectElement = vi.fn();
+    const { getByTestId } = render(
+      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1', onSelectElement })} />,
+    );
+    fireEvent.click(getByTestId('object-edge-handle'));
+    expect(onSelectElement).toHaveBeenCalledWith(null);
   });
 
-  it('opens companion panel on toggle click', () => {
-    const { getByTestId, queryByTestId } = render(<InspectorPanel {...defaultProps()} />);
-
-    // Initially no companion panel
-    expect(queryByTestId('companion-panel')).toBeNull();
-
-    // Click toggle
-    fireEvent.click(getByTestId('companion-toggle'));
-
-    // Companion panel appears
-    expect(getByTestId('companion-panel')).toBeDefined();
-  });
-
-  it('closes companion panel on second toggle click', () => {
-    const { getByTestId, queryByTestId } = render(<InspectorPanel {...defaultProps()} />);
-
-    // Open
-    fireEvent.click(getByTestId('companion-toggle'));
-    expect(getByTestId('companion-panel')).toBeDefined();
-
-    // Close
-    fireEvent.click(getByTestId('companion-toggle'));
-    expect(queryByTestId('companion-panel')).toBeNull();
+  it('edge handle click without selection toggles object card open', () => {
+    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    // Initially hidden
+    expect(getByTestId('object-card').style.transform).toBe('translateX(0)');
+    // Click edge handle to open
+    fireEvent.click(getByTestId('object-edge-handle'));
+    expect(getByTestId('object-card').style.transform).toContain('translateX(-');
   });
 });

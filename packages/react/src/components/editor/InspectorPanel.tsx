@@ -1,13 +1,24 @@
 /**
  * InspectorPanel — tabbed property inspector for DSL editor.
  *
- * Replaces EditorPropertyPanel with a full inspector:
- * - Header: drag handle + Cancel / Done buttons
- * - Tab bar: Object | Layers(N) | Canvas | Scenes(N)
- * - Tab content: scrollable, rendered per active tab
+ * Structure: two overlapping cards.
+ *
+ * - Object card sits BEHIND the main panel (lower z-index).
+ *   It slides left to reveal itself when an element is selected
+ *   or the edge handle is clicked, and slides right to hide.
+ * - Main panel sits on top (higher z-index) and never moves.
+ * - A small edge handle protrudes from the main panel's left edge,
+ *   hinting that the Object card is behind.
+ *
+ * DOM (all children of a single fixed-position wrapper):
+ *   wrapper
+ *   ├── object card  (z-index: 0, translateX animated)
+ *   ├── main panel   (z-index: 1, static)
+ *   └── edge handle  (z-index: 2, always visible, top-left)
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { parse } from '@depix/core';
 import type { DepixIR } from '@depix/core';
 import { useDraggable } from '../../hooks/useDraggable.js';
 import { useDSLInspectorCallbacks } from '../../hooks/useDSLInspectorCallbacks.js';
@@ -15,34 +26,33 @@ import { ObjectTab } from '../property-panel-tabs/ObjectTab.js';
 import { LayersTab } from '../property-panel-tabs/LayersTab.js';
 import { CanvasTab } from '../property-panel-tabs/CanvasTab.js';
 import { SceneTab } from '../property-panel-tabs/SceneTab.js';
+import { LayoutPicker } from './LayoutPicker.js';
 import { EDITOR_COLORS } from './editor-colors.js';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const MAIN_WIDTH = 280;
+const OBJECT_WIDTH = 260;
+const SLIDE_DURATION = 220; // ms
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type TabId = 'object' | 'layers' | 'canvas' | 'scenes';
+type TabId = 'layers' | 'canvas' | 'scenes';
 
 export interface InspectorPanelProps {
-  /** Compiled IR (for reading element/scene data). */
   ir: DepixIR | null;
-  /** Current DSL text. */
   dsl: string;
-  /** Called when DSL changes due to inspector actions. */
   onDSLChange: (dsl: string) => void;
-  /** Active scene index. */
   activeSceneIndex: number;
-  /** Change active scene index. */
   onActiveSceneIndexChange: (index: number) => void;
-  /** Currently selected element ID. */
   selectedElementId: string | null;
-  /** Select an element by ID. */
   onSelectElement: (id: string | null) => void;
-  /** Confirm editing (Done). */
   onConfirm: () => void;
-  /** Cancel editing. */
   onCancel: () => void;
-  /** Inline style overrides (for initial position). */
   style?: React.CSSProperties;
 }
 
@@ -62,12 +72,11 @@ export function InspectorPanel({
   onCancel,
   style,
 }: InspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('object');
-  const [companionOpen, setCompanionOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('layers');
+  const [objectOpen, setObjectOpen] = useState(false);
 
   const { position, dragHandleProps, isDragging } = useDraggable();
 
-  // --- DSL mutation callbacks via adapter hook ---
   const callbacks = useDSLInspectorCallbacks({
     dsl,
     onDSLChange,
@@ -76,7 +85,6 @@ export function InspectorPanel({
     ir,
   });
 
-  // --- Selected elements for ObjectTab ---
   const selectedElements = useMemo(() => {
     if (!selectedElementId || !ir) return [];
     const scene = ir.scenes[activeSceneIndex];
@@ -85,163 +93,165 @@ export function InspectorPanel({
     return found ? [found] : [];
   }, [ir, activeSceneIndex, selectedElementId]);
 
-  // Derived counts for tab badges
+  const currentLayout = useMemo(() => {
+    try {
+      const { ast } = parse(dsl);
+      const scene = ast.scenes[activeSceneIndex];
+      return scene?.props?.layout ?? 'full';
+    } catch {
+      return 'full';
+    }
+  }, [dsl, activeSceneIndex]);
+
   const elementCount = callbacks.sceneElements.length;
   const sceneCount = callbacks.scenes.length;
 
   const tabs: { id: TabId; label: string; badge?: number }[] = [
-    { id: 'object', label: 'Object' },
     { id: 'layers', label: 'Layers', badge: elementCount },
     { id: 'canvas', label: 'Canvas' },
     { id: 'scenes', label: 'Scenes', badge: sceneCount },
   ];
 
-  // Companion panel is available only for object ↔ layers tabs
-  const hasCompanion = activeTab === 'object' || activeTab === 'layers';
-  const companionLabel = activeTab === 'object' ? 'Layers' : 'Object';
+  // Object card opens when element selected on Layers tab, or manually toggled
+  const isOnLayersTab = activeTab === 'layers';
+  const objectVisible = isOnLayersTab && (objectOpen || !!selectedElementId);
+
+  const handleEdgeHandleClick = useCallback(() => {
+    if (selectedElementId) {
+      // Deselect to close
+      onSelectElement(null);
+      setObjectOpen(false);
+    } else {
+      // Toggle manually
+      setObjectOpen((o) => !o);
+    }
+  }, [selectedElementId, onSelectElement]);
 
   return (
     <div
       role="region"
       aria-label="Inspector panel"
       style={{
-        ...panelStyle,
+        ...wrapperStyle,
         transform: `translate(${position.x}px, ${position.y}px)`,
         ...(isDragging ? { cursor: 'grabbing' } : {}),
         ...style,
       }}
     >
-      {/* ── Side expansion area (left of main panel) ── */}
-      {hasCompanion && (
-        <div
-          style={{
-            position: 'absolute',
-            right: '100%',
-            top: 0,
-            bottom: 0,
-            display: 'flex',
-            flexDirection: 'row',
-            pointerEvents: 'auto',
-          }}
-        >
-          {/* Companion panel (when open) */}
-          {companionOpen && (
-            <div style={companionPanelStyle} data-testid="companion-panel">
-              <div style={companionHeaderStyle}>
-                {companionLabel}
-              </div>
-              <div style={companionBodyStyle}>
-                {activeTab === 'object' && (
-                  <LayersTab
-                    elements={callbacks.sceneElements}
-                    selectedIds={selectedElementId ? [selectedElementId] : []}
-                    onSelectElement={(id) => onSelectElement(id)}
-                  />
-                )}
-                {activeTab === 'layers' && (
-                  <ObjectTab
-                    elements={selectedElements}
-                    onStyleChange={callbacks.onStyleChange}
-                    onTextChange={callbacks.onTextChange}
-                    onBoundsChange={callbacks.onBoundsChange}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Side tab (toggle button) */}
-          <button
-            type="button"
-            style={sideTabStyle}
-            onClick={() => setCompanionOpen((o) => !o)}
-            data-testid="companion-toggle"
-            title={companionOpen ? 'Close companion' : `Show ${companionLabel}`}
-          >
-            <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: 9 }}>
-              {companionLabel}
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* ── Header (drag handle + actions) ── */}
-      <div style={headerStyle} {...dragHandleProps} data-testid="inspector-drag-handle">
-        <div style={dragIndicatorStyle}>⋮⋮</div>
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          style={cancelBtnStyle}
-          onClick={onCancel}
-          data-testid="inspector-cancel"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          style={doneBtnStyle}
-          onClick={onConfirm}
-          data-testid="inspector-done"
-        >
-          Done
-        </button>
-      </div>
-
-      {/* ── Tab bar ── */}
-      <div style={tabBarStyle}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            data-panel-tab={tab.id}
-            style={activeTab === tab.id ? activeTabStyle : tabStyle}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-            {tab.badge !== undefined && (
-              <span style={badgeStyle}>{tab.badge}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Tab content ── */}
-      <div style={bodyStyle} data-testid={`tab-content-${activeTab}`}>
-        {activeTab === 'object' && (
+      {/* ── Object card (behind main panel, slides left) ── */}
+      <div
+        data-testid="object-card"
+        style={{
+          ...objectCardStyle,
+          transform: objectVisible
+            ? `translateX(${-OBJECT_WIDTH}px)`
+            : 'translateX(0)',
+        }}
+      >
+        <div style={objectHeaderStyle}>Object</div>
+        <div style={objectBodyStyle}>
           <ObjectTab
             elements={selectedElements}
             onStyleChange={callbacks.onStyleChange}
             onTextChange={callbacks.onTextChange}
             onBoundsChange={callbacks.onBoundsChange}
           />
-        )}
-
-        {activeTab === 'layers' && (
-          <LayersTab
-            elements={callbacks.sceneElements}
-            selectedIds={selectedElementId ? [selectedElementId] : []}
-            onSelectElement={(id) => onSelectElement(id)}
-          />
-        )}
-
-        {activeTab === 'canvas' && (
-          <CanvasTab
-            aspectRatio={ir?.meta?.aspectRatio ?? { width: 16, height: 9 }}
-            background={ir?.meta?.background ?? { type: 'solid', color: '#ffffff' }}
-          />
-        )}
-
-        {activeTab === 'scenes' && (
-          <SceneTab
-            scenes={callbacks.scenes}
-            currentSceneIndex={activeSceneIndex}
-            onSceneChange={callbacks.onSceneChange}
-            onAddScene={callbacks.onAddScene}
-            onDeleteScene={callbacks.onDeleteScene}
-            onRenameScene={callbacks.onRenameScene}
-          />
-        )}
+        </div>
       </div>
+
+      {/* ── Main panel (on top, never moves) ── */}
+      <div style={mainPanelStyle}>
+        <div style={headerStyle} {...dragHandleProps} data-testid="inspector-drag-handle">
+          <div style={dragIndicatorStyle}>⋮⋮</div>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            style={cancelBtnStyle}
+            onClick={onCancel}
+            data-testid="inspector-cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            style={doneBtnStyle}
+            onClick={onConfirm}
+            data-testid="inspector-done"
+          >
+            Done
+          </button>
+        </div>
+
+        <div style={tabBarStyle}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              data-panel-tab={tab.id}
+              style={activeTab === tab.id ? activeTabStyle : tabStyle}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+              {tab.badge !== undefined && (
+                <span style={badgeStyle}>{tab.badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div style={bodyStyle} data-testid={`tab-content-${activeTab}`}>
+          {activeTab === 'layers' && (
+            <LayersTab
+              elements={callbacks.sceneElements}
+              selectedIds={selectedElementId ? [selectedElementId] : []}
+              onSelectElement={(id) => onSelectElement(id)}
+            />
+          )}
+
+          {activeTab === 'canvas' && (
+            <>
+              <div style={layoutSectionStyle}>
+                <LayoutPicker
+                  currentLayout={String(currentLayout)}
+                  onLayoutChange={callbacks.onLayoutChange}
+                />
+              </div>
+              <CanvasTab
+                aspectRatio={ir?.meta?.aspectRatio ?? { width: 16, height: 9 }}
+                background={ir?.meta?.background ?? { type: 'solid', color: '#ffffff' }}
+              />
+            </>
+          )}
+
+          {activeTab === 'scenes' && (
+            <SceneTab
+              scenes={callbacks.scenes}
+              currentSceneIndex={activeSceneIndex}
+              onSceneChange={callbacks.onSceneChange}
+              onAddScene={callbacks.onAddScene}
+              onDeleteScene={callbacks.onDeleteScene}
+              onRenameScene={callbacks.onRenameScene}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ── Edge handle (always visible on Layers tab, top-left of main panel) ── */}
+      {isOnLayersTab && (
+        <button
+          type="button"
+          style={edgeHandleStyle}
+          onClick={handleEdgeHandleClick}
+          data-testid="object-edge-handle"
+          title={objectVisible ? 'Hide properties' : 'Show properties'}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1" y="2" width="10" height="2" rx="0.5" fill={EDITOR_COLORS.textMuted} />
+            <rect x="1" y="5" width="10" height="2" rx="0.5" fill={EDITOR_COLORS.textMuted} />
+            <rect x="1" y="8" width="10" height="2" rx="0.5" fill={EDITOR_COLORS.textMuted} />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -250,10 +260,54 @@ export function InspectorPanel({
 // Styles
 // ---------------------------------------------------------------------------
 
-const panelStyle: React.CSSProperties = {
+const wrapperStyle: React.CSSProperties = {
   position: 'fixed',
-  width: 280,
+  zIndex: 10001,
+};
+
+/** Object card: sits behind main panel, slides via translateX. */
+const objectCardStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: OBJECT_WIDTH,
   maxHeight: 500,
+  zIndex: 0,
+  borderRadius: 8,
+  backgroundColor: EDITOR_COLORS.bg,
+  border: `1px solid ${EDITOR_COLORS.border}`,
+  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+  color: EDITOR_COLORS.text,
+  userSelect: 'none',
+  fontSize: 12,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+  transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+};
+
+const objectHeaderStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  fontSize: 10,
+  fontWeight: 600,
+  color: EDITOR_COLORS.textMuted,
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
+  borderBottom: `1px solid ${EDITOR_COLORS.border}`,
+  backgroundColor: EDITOR_COLORS.bgLight,
+};
+
+const objectBodyStyle: React.CSSProperties = {
+  flex: 1,
+  overflow: 'auto',
+};
+
+/** Main panel: on top, never moves. */
+const mainPanelStyle: React.CSSProperties = {
+  position: 'relative',
+  width: MAIN_WIDTH,
+  maxHeight: 500,
+  zIndex: 1,
   borderRadius: 8,
   backgroundColor: EDITOR_COLORS.bg,
   border: `1px solid ${EDITOR_COLORS.border}`,
@@ -264,7 +318,26 @@ const panelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  zIndex: 10001,
+};
+
+/** Edge handle: small protruding tab, top-left of main panel. */
+const edgeHandleStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 8,
+  left: -20,
+  zIndex: 2,
+  width: 24,
+  height: 28,
+  border: `1px solid ${EDITOR_COLORS.border}`,
+  borderRight: 'none',
+  borderRadius: '6px 0 0 6px',
+  backgroundColor: EDITOR_COLORS.bgLight,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  boxShadow: '-2px 2px 6px rgba(0,0,0,0.2)',
 };
 
 const headerStyle: React.CSSProperties = {
@@ -352,43 +425,7 @@ const bodyStyle: React.CSSProperties = {
   overflow: 'auto',
 };
 
-const sideTabStyle: React.CSSProperties = {
-  width: 24,
-  border: 'none',
-  borderRadius: '4px 0 0 4px',
-  backgroundColor: EDITOR_COLORS.bgLight,
-  borderRight: `1px solid ${EDITOR_COLORS.border}`,
-  color: EDITOR_COLORS.textMuted,
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '8px 0',
-};
-
-const companionPanelStyle: React.CSSProperties = {
-  width: 240,
-  backgroundColor: EDITOR_COLORS.bg,
-  borderRight: `1px solid ${EDITOR_COLORS.border}`,
-  borderRadius: '8px 0 0 8px',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  boxShadow: '-4px 0 12px rgba(0,0,0,0.2)',
-};
-
-const companionHeaderStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 10,
-  fontWeight: 600,
-  color: EDITOR_COLORS.textMuted,
-  textTransform: 'uppercase',
-  letterSpacing: 0.5,
+const layoutSectionStyle: React.CSSProperties = {
+  padding: '8px 10px',
   borderBottom: `1px solid ${EDITOR_COLORS.border}`,
-  backgroundColor: EDITOR_COLORS.bgLight,
-};
-
-const companionBodyStyle: React.CSSProperties = {
-  flex: 1,
-  overflow: 'auto',
 };
