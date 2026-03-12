@@ -450,8 +450,8 @@ const DepixCanvasEditableInner = forwardRef<
   // Only active when in edit mode.
 
   useEffect(() => {
-    if (!isEditActive || isDSLMode) {
-      // Teardown on edit mode exit (or DSL mode — no freeform handles)
+    if (!isEditActive) {
+      // Teardown on edit mode exit
       if (transformerRef.current) {
         transformerRef.current.nodes([]);
         transformerRef.current.destroy();
@@ -484,8 +484,16 @@ const DepixCanvasEditableInner = forwardRef<
       const layer = new K.Layer();
       stage.add(layer);
 
-      const transformer = new K.Transformer({
-        // Match original Depix style: blue border, white anchors with blue stroke
+      const transformer = new K.Transformer(isDSLMode ? {
+        // DSL mode: border-only, no handles
+        borderStroke: '#3b82f6',
+        borderStrokeWidth: 1.5,
+        borderDash: [4, 4],
+        enabledAnchors: [],
+        rotateEnabled: false,
+        resizeEnabled: false,
+      } : {
+        // Freeform mode: full handles
         borderStroke: '#3b82f6',
         borderStrokeWidth: 1,
         anchorFill: '#ffffff',
@@ -519,7 +527,7 @@ const DepixCanvasEditableInner = forwardRef<
         overlayLayerRef.current = null;
       }
     };
-  }, [isEditing, toolProp]);
+  }, [isEditing, toolProp, isDSLMode]);
 
   // ---- Update Transformer nodes when selection changes -------------------
   // Finds rendered Konva nodes by element ID and attaches Transformer.
@@ -559,19 +567,27 @@ const DepixCanvasEditableInner = forwardRef<
       return;
     }
 
-    // Configure Transformer from HandleManager definition
-    const elements = selectedIds
-      .map((id) => findElement(ir, id))
-      .filter((el): el is IRElement => el !== undefined);
+    // Configure Transformer based on mode
+    if (isDSLMode) {
+      // DSL mode: border-only selection indicator, no manipulation
+      transformer.enabledAnchors([]);
+      transformer.rotateEnabled(false);
+      transformer.resizeEnabled(false);
+    } else {
+      // Freeform mode: configure from HandleManager definition
+      const elements = selectedIds
+        .map((id) => findElement(ir, id))
+        .filter((el): el is IRElement => el !== undefined);
 
-    handleRef.current?.updateForElements(elements);
-    const def = handleRef.current?.getDefinition();
+      handleRef.current?.updateForElements(elements);
+      const def = handleRef.current?.getDefinition();
 
-    if (def?.handleType === 'bounding-box') {
-      transformer.keepRatio(def.keepRatio ?? false);
-      transformer.rotateEnabled(def.rotateEnabled ?? true);
-      if (def.enabledAnchors) {
-        transformer.enabledAnchors(def.enabledAnchors);
+      if (def?.handleType === 'bounding-box') {
+        transformer.keepRatio(def.keepRatio ?? false);
+        transformer.rotateEnabled(def.rotateEnabled ?? true);
+        if (def.enabledAnchors) {
+          transformer.enabledAnchors(def.enabledAnchors);
+        }
       }
     }
 

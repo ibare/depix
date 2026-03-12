@@ -7,7 +7,6 @@
 
 import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { DepixIR } from '@depix/core';
-import { findElement as coreFindElement } from '@depix/core';
 import {
   CaretDown,
   CaretUp,
@@ -98,20 +97,7 @@ export function ContextAwarePicker({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const ctx = useMemo<PickerContext>(
-    () => {
-      const result = resolvePickerContext({ selectedIds, pickerSlot, ir, activeSceneIndex });
-      // DEBUG — remove after investigation
-      const debugEl = selectedIds[0] && ir ? coreFindElement(ir, selectedIds[0]) : null;
-      console.log('[ContextAwarePicker]', {
-        selectedIds,
-        hasIR: !!ir,
-        sceneIdx: activeSceneIndex,
-        elemCount: ir?.scenes[activeSceneIndex]?.elements.length,
-        foundElement: debugEl ? { id: debugEl.id, type: debugEl.type } : null,
-        kind: result.kind,
-      });
-      return result;
-    },
+    () => resolvePickerContext({ selectedIds, pickerSlot, ir, activeSceneIndex }),
     [selectedIds, pickerSlot, ir, activeSceneIndex],
   );
 
