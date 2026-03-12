@@ -14,16 +14,13 @@ import React, { useState, useCallback, useMemo } from 'react';
 import type { DepixTheme } from '@depix/core';
 import { parse as parseDSL } from '@depix/core';
 import {
-  addScene as addSceneMutation,
-  changeSceneTitle as changeSceneTitleMutation,
-  removeScene as removeSceneMutation,
   changeLayout as changeLayoutMutation,
   addSlotContent as addSlotContentMutation,
 } from '@depix/editor';
 import { LayoutPicker } from './components/editor/LayoutPicker.js';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { ContentTypePicker } from './components/editor/ContentTypePicker.js';
-import { EditorPropertyPanel } from './components/editor/EditorPropertyPanel.js';
+import { InspectorPanel } from './components/editor/InspectorPanel.js';
 import { EDITOR_COLORS } from './components/editor/editor-colors.js';
 import { useDSLSync } from './hooks/useDSLSync.js';
 
@@ -69,13 +66,14 @@ export function DepixDSLEditor({
 }: DepixDSLEditorProps) {
   // --- State ---------------------------------------------------------------
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [pickerSlot, setPickerSlot] = useState<{
     name: string;
     position: { x: number; y: number };
   } | null>(null);
 
   // --- Derived state from DSL ----------------------------------------------
-  const { scenes, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
+  const { ir, scenes, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
 
   const currentLayout = useMemo(() => {
     try {
@@ -115,26 +113,6 @@ export function DepixDSLEditor({
       setPickerSlot(null);
     },
     [dsl, onDSLChange, activeSceneIndex, pickerSlot],
-  );
-
-  const handleTitleChange = useCallback(
-    (title: string) => {
-      const newDsl = changeSceneTitleMutation(dsl, activeSceneIndex, title);
-      onDSLChange(newDsl);
-    },
-    [dsl, onDSLChange, activeSceneIndex],
-  );
-
-  const handlePropertyChange = useCallback(
-    (key: string, value: unknown) => {
-      if (key === 'layout' && typeof value === 'string') {
-        handleLayoutChange(value);
-      }
-      if (key === 'title' && typeof value === 'string') {
-        handleTitleChange(value);
-      }
-    },
-    [handleLayoutChange, handleTitleChange],
   );
 
   // --- Coordinate transform for slot overlay -------------------------------
@@ -228,71 +206,20 @@ export function DepixDSLEditor({
           </div>
         )}
 
-        {/* Add scene button */}
-        <button
-          onClick={() => {
-            const newDsl = addSceneMutation(dsl, `Scene ${scenes.length + 1}`);
-            onDSLChange(newDsl);
-            setActiveSceneIndex(scenes.length);
-          }}
-          style={{
-            background: EDITOR_COLORS.bgLight,
-            border: `1px solid ${EDITOR_COLORS.border}`,
-            borderRadius: 6,
-            color: EDITOR_COLORS.textMuted,
-            padding: '4px 10px',
-            fontSize: 11,
-            cursor: 'pointer',
-          }}
-          title="Add scene"
-        >
-          + Scene
-        </button>
-
-        {/* Done / Cancel */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              background: EDITOR_COLORS.bgLight,
-              border: `1px solid ${EDITOR_COLORS.border}`,
-              borderRadius: 6,
-              color: EDITOR_COLORS.textMuted,
-              padding: '5px 0',
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              flex: 1,
-              background: EDITOR_COLORS.accent,
-              border: 'none',
-              borderRadius: 6,
-              color: '#fff',
-              padding: '5px 0',
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Done
-          </button>
-        </div>
       </div>
 
-      {/* ── Property panel (position: fixed, right side of canvas) ── */}
-      <EditorPropertyPanel
-        context={scenes.length > 0 ? 'scene' : 'none'}
-        sceneTitle={sceneLabel}
-        layout={String(currentLayout)}
-        onChange={handlePropertyChange}
+      {/* ── Inspector panel (position: fixed, draggable) ── */}
+      <InspectorPanel
+        ir={ir}
+        dsl={dsl}
+        onDSLChange={onDSLChange}
+        activeSceneIndex={activeSceneIndex}
+        onActiveSceneIndexChange={setActiveSceneIndex}
+        selectedElementId={selectedElementId}
+        onSelectElement={setSelectedElementId}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
         style={{
-          position: 'fixed',
           top: panelPositions.panel.top,
           left: panelPositions.panel.left,
         }}

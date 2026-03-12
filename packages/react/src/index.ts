@@ -127,4 +127,7 @@ export type { ContextBarProps } from './components/editor/ContextBar.js';
 export { EditorPropertyPanel } from './components/editor/EditorPropertyPanel.js';
 export type { EditorPropertyPanelProps } from './components/editor/EditorPropertyPanel.js';
 
+export { InspectorPanel } from './components/editor/InspectorPanel.js';
+export type { InspectorPanelProps } from './components/editor/InspectorPanel.js';
+
 export { EDITOR_COLORS } from './components/editor/editor-colors.js';
