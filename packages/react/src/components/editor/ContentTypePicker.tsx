@@ -4,26 +4,44 @@
  */
 
 import React, { useRef, useEffect } from 'react';
+import {
+  TextHOne,
+  ListBullets,
+  Hash,
+  Quotes,
+  List,
+  Image,
+  Square,
+  Minus,
+  ArrowRight,
+  TreeStructure,
+  GridFour,
+  Stack,
+  Table,
+  ChartBar,
+} from '@phosphor-icons/react';
 import { EDITOR_COLORS } from './editor-colors.js';
 
+const ICON_SIZE = 16;
+
 const ELEMENT_OPTIONS = [
-  { type: 'heading', label: 'Heading', icon: 'H' },
-  { type: 'bullet', label: 'Bullet', icon: '•' },
-  { type: 'stat', label: 'Stat', icon: '#' },
-  { type: 'quote', label: 'Quote', icon: '"' },
-  { type: 'list', label: 'List', icon: '≡' },
-  { type: 'image', label: 'Image', icon: '▣' },
-  { type: 'node', label: 'Node', icon: '□' },
-  { type: 'divider', label: 'Divider', icon: '—' },
+  { type: 'heading', label: 'Heading', icon: <TextHOne size={ICON_SIZE} /> },
+  { type: 'bullet', label: 'Bullet', icon: <ListBullets size={ICON_SIZE} /> },
+  { type: 'stat', label: 'Stat', icon: <Hash size={ICON_SIZE} /> },
+  { type: 'quote', label: 'Quote', icon: <Quotes size={ICON_SIZE} /> },
+  { type: 'list', label: 'List', icon: <List size={ICON_SIZE} /> },
+  { type: 'image', label: 'Image', icon: <Image size={ICON_SIZE} /> },
+  { type: 'node', label: 'Node', icon: <Square size={ICON_SIZE} /> },
+  { type: 'divider', label: 'Divider', icon: <Minus size={ICON_SIZE} /> },
 ] as const;
 
 const BLOCK_OPTIONS = [
-  { type: 'flow', label: 'Flow', icon: '→' },
-  { type: 'tree', label: 'Tree', icon: '⌐' },
-  { type: 'grid', label: 'Grid', icon: '⊞' },
-  { type: 'stack', label: 'Stack', icon: '▤' },
-  { type: 'table', label: 'Table', icon: '⊟' },
-  { type: 'chart', label: 'Chart', icon: '📊' },
+  { type: 'flow', label: 'Flow', icon: <ArrowRight size={ICON_SIZE} /> },
+  { type: 'tree', label: 'Tree', icon: <TreeStructure size={ICON_SIZE} /> },
+  { type: 'grid', label: 'Grid', icon: <GridFour size={ICON_SIZE} /> },
+  { type: 'stack', label: 'Stack', icon: <Stack size={ICON_SIZE} /> },
+  { type: 'table', label: 'Table', icon: <Table size={ICON_SIZE} /> },
+  { type: 'chart', label: 'Chart', icon: <ChartBar size={ICON_SIZE} /> },
 ] as const;
 
 export interface ContentTypePickerProps {
@@ -80,7 +98,7 @@ export function ContentTypePicker({ position, onSelect, onClose }: ContentTypePi
   );
 }
 
-function PickerButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+function PickerButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -97,7 +115,7 @@ function PickerButton({ icon, label, onClick }: { icon: string; label: string; o
         fontSize: 11,
       }}
     >
-      <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{icon}</span>
+      <span style={{ width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <span>{label}</span>
     </button>
   );

@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { X as XIcon } from '@phosphor-icons/react';
 import { useDraggable } from '../hooks/useDraggable.js';
 
 // ---------------------------------------------------------------------------
@@ -290,7 +291,7 @@ export const FloatingPanel: React.FC<FloatingPanelProps> = ({
               onClick={onClose}
               aria-label="Close panel"
             >
-              ×
+              <XIcon size={14} weight="bold" />
             </button>
           )}
         </div>

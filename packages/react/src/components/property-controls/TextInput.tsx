@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { controlWrapperStyle, controlLabelStyle, controlInputStyle } from './control-styles.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,32 +28,24 @@ export interface TextInputProps {
 // ---------------------------------------------------------------------------
 
 const wrapperStyle: React.CSSProperties = {
-  display: 'flex',
+  ...controlWrapperStyle,
   alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: '8px',
-  marginBottom: '4px',
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#555',
-  flexShrink: 0,
-  paddingTop: '4px',
+  ...controlLabelStyle,
+  paddingTop: 4,
 };
 
 const inputStyle: React.CSSProperties = {
+  ...controlInputStyle,
   flex: 1,
-  padding: '2px 4px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  fontSize: '12px',
   fontFamily: 'inherit',
 };
 
 const textareaStyle: React.CSSProperties = {
   ...inputStyle,
-  minHeight: '48px',
+  minHeight: 48,
   resize: 'vertical',
 };
 

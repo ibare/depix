@@ -15,4 +15,10 @@ export const EDITOR_COLORS = {
   danger: '#ff6b6b',
   success: '#51cf66',
   warning: '#fcc419',
+  // Control-specific tokens
+  inputBg: '#2a2a2a',
+  inputBorder: '#3a3a3a',
+  inputBorderFocus: '#3b82f6',
+  inputText: '#ddd',
+  labelText: '#999',
 } as const;

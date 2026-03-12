@@ -2,9 +2,13 @@
  * NumberInput
  *
  * A labeled number input with optional min, max, and step constraints.
+ * Supports inline label mode and a reset button via defaultValue.
  */
 
 import React from 'react';
+import { X } from '@phosphor-icons/react';
+import { controlWrapperStyle, controlLabelStyle, controlInputStyle } from './control-styles.js';
+import { EDITOR_COLORS } from '../editor/editor-colors.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,32 +27,63 @@ export interface NumberInputProps {
   max?: number;
   /** Step increment. */
   step?: number;
+  /** Default value — when provided, a reset button (×) appears. */
+  defaultValue?: number;
+  /** Place label inside the input field on the left. Default: false */
+  inlineLabel?: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
-const wrapperStyle: React.CSSProperties = {
+const inputStyle: React.CSSProperties = {
+  ...controlInputStyle,
+  width: 60,
+};
+
+const inlineWrapperStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: '8px',
-  marginBottom: '4px',
+  gap: 8,
+  marginBottom: 4,
 };
 
-const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#555',
+const inlineFieldStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  ...controlInputStyle,
+  padding: 0,
+  flex: 1,
+};
+
+const inlineLabelInsideStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: EDITOR_COLORS.labelText,
+  padding: '4px 0 4px 6px',
   flexShrink: 0,
+  userSelect: 'none',
 };
 
-const inputStyle: React.CSSProperties = {
-  width: '60px',
-  padding: '2px 4px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  fontSize: '12px',
+const inlineInputStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: EDITOR_COLORS.inputText,
+  fontSize: 12,
+  outline: 'none',
+  width: 48,
+  padding: '4px 6px',
+};
+
+const resetButtonStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: EDITOR_COLORS.textMuted,
+  fontSize: 12,
+  cursor: 'pointer',
+  padding: '0 4px',
+  lineHeight: 1,
+  flexShrink: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -62,10 +97,51 @@ export const NumberInput: React.FC<NumberInputProps> = ({
   min,
   max,
   step,
+  defaultValue,
+  inlineLabel = false,
 }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const parsed = parseFloat(e.target.value);
+    if (!isNaN(parsed)) {
+      onChange(parsed);
+    }
+  };
+
+  const showReset = defaultValue !== undefined && value !== defaultValue;
+
+  if (inlineLabel) {
+    return (
+      <div style={inlineWrapperStyle} data-control="number">
+        <div style={inlineFieldStyle}>
+          <span style={inlineLabelInsideStyle}>{label}</span>
+          <input
+            type="number"
+            value={value}
+            aria-label={label}
+            style={inlineInputStyle}
+            min={min}
+            max={max}
+            step={step}
+            onChange={handleChange}
+          />
+        </div>
+        {showReset && (
+          <button
+            type="button"
+            aria-label={`Reset ${label}`}
+            style={resetButtonStyle}
+            onClick={() => onChange(defaultValue)}
+          >
+            <X size={12} weight="bold" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <label style={wrapperStyle} data-control="number">
-      <span style={labelStyle}>{label}</span>
+    <label style={controlWrapperStyle} data-control="number">
+      <span style={controlLabelStyle}>{label}</span>
       <input
         type="number"
         value={value}
@@ -74,13 +150,18 @@ export const NumberInput: React.FC<NumberInputProps> = ({
         min={min}
         max={max}
         step={step}
-        onChange={(e) => {
-          const parsed = parseFloat(e.target.value);
-          if (!isNaN(parsed)) {
-            onChange(parsed);
-          }
-        }}
+        onChange={handleChange}
       />
+      {showReset && (
+        <button
+          type="button"
+          aria-label={`Reset ${label}`}
+          style={resetButtonStyle}
+          onClick={() => onChange(defaultValue)}
+        >
+          <X size={12} weight="bold" />
+        </button>
+      )}
     </label>
   );
 };

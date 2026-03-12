@@ -13,33 +13,23 @@
  * Maintains test compatibility:
  * - role="region", aria-label="Property panel"
  * - data-draggable on root
- * - data-section attributes on inner sections
+ * - data-section attributes on inner sections (via ObjectTab → sections/)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import type {
   IRElement,
   IRStyle,
   IRBounds,
-  IRShape,
-  IRText,
-  IRLine,
-  IREdge,
-  IRContainer,
-  IRImage,
   DepixIR,
   IRBackground,
 } from '@depix/core';
 import { useDraggable } from '../hooks/useDraggable.js';
-import { ColorInput } from './property-controls/ColorInput.js';
-import { NumberInput } from './property-controls/NumberInput.js';
-import { SliderInput } from './property-controls/SliderInput.js';
-import { SelectInput } from './property-controls/SelectInput.js';
-import { TextInput } from './property-controls/TextInput.js';
 import { ObjectTab } from './property-panel-tabs/ObjectTab.js';
 import { LayersTab } from './property-panel-tabs/LayersTab.js';
 import { CanvasTab } from './property-panel-tabs/CanvasTab.js';
 import { SceneTab } from './property-panel-tabs/SceneTab.js';
+import { EDITOR_COLORS } from './editor/editor-colors.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,52 +86,37 @@ export interface FloatingPropertyPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Dark theme tokens
-// ---------------------------------------------------------------------------
-
-const COLORS = {
-  bg: '#1e1e1e',
-  headerBg: '#2a2a2a',
-  border: '#333',
-  text: '#ddd',
-  textMuted: '#999',
-  accent: '#3b82f6',
-  tabActive: '#3b82f6',
-  tabInactive: '#666',
-} as const;
-
-// ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
 const panelStyle: React.CSSProperties = {
-  width: '280px',
-  borderRadius: '8px',
-  backgroundColor: COLORS.bg,
-  border: `1px solid ${COLORS.border}`,
+  width: 280,
+  borderRadius: 8,
+  backgroundColor: EDITOR_COLORS.bg,
+  border: `1px solid ${EDITOR_COLORS.border}`,
   boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-  color: COLORS.text,
+  color: EDITOR_COLORS.text,
   userSelect: 'none',
-  fontSize: '12px',
+  fontSize: 12,
   display: 'flex',
   flexDirection: 'column',
-  maxHeight: '500px',
+  maxHeight: 500,
   overflow: 'hidden',
 };
 
 const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
+  gap: 4,
   padding: '4px 8px',
-  backgroundColor: COLORS.headerBg,
-  borderBottom: `1px solid ${COLORS.border}`,
+  backgroundColor: EDITOR_COLORS.bgLight,
+  borderBottom: `1px solid ${EDITOR_COLORS.border}`,
 };
 
 const tabBarStyle: React.CSSProperties = {
   display: 'flex',
-  borderBottom: `1px solid ${COLORS.border}`,
-  backgroundColor: COLORS.headerBg,
+  borderBottom: `1px solid ${EDITOR_COLORS.border}`,
+  backgroundColor: EDITOR_COLORS.bgLight,
 };
 
 const tabBtnStyle: React.CSSProperties = {
@@ -149,30 +124,30 @@ const tabBtnStyle: React.CSSProperties = {
   padding: '6px 4px',
   border: 'none',
   backgroundColor: 'transparent',
-  color: COLORS.tabInactive,
+  color: EDITOR_COLORS.textDim,
   cursor: 'pointer',
-  fontSize: '10px',
+  fontSize: 10,
   fontWeight: 600,
   textTransform: 'uppercase',
-  letterSpacing: '0.3px',
+  letterSpacing: 0.3,
   borderBottom: '2px solid transparent',
   position: 'relative',
 };
 
 const activeTabBtnStyle: React.CSSProperties = {
   ...tabBtnStyle,
-  color: COLORS.text,
-  borderBottomColor: COLORS.tabActive,
+  color: EDITOR_COLORS.text,
+  borderBottomColor: EDITOR_COLORS.accent,
 };
 
 const badgeStyle: React.CSSProperties = {
   display: 'inline-block',
-  marginLeft: '3px',
+  marginLeft: 3,
   padding: '0 4px',
-  borderRadius: '8px',
-  backgroundColor: '#333',
-  color: '#aaa',
-  fontSize: '9px',
+  borderRadius: 8,
+  backgroundColor: EDITOR_COLORS.bgLighter,
+  color: EDITOR_COLORS.textMuted,
+  fontSize: 9,
   fontWeight: 600,
   lineHeight: '14px',
 };
@@ -184,295 +159,30 @@ const bodyStyle: React.CSSProperties = {
 
 const headerActionBtnStyle: React.CSSProperties = {
   padding: '3px 8px',
-  border: '1px solid #444',
-  borderRadius: '4px',
+  border: `1px solid ${EDITOR_COLORS.border}`,
+  borderRadius: 4,
   backgroundColor: 'transparent',
-  color: '#ccc',
+  color: EDITOR_COLORS.text,
   cursor: 'pointer',
-  fontSize: '10px',
+  fontSize: 10,
   fontWeight: 600,
 };
 
 const confirmBtnStyle: React.CSSProperties = {
   ...headerActionBtnStyle,
-  borderColor: COLORS.accent,
-  backgroundColor: COLORS.accent,
+  borderColor: EDITOR_COLORS.accent,
+  backgroundColor: EDITOR_COLORS.accent,
   color: '#fff',
 };
 
-// ---------------------------------------------------------------------------
-// Legacy styles (for backward-compat mode)
-// ---------------------------------------------------------------------------
-
-const legacyPanelStyle: React.CSSProperties = {
-  minWidth: '220px',
-  maxWidth: '280px',
-  padding: '12px',
-  borderRadius: '8px',
-  backgroundColor: '#ffffff',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-  userSelect: 'none',
-  fontSize: '13px',
-};
-
 const legacyHeaderStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 'bold',
-  color: '#333',
-  marginBottom: '8px',
+  fontSize: 11,
+  fontWeight: 600,
+  color: EDITOR_COLORS.textMuted,
+  padding: '8px 10px 4px',
   textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  letterSpacing: 0.5,
 };
-
-const legacySectionStyle: React.CSSProperties = {
-  marginBottom: '8px',
-  paddingBottom: '8px',
-  borderBottom: '1px solid #eee',
-};
-
-const legacySectionTitleStyle: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 'bold',
-  color: '#888',
-  marginBottom: '4px',
-  textTransform: 'uppercase',
-};
-
-const emptyStyle: React.CSSProperties = {
-  color: '#999',
-  fontSize: '12px',
-  textAlign: 'center',
-  padding: '8px',
-};
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function resolveColor(value: string | { type: string } | undefined): string {
-  if (!value) return '#000000';
-  if (typeof value === 'string') return value;
-  return '#000000';
-}
-
-// ---------------------------------------------------------------------------
-// Legacy section renderers (for backward compat when ir is not provided)
-// ---------------------------------------------------------------------------
-
-function CommonStyleSection({
-  element,
-  onStyleChange,
-}: {
-  element: IRElement;
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-}) {
-  const fill = resolveColor(element.style.fill);
-  const stroke = resolveColor(element.style.stroke);
-  const strokeWidth = element.style.strokeWidth ?? 1;
-  const opacity = (element.transform?.opacity ?? 1) * 100;
-
-  return (
-    <div style={legacySectionStyle} data-section="style">
-      <div style={legacySectionTitleStyle}>Style</div>
-      <ColorInput label="Fill" value={fill} onChange={(color) => onStyleChange(element.id, { fill: color })} />
-      <ColorInput label="Stroke" value={stroke} onChange={(color) => onStyleChange(element.id, { stroke: color })} />
-      <NumberInput label="Stroke Width" value={strokeWidth} min={0} max={20} step={0.5} onChange={(val) => onStyleChange(element.id, { strokeWidth: val })} />
-      <SliderInput label="Opacity" value={Math.round(opacity)} min={0} max={100} step={1} onChange={(val) => onStyleChange(element.id, { fill: element.style.fill as string })} />
-    </div>
-  );
-}
-
-function MultiSelectionSection({
-  elements,
-  onStyleChange,
-}: {
-  elements: IRElement[];
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-}) {
-  const first = elements[0];
-  const fill = resolveColor(first.style.fill);
-  const stroke = resolveColor(first.style.stroke);
-  const opacity = (first.transform?.opacity ?? 1) * 100;
-
-  const applyToAll = useCallback(
-    (style: Partial<IRStyle>) => {
-      for (const el of elements) {
-        onStyleChange(el.id, style);
-      }
-    },
-    [elements, onStyleChange],
-  );
-
-  return (
-    <div style={legacySectionStyle} data-section="multi-style">
-      <div style={legacySectionTitleStyle}>Common Style</div>
-      <ColorInput label="Fill" value={fill} onChange={(color) => applyToAll({ fill: color })} />
-      <ColorInput label="Stroke" value={stroke} onChange={(color) => applyToAll({ stroke: color })} />
-      <SliderInput label="Opacity" value={Math.round(opacity)} min={0} max={100} step={1} onChange={() => {}} />
-    </div>
-  );
-}
-
-function ShapeSection({
-  element,
-  onStyleChange,
-  onTextChange,
-}: {
-  element: IRShape;
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-  onTextChange?: (id: string, text: string) => void;
-}) {
-  const cornerRadius = typeof element.cornerRadius === 'number' ? element.cornerRadius : 0;
-  const innerText = element.innerText?.content ?? '';
-
-  return (
-    <div style={legacySectionStyle} data-section="shape">
-      <div style={legacySectionTitleStyle}>Shape</div>
-      <NumberInput label="Corner Radius" value={cornerRadius} min={0} max={50} step={1} onChange={() => onStyleChange(element.id, { strokeWidth: element.style.strokeWidth })} />
-      <TextInput label="Inner Text" value={innerText} onChange={(text) => onTextChange?.(element.id, text)} />
-    </div>
-  );
-}
-
-function TextSection({
-  element,
-  onTextChange,
-  onStyleChange,
-}: {
-  element: IRText;
-  onTextChange?: (id: string, text: string) => void;
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-}) {
-  return (
-    <div style={legacySectionStyle} data-section="text">
-      <div style={legacySectionTitleStyle}>Text</div>
-      <TextInput label="Content" value={element.content} multiline onChange={(text) => onTextChange?.(element.id, text)} />
-      <NumberInput label="Font Size" value={element.fontSize} min={1} max={200} step={1} onChange={() => onStyleChange(element.id, { strokeWidth: element.style.strokeWidth })} />
-      <SelectInput
-        label="Font Weight"
-        value={element.fontWeight ?? 'normal'}
-        options={[{ value: 'normal', label: 'Normal' }, { value: 'bold', label: 'Bold' }]}
-        onChange={() => onStyleChange(element.id, { strokeWidth: element.style.strokeWidth })}
-      />
-      <SelectInput
-        label="Text Align"
-        value={element.align ?? 'left'}
-        options={[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }]}
-        onChange={() => onStyleChange(element.id, { strokeWidth: element.style.strokeWidth })}
-      />
-    </div>
-  );
-}
-
-function LineSection({
-  element,
-  onStyleChange,
-}: {
-  element: IRLine;
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-}) {
-  const arrowOptions = [
-    { value: 'none', label: 'None' },
-    { value: 'triangle', label: 'Triangle' },
-    { value: 'diamond', label: 'Diamond' },
-    { value: 'circle', label: 'Circle' },
-    { value: 'open-triangle', label: 'Open Triangle' },
-  ];
-
-  return (
-    <div style={legacySectionStyle} data-section="line">
-      <div style={legacySectionTitleStyle}>Line</div>
-      <NumberInput label="Stroke Width" value={element.style.strokeWidth ?? 1} min={0.5} max={20} step={0.5} onChange={(val) => onStyleChange(element.id, { strokeWidth: val })} />
-      <SelectInput label="Arrow Start" value={element.arrowStart ?? 'none'} options={arrowOptions} onChange={() => {}} />
-      <SelectInput label="Arrow End" value={element.arrowEnd ?? 'none'} options={arrowOptions} onChange={() => {}} />
-    </div>
-  );
-}
-
-function EdgeSection({
-  element,
-  onTextChange,
-}: {
-  element: IREdge;
-  onTextChange?: (id: string, text: string) => void;
-}) {
-  return (
-    <div style={legacySectionStyle} data-section="edge">
-      <div style={legacySectionTitleStyle}>Edge</div>
-      <SelectInput
-        label="Path Type"
-        value={element.path.type}
-        options={[{ value: 'straight', label: 'Straight' }, { value: 'polyline', label: 'Orthogonal' }, { value: 'bezier', label: 'Bezier' }]}
-        onChange={() => {}}
-      />
-      <TextInput label="Label" value={element.labels?.[0]?.text ?? ''} onChange={(text) => onTextChange?.(element.id, text)} />
-    </div>
-  );
-}
-
-function ContainerSection({
-  element,
-  onStyleChange,
-}: {
-  element: IRContainer;
-  onStyleChange: (id: string, style: Partial<IRStyle>) => void;
-}) {
-  const fill = resolveColor(element.style.fill);
-
-  return (
-    <div style={legacySectionStyle} data-section="container">
-      <div style={legacySectionTitleStyle}>Container</div>
-      <ColorInput label="Background" value={fill} onChange={(color) => onStyleChange(element.id, { fill: color })} />
-      <SelectInput
-        label="Clip"
-        value={element.clip ? 'true' : 'false'}
-        options={[{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }]}
-        onChange={() => {}}
-      />
-    </div>
-  );
-}
-
-function ImageSection({
-  element,
-  onTextChange,
-}: {
-  element: IRImage;
-  onTextChange?: (id: string, text: string) => void;
-}) {
-  return (
-    <div style={legacySectionStyle} data-section="image">
-      <div style={legacySectionTitleStyle}>Image</div>
-      <TextInput label="Source" value={element.src} onChange={(text) => onTextChange?.(element.id, text)} />
-      <SelectInput
-        label="Fit"
-        value={element.fit ?? 'contain'}
-        options={[{ value: 'contain', label: 'Contain' }, { value: 'cover', label: 'Cover' }, { value: 'fill', label: 'Fill' }]}
-        onChange={() => {}}
-      />
-    </div>
-  );
-}
-
-function BoundsSection({
-  element,
-  onBoundsChange,
-}: {
-  element: IRElement;
-  onBoundsChange?: (id: string, bounds: Partial<IRBounds>) => void;
-}) {
-  const { x, y, w, h } = element.bounds;
-
-  return (
-    <div style={legacySectionStyle} data-section="bounds">
-      <div style={legacySectionTitleStyle}>Position & Size</div>
-      <NumberInput label="X" value={Math.round(x * 10) / 10} min={0} max={100} step={0.1} onChange={(val) => onBoundsChange?.(element.id, { x: val })} />
-      <NumberInput label="Y" value={Math.round(y * 10) / 10} min={0} max={100} step={0.1} onChange={(val) => onBoundsChange?.(element.id, { y: val })} />
-      <NumberInput label="W" value={Math.round(w * 10) / 10} min={0} max={100} step={0.1} onChange={(val) => onBoundsChange?.(element.id, { w: val })} />
-      <NumberInput label="H" value={Math.round(h * 10) / 10} min={0} max={100} step={0.1} onChange={(val) => onBoundsChange?.(element.id, { h: val })} />
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Tab types
@@ -523,61 +233,34 @@ export const FloatingPropertyPanel: React.FC<FloatingPropertyPanelProps> = ({
     ...(isDragging ? { cursor: 'grabbing' } : {}),
   };
 
-  // ---- Legacy mode (no ir provided): render old-style panel ----
+  // ---- Legacy mode (no ir provided): render ObjectTab directly ----
 
   if (!ir) {
-    if (elements.length === 0) {
-      return (
-        <div
-          role="region"
-          aria-label="Property panel"
-          className={className}
-          style={{ ...wrapperStyle, ...legacyPanelStyle, ...style }}
-          data-draggable={draggable}
-          {...(draggable ? dragHandleProps : {})}
-        >
-          <div style={emptyStyle}>No selection</div>
-        </div>
-      );
-    }
-
-    if (elements.length > 1) {
-      return (
-        <div
-          role="region"
-          aria-label="Property panel"
-          className={className}
-          style={{ ...wrapperStyle, ...legacyPanelStyle, ...style }}
-          data-draggable={draggable}
-          {...(draggable ? dragHandleProps : {})}
-        >
-          <div style={legacyHeaderStyle}>{elements.length} elements selected</div>
-          <MultiSelectionSection elements={elements} onStyleChange={onStyleChange} />
-        </div>
-      );
-    }
-
-    const el = elements[0];
-    const typeLabel = el.type.charAt(0).toUpperCase() + el.type.slice(1);
-
     return (
       <div
         role="region"
         aria-label="Property panel"
         className={className}
-        style={{ ...wrapperStyle, ...legacyPanelStyle, ...style }}
+        style={{ ...wrapperStyle, ...panelStyle, ...style }}
         data-draggable={draggable}
         {...(draggable ? dragHandleProps : {})}
       >
-        <div style={legacyHeaderStyle}>{typeLabel}</div>
-        <CommonStyleSection element={el} onStyleChange={onStyleChange} />
-        <BoundsSection element={el} onBoundsChange={onBoundsChange} />
-        {el.type === 'shape' && <ShapeSection element={el} onStyleChange={onStyleChange} onTextChange={onTextChange} />}
-        {el.type === 'text' && <TextSection element={el} onTextChange={onTextChange} onStyleChange={onStyleChange} />}
-        {el.type === 'line' && <LineSection element={el} onStyleChange={onStyleChange} />}
-        {el.type === 'edge' && <EdgeSection element={el} onTextChange={onTextChange} />}
-        {el.type === 'container' && <ContainerSection element={el} onStyleChange={onStyleChange} />}
-        {el.type === 'image' && <ImageSection element={el} onTextChange={onTextChange} />}
+        {elements.length === 1 && (
+          <div style={legacyHeaderStyle}>
+            {elements[0].type.charAt(0).toUpperCase() + elements[0].type.slice(1)}
+          </div>
+        )}
+        {elements.length > 1 && (
+          <div style={legacyHeaderStyle}>
+            {elements.length} elements selected
+          </div>
+        )}
+        <ObjectTab
+          elements={elements}
+          onStyleChange={onStyleChange}
+          onTextChange={onTextChange}
+          onBoundsChange={onBoundsChange}
+        />
       </div>
     );
   }
@@ -604,7 +287,7 @@ export const FloatingPropertyPanel: React.FC<FloatingPropertyPanelProps> = ({
     >
       {/* Header with cancel/confirm */}
       <div style={headerStyle} {...(draggable ? dragHandleProps : {})}>
-        <div style={{ flex: 1, fontSize: '11px', fontWeight: 600, color: COLORS.text }}>
+        <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: EDITOR_COLORS.text }}>
           Properties
         </div>
         {onCancel && (

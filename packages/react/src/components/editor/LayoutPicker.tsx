@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { CaretDown } from '@phosphor-icons/react';
 import { EDITOR_COLORS } from './editor-colors.js';
 
 const LAYOUTS = [
@@ -51,7 +52,7 @@ export function LayoutPicker({ currentLayout, onLayoutChange }: LayoutPickerProp
       >
         <LayoutMini layout={currentLayout} size={16} />
         <span>{currentLayout || 'Layout'}</span>
-        <span style={{ fontSize: 8, color: EDITOR_COLORS.textDim }}>▼</span>
+        <CaretDown size={10} weight="bold" color={EDITOR_COLORS.textDim} />
       </button>
 
       {open && (

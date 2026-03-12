@@ -18,3 +18,9 @@ export type { SelectInputProps, SelectOption } from './SelectInput.js';
 
 export { TextInput } from './TextInput.js';
 export type { TextInputProps } from './TextInput.js';
+
+export { PropertySection } from './PropertySection.js';
+export type { PropertySectionProps } from './PropertySection.js';
+
+export { FieldGrid } from './FieldGrid.js';
+export type { FieldGridProps } from './FieldGrid.js';

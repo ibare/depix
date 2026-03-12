@@ -6,6 +6,8 @@
  */
 
 import React from 'react';
+import { controlWrapperStyle, controlLabelStyle } from './control-styles.js';
+import { EDITOR_COLORS } from '../editor/editor-colors.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,26 +26,12 @@ export interface ColorInputProps {
 // Styles
 // ---------------------------------------------------------------------------
 
-const wrapperStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: '8px',
-  marginBottom: '4px',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#555',
-  flexShrink: 0,
-};
-
 const inputStyle: React.CSSProperties = {
-  width: '32px',
-  height: '24px',
-  padding: '0',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
+  width: 32,
+  height: 24,
+  padding: 0,
+  border: `1px solid ${EDITOR_COLORS.inputBorder}`,
+  borderRadius: 4,
   cursor: 'pointer',
   backgroundColor: 'transparent',
 };
@@ -54,8 +42,8 @@ const inputStyle: React.CSSProperties = {
 
 export const ColorInput: React.FC<ColorInputProps> = ({ value, onChange, label }) => {
   return (
-    <label style={wrapperStyle} data-control="color">
-      <span style={labelStyle}>{label}</span>
+    <label style={controlWrapperStyle} data-control="color">
+      <span style={controlLabelStyle}>{label}</span>
       <input
         type="color"
         value={value}

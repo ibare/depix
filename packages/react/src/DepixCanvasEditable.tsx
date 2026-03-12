@@ -29,6 +29,7 @@ import React, {
   useId,
 } from 'react';
 import type { DepixIR, IRElement, IRStyle, IRBounds, IRBackground } from '@depix/core';
+import { CaretLeft, CaretRight, CornersOut, PencilSimple } from '@phosphor-icons/react';
 import { findElement, compile } from '@depix/core';
 import { DepixEngine, fitToAspectRatio } from '@depix/engine';
 import {
@@ -1102,9 +1103,7 @@ export const DepixCanvasEditable = forwardRef<
                       onMouseEnter={e => { if (currentSceneIndex > 0) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10 3L5 8l5 5" />
-                      </svg>
+                      <CaretLeft size={14} weight="bold" />
                     </button>
                     <span
                       style={{
@@ -1133,9 +1132,7 @@ export const DepixCanvasEditable = forwardRef<
                       onMouseEnter={e => { if (currentSceneIndex < ir.scenes.length - 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 3l5 5-5 5" />
-                      </svg>
+                      <CaretRight size={14} weight="bold" />
                     </button>
                     {/* Divider */}
                     <div
@@ -1157,12 +1154,7 @@ export const DepixCanvasEditable = forwardRef<
                   onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 6V3a1 1 0 0 1 1-1h3" />
-                    <path d="M10 2h3a1 1 0 0 1 1 1v3" />
-                    <path d="M14 10v3a1 1 0 0 1-1 1h-3" />
-                    <path d="M6 14H3a1 1 0 0 1-1-1v-3" />
-                  </svg>
+                  <CornersOut size={16} weight="bold" />
                 </button>
                 <button
                   type="button"
@@ -1172,10 +1164,7 @@ export const DepixCanvasEditable = forwardRef<
                   onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11.5 1.5a2.12 2.12 0 0 1 3 3L5 14l-4 1 1-4Z" />
-                    <path d="M10 3.5l2.5 2.5" />
-                  </svg>
+                  <PencilSimple size={16} weight="bold" />
                 </button>
               </div>
             </div>

@@ -20,7 +20,8 @@
   "dependencies": {
     "@depix/core": "workspace:*",
     "@depix/editor": "workspace:*",
-    "@depix/engine": "workspace:*"
+    "@depix/engine": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10"
   },
   "peerDependencies": {
     "konva": "^9.0.0",

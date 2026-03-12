@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import { X } from '@phosphor-icons/react';
 import type { IRScene } from '@depix/core';
 
 // ---------------------------------------------------------------------------
@@ -200,7 +201,7 @@ export const SceneTab: React.FC<SceneTabProps> = ({
                   title="Delete scene"
                   aria-label="Delete scene"
                 >
-                  ×
+                  <X size={12} weight="bold" />
                 </button>
               )}
             </li>

@@ -20,6 +20,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { parse } from '@depix/core';
 import type { DepixIR } from '@depix/core';
+import { DotsSixVertical } from '@phosphor-icons/react';
 import { useDraggable } from '../../hooks/useDraggable.js';
 import { useResizable } from '../../hooks/useResizable.js';
 import { useDSLInspectorCallbacks } from '../../hooks/useDSLInspectorCallbacks.js';
@@ -238,7 +239,7 @@ export function InspectorPanel({
       {/* ── Main panel (on top, never moves) ── */}
       <div style={{ ...mainPanelStyle, width: size.width, height: size.height }}>
         <div style={headerStyle} {...dragHandleProps} data-testid="inspector-drag-handle">
-          <div style={dragIndicatorStyle}>⋮⋮</div>
+          <div style={dragIndicatorStyle}><DotsSixVertical size={14} weight="bold" /></div>
           <div style={{ flex: 1 }} />
           <button
             type="button"

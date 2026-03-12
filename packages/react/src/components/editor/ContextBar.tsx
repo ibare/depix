@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { PencilSimple, Trash, Palette } from '@phosphor-icons/react';
 import { EDITOR_COLORS } from './editor-colors.js';
 
 export interface ContextBarProps {
@@ -12,27 +13,27 @@ export interface ContextBarProps {
   onAction: (action: string) => void;
 }
 
-const ACTIONS_BY_TYPE: Record<string, Array<{ action: string; label: string; icon: string }>> = {
+const ACTIONS_BY_TYPE: Record<string, Array<{ action: string; label: string; icon: React.ReactNode }>> = {
   heading: [
-    { action: 'edit-text', label: 'Edit', icon: '✏' },
-    { action: 'delete', label: 'Delete', icon: '🗑' },
+    { action: 'edit-text', label: 'Edit', icon: <PencilSimple size={14} /> },
+    { action: 'delete', label: 'Delete', icon: <Trash size={14} /> },
   ],
   bullet: [
-    { action: 'edit-text', label: 'Edit', icon: '✏' },
-    { action: 'delete', label: 'Delete', icon: '🗑' },
+    { action: 'edit-text', label: 'Edit', icon: <PencilSimple size={14} /> },
+    { action: 'delete', label: 'Delete', icon: <Trash size={14} /> },
   ],
   node: [
-    { action: 'edit-text', label: 'Edit', icon: '✏' },
-    { action: 'style', label: 'Style', icon: '🎨' },
-    { action: 'delete', label: 'Delete', icon: '🗑' },
+    { action: 'edit-text', label: 'Edit', icon: <PencilSimple size={14} /> },
+    { action: 'style', label: 'Style', icon: <Palette size={14} /> },
+    { action: 'delete', label: 'Delete', icon: <Trash size={14} /> },
   ],
   stat: [
-    { action: 'edit-text', label: 'Edit', icon: '✏' },
-    { action: 'delete', label: 'Delete', icon: '🗑' },
+    { action: 'edit-text', label: 'Edit', icon: <PencilSimple size={14} /> },
+    { action: 'delete', label: 'Delete', icon: <Trash size={14} /> },
   ],
   _default: [
-    { action: 'edit-text', label: 'Edit', icon: '✏' },
-    { action: 'delete', label: 'Delete', icon: '🗑' },
+    { action: 'edit-text', label: 'Edit', icon: <PencilSimple size={14} /> },
+    { action: 'delete', label: 'Delete', icon: <Trash size={14} /> },
   ],
 };
 

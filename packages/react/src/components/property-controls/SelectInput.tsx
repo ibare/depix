@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { controlWrapperStyle, controlLabelStyle, controlInputStyle } from './control-styles.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,26 +33,8 @@ export interface SelectInputProps {
 // Styles
 // ---------------------------------------------------------------------------
 
-const wrapperStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: '8px',
-  marginBottom: '4px',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#555',
-  flexShrink: 0,
-};
-
 const selectStyle: React.CSSProperties = {
-  padding: '2px 4px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  fontSize: '12px',
-  backgroundColor: '#fff',
+  ...controlInputStyle,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,8 +48,8 @@ export const SelectInput: React.FC<SelectInputProps> = ({
   options,
 }) => {
   return (
-    <label style={wrapperStyle} data-control="select">
-      <span style={labelStyle}>{label}</span>
+    <label style={controlWrapperStyle} data-control="select">
+      <span style={controlLabelStyle}>{label}</span>
       <select
         value={value}
         aria-label={label}

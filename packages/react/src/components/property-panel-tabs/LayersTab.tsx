@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { Lock, LockOpen } from '@phosphor-icons/react';
 import type { IRElement, IRContainer } from '@depix/core';
 
 // ---------------------------------------------------------------------------
@@ -194,7 +195,7 @@ function LayerItem({
           title={isLocked ? 'Unlock' : 'Lock'}
           aria-label={isLocked ? 'Unlock' : 'Lock'}
         >
-          {isLocked ? '🔒' : '🔓'}
+          {isLocked ? <Lock size={14} weight="fill" /> : <LockOpen size={14} />}
         </button>
       </li>
       {element.type === 'container' &&

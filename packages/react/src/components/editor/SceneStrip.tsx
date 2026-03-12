@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { X } from '@phosphor-icons/react';
 import { EDITOR_COLORS } from './editor-colors.js';
 
 export interface SceneStripScene {
@@ -100,7 +101,7 @@ export function SceneStrip({
               }}
               className="scene-strip-delete"
             >
-              ×
+              <X size={8} weight="bold" />
             </button>
           )}
         </div>
