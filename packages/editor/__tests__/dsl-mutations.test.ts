@@ -3,6 +3,7 @@ import { parse } from '@depix/core';
 import type { ASTBlock, ASTElement } from '@depix/core';
 import {
   addScene,
+  changeSceneTitle,
   removeScene,
   reorderScenes,
   changeLayout,
@@ -44,6 +45,20 @@ describe('addScene', () => {
     const scenes = parseScenes(result);
     expect(scenes).toHaveLength(2);
     expect(scenes[1].label).toBe('Second');
+  });
+});
+
+describe('changeSceneTitle', () => {
+  it('changes scene title', () => {
+    const dsl = 'scene "Original" {\n  node "A"\n}';
+    const result = changeSceneTitle(dsl, 0, 'Updated');
+    const scenes = parseScenes(result);
+    expect(scenes[0].label).toBe('Updated');
+  });
+
+  it('returns original DSL for invalid index', () => {
+    const dsl = 'scene "A" {\n  node "1"\n}';
+    expect(changeSceneTitle(dsl, 5, 'New')).toBe(dsl);
   });
 });
 

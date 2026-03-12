@@ -32,6 +32,17 @@ export function addScene(dsl: string, title: string): string {
 }
 
 /**
+ * Change a scene's title.
+ */
+export function changeSceneTitle(dsl: string, sceneIndex: number, newTitle: string): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+  scene.label = newTitle;
+  return serialize(ast);
+}
+
+/**
  * Remove a scene by index.
  */
 export function removeScene(dsl: string, sceneIndex: number): string {

@@ -59,6 +59,7 @@ export { detachFromLayout, detachAll } from './detach.js';
 // DSL Mutations
 export {
   addScene,
+  changeSceneTitle,
   removeScene,
   reorderScenes,
   changeLayout,

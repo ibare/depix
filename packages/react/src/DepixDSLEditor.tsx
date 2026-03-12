@@ -15,6 +15,7 @@ import type { DepixTheme } from '@depix/core';
 import { parse as parseDSL } from '@depix/core';
 import {
   addScene as addSceneMutation,
+  changeSceneTitle as changeSceneTitleMutation,
   removeScene as removeSceneMutation,
   changeLayout as changeLayoutMutation,
   addSlotContent as addSlotContentMutation,
@@ -116,13 +117,24 @@ export function DepixDSLEditor({
     [dsl, onDSLChange, activeSceneIndex, pickerSlot],
   );
 
+  const handleTitleChange = useCallback(
+    (title: string) => {
+      const newDsl = changeSceneTitleMutation(dsl, activeSceneIndex, title);
+      onDSLChange(newDsl);
+    },
+    [dsl, onDSLChange, activeSceneIndex],
+  );
+
   const handlePropertyChange = useCallback(
     (key: string, value: unknown) => {
       if (key === 'layout' && typeof value === 'string') {
         handleLayoutChange(value);
       }
+      if (key === 'title' && typeof value === 'string') {
+        handleTitleChange(value);
+      }
     },
-    [handleLayoutChange],
+    [handleLayoutChange, handleTitleChange],
   );
 
   // --- Coordinate transform for slot overlay -------------------------------

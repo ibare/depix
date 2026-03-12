@@ -23,12 +23,13 @@ import React, {
   useEffect,
   useCallback,
   useState,
+  useMemo,
   useImperativeHandle,
   forwardRef,
   useId,
 } from 'react';
 import type { DepixIR, IRElement, IRStyle, IRBounds, IRBackground } from '@depix/core';
-import { findElement } from '@depix/core';
+import { findElement, compile } from '@depix/core';
 import { DepixEngine, fitToAspectRatio } from '@depix/engine';
 import {
   SelectionManager,
@@ -209,7 +210,26 @@ export const DepixCanvasEditable = forwardRef<
   const [isHovered, setIsHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const snapshotRef = useRef<DepixIR | null>(null);
-  const dslSnapshotRef = useRef<string | null>(null);
+
+  // ---- Internal DSL editing state (isolated from parent) -----------------
+  // During editing, mutations update editingDsl only.
+  // Parent's onDSLChange is called only on confirm.
+  const [editingDsl, setEditingDsl] = useState<string | null>(null);
+
+  /** Compile editingDsl to IR for canvas rendering during editing. */
+  const editingIR = useMemo(() => {
+    if (editingDsl === null) return null;
+    try {
+      const result = compile(editingDsl, { theme: dslTheme });
+      return result.ir;
+    } catch (e) {
+      console.error('[depix] editingIR compile failed', e);
+      return null;
+    }
+  }, [editingDsl, dslTheme]);
+
+  /** IR to render: internal editingIR during DSL editing, otherwise parent's ir prop. */
+  const renderIR = (isEditing && isDSLMode && editingIR) ? editingIR : ir;
 
   // ---- Fullscreen editing dimensions ------------------------------------
 
@@ -330,8 +350,8 @@ export const DepixCanvasEditable = forwardRef<
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    engine.update(ir);
-  }, [ir]);
+    engine.update(renderIR);
+  }, [renderIR]);
 
   // ---- Sync debug mode to engine ------------------------------------------
 
@@ -701,7 +721,7 @@ export const DepixCanvasEditable = forwardRef<
   const enterEditMode = useCallback(() => {
     snapshotRef.current = structuredClone(ir);
     if (isDSLMode) {
-      dslSnapshotRef.current = dsl!;
+      setEditingDsl(dsl!);
     }
     const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
     setEditDims(computeEditDims(ar));
@@ -711,30 +731,32 @@ export const DepixCanvasEditable = forwardRef<
   }, [ir, onEditModeChange, isDSLMode, dsl, computeEditDims]);
 
   const handleConfirm = useCallback(() => {
-    // Commit: the current ir is already the latest via onIRChange
+    // Commit DSL edits to parent (only time onDSLChange is called)
+    if (isDSLMode && editingDsl !== null) {
+      onDSLChange!(editingDsl);
+      if (editingIR) onIRChange(editingIR);
+    }
     snapshotRef.current = null;
-    dslSnapshotRef.current = null;
+    setEditingDsl(null);
     setEditDims(null);
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
-  }, [onEditModeChange]);
+  }, [onEditModeChange, isDSLMode, editingDsl, editingIR, onDSLChange, onIRChange]);
 
   const handleCancel = useCallback(() => {
-    // Restore snapshot
-    if (snapshotRef.current) {
+    // Discard edits — parent state is unchanged
+    if (!isDSLMode && snapshotRef.current) {
+      // Freeform mode: restore IR snapshot
       onIRChange(snapshotRef.current);
-      snapshotRef.current = null;
     }
-    if (isDSLMode && dslSnapshotRef.current !== null) {
-      onDSLChange!(dslSnapshotRef.current);
-      dslSnapshotRef.current = null;
-    }
+    snapshotRef.current = null;
+    setEditingDsl(null);
     setEditDims(null);
     setIsEditing(false);
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
-  }, [onIRChange, onEditModeChange, isDSLMode, onDSLChange]);
+  }, [onIRChange, onEditModeChange, isDSLMode]);
 
   // ---- IR manipulation callbacks -----------------------------------------
 
@@ -1001,6 +1023,7 @@ export const DepixCanvasEditable = forwardRef<
       {/* Dimmed backdrop (only in edit mode) */}
       {isEditing && (
         <div
+          key="backdrop"
           style={{
             position: 'fixed',
             inset: 0,
@@ -1012,6 +1035,7 @@ export const DepixCanvasEditable = forwardRef<
 
       {/* Canvas container — CSS changes from in-flow to fixed-centered when editing */}
       <div
+        key="canvas-container"
         ref={containerRef}
         style={isEditing ? {
           position: 'fixed',
@@ -1160,10 +1184,10 @@ export const DepixCanvasEditable = forwardRef<
       })()}
 
       {/* Edit mode: DSL-first overlay OR freeform panels */}
-      {showEditUI && isDSLMode && panelPositions && (
+      {showEditUI && isDSLMode && editingDsl !== null && panelPositions && (
         <DepixDSLEditor
-          dsl={dsl!}
-          onDSLChange={onDSLChange!}
+          dsl={editingDsl}
+          onDSLChange={setEditingDsl}
           theme={dslTheme}
           width={effectiveWidth}
           height={effectiveHeight}
