@@ -14,6 +14,7 @@ export const createUISlice: StateCreator<
   inspectorTab: 'layers',
   objectPanelOpen: false,
   pickerSlot: null,
+  pickerExpanded: false,
   panelPositions: null,
   editDims: null,
 
@@ -24,6 +25,7 @@ export const createUISlice: StateCreator<
   setInspectorTab: (tab) => set({ inspectorTab: tab }),
   setObjectPanelOpen: (open) => set({ objectPanelOpen: open }),
   setPickerSlot: (slot) => set({ pickerSlot: slot }),
+  setPickerExpanded: (expanded) => set({ pickerExpanded: expanded }),
   setPanelPositions: (positions) => set({ panelPositions: positions }),
   setEditDims: (dims) => set({ editDims: dims }),
 
@@ -40,6 +42,7 @@ export const createUISlice: StateCreator<
       editDims: null,
       panelPositions: null,
       pickerSlot: null,
+      pickerExpanded: false,
       objectPanelOpen: false,
       inspectorTab: 'layers',
     }),

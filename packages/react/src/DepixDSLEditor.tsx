@@ -11,10 +11,10 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import type { DepixTheme } from '@depix/core';
+import type { DepixIR, DepixTheme } from '@depix/core';
 import { addSlotContent as addSlotContentMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
-import { ContentTypePicker } from './components/editor/ContentTypePicker.js';
+import { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
 import { InspectorPanel } from './components/editor/InspectorPanel.js';
 import { useDSLSync } from './hooks/useDSLSync.js';
 import { useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
@@ -28,6 +28,9 @@ export interface DepixDSLEditorProps {
   dsl: string;
   /** Called when DSL text changes due to editor actions */
   onDSLChange: (dsl: string) => void;
+  /** Pre-compiled IR — when provided, used instead of internal compilation.
+   *  Pass the same IR instance used for canvas rendering to ensure ID consistency. */
+  ir?: DepixIR | null;
   /** Theme for compilation */
   theme?: DepixTheme;
   /** Canvas width in pixels (for coordinate transforms) */
@@ -52,6 +55,7 @@ export interface DepixDSLEditorProps {
 export function DepixDSLEditor({
   dsl,
   onDSLChange,
+  ir: externalIR,
   theme,
   width,
   height,
@@ -62,31 +66,40 @@ export function DepixDSLEditor({
   // --- Store state ---------------------------------------------------------
   const activeSceneIndex = useEditorStore((s) => s.activeSceneIndex);
   const selectedElementId = useEditorStore((s) => s.selectedIds[0] ?? null);
-  const pickerSlot = useEditorStore((s) => s.pickerSlot);
   const storeApi = useEditorStoreApi();
 
   // --- Derived state from DSL ----------------------------------------------
-  const { ir, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
+  const synced = useDSLSync(dsl, activeSceneIndex, { theme });
+  // Use external IR (from parent's compilation) when available to ensure
+  // element IDs match between canvas rendering and picker context.
+  const ir = externalIR ?? synced.ir;
+  const { currentSceneSlots } = synced;
 
   // --- DSL mutation callbacks ----------------------------------------------
   const handleSlotClick = useCallback(
-    (slotName: string) => {
-      const x = width / 2;
-      const y = height / 2;
-      storeApi.getState().setPickerSlot({ name: slotName, position: { x, y } });
+    (slotName: string, bounds: { x: number; y: number; w: number; h: number }) => {
+      const cx = ((bounds.x + bounds.w / 2) / 100) * width;
+      const cy = (bounds.y / 100) * height;
+      storeApi.getState().setPickerSlot({ name: slotName, position: { x: cx, y: cy } });
+      storeApi.getState().setPickerExpanded(true);
     },
     [width, height, storeApi],
   );
 
-  const handleContentSelect = useCallback(
-    (type: string) => {
-      const slot = storeApi.getState().pickerSlot;
-      if (!slot) return;
-      const content = `${type} "New ${type}"`;
-      const idx = storeApi.getState().activeSceneIndex;
-      const newDsl = addSlotContentMutation(dsl, idx, slot.name, content);
-      onDSLChange(newDsl);
-      storeApi.getState().setPickerSlot(null);
+  const handlePickerAction = useCallback(
+    (action: string, payload?: unknown) => {
+      const p = payload as Record<string, unknown> | undefined;
+      if (action === 'add-content') {
+        const slot = storeApi.getState().pickerSlot;
+        if (!slot || !p) return;
+        const type = p.type as string;
+        const content = `${type} "New ${type}"`;
+        const idx = storeApi.getState().activeSceneIndex;
+        const newDsl = addSlotContentMutation(dsl, idx, slot.name, content);
+        onDSLChange(newDsl);
+        storeApi.getState().setPickerSlot(null);
+      }
+      // Other actions (edit-text, delete, style, etc.) can be handled here
     },
     [dsl, onDSLChange, storeApi],
   );
@@ -129,13 +142,17 @@ export function DepixDSLEditor({
         }}
       />
 
-      {/* ── Slot overlay (absolute within canvas, rendered by parent) ── */}
+      {/* ── Slot overlay (fixed, mirrors canvas position) ── */}
       <div
         style={{
-          position: 'absolute',
-          inset: 0,
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width,
+          height,
           pointerEvents: 'none',
-          zIndex: 5,
+          zIndex: 10000,
         }}
       >
         <SlotOverlay
@@ -145,23 +162,28 @@ export function DepixDSLEditor({
         />
       </div>
 
-      {/* ── Content type picker (popover) ── */}
-      {pickerSlot && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 15,
-            pointerEvents: 'none',
-          }}
-        >
-          <ContentTypePicker
-            position={pickerSlot.position}
-            onSelect={handleContentSelect}
-            onClose={() => storeApi.getState().setPickerSlot(null)}
-          />
-        </div>
-      )}
+      {/* ── Context-aware picker (fixed, mirrors canvas position) ── */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width,
+          height,
+          pointerEvents: 'none',
+          zIndex: 10001,
+        }}
+      >
+        <ContextAwarePicker
+          ir={ir}
+          dsl={dsl}
+          activeSceneIndex={activeSceneIndex}
+          width={width}
+          height={height}
+          onAction={handlePickerAction}
+        />
+      </div>
     </>
   );
 }

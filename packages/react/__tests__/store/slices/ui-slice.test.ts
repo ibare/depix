@@ -12,6 +12,7 @@ describe('UISlice', () => {
     expect(s.inspectorTab).toBe('layers');
     expect(s.objectPanelOpen).toBe(false);
     expect(s.pickerSlot).toBeNull();
+    expect(s.pickerExpanded).toBe(false);
     expect(s.panelPositions).toBeNull();
     expect(s.editDims).toBeNull();
   });
@@ -60,6 +61,8 @@ describe('UISlice', () => {
       panel: { top: 10, left: 100 },
     });
 
+    store.getState().setPickerExpanded(true);
+
     store.getState().exitEditMode();
 
     const s = store.getState();
@@ -67,8 +70,17 @@ describe('UISlice', () => {
     expect(s.editDims).toBeNull();
     expect(s.panelPositions).toBeNull();
     expect(s.pickerSlot).toBeNull();
+    expect(s.pickerExpanded).toBe(false);
     expect(s.objectPanelOpen).toBe(false);
     expect(s.inspectorTab).toBe('layers');
+  });
+
+  it('setPickerExpanded toggles expanded state', () => {
+    const store = createEditorStore();
+    store.getState().setPickerExpanded(true);
+    expect(store.getState().pickerExpanded).toBe(true);
+    store.getState().setPickerExpanded(false);
+    expect(store.getState().pickerExpanded).toBe(false);
   });
 
   it('setIsHovered toggles hover', () => {

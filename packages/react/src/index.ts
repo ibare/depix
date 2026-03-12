@@ -118,6 +118,9 @@ export type { SlotOverlayProps, CoordinateTransform } from './components/editor/
 export { ContentTypePicker } from './components/editor/ContentTypePicker.js';
 export type { ContentTypePickerProps } from './components/editor/ContentTypePicker.js';
 
+export { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
+export type { ContextAwarePickerProps } from './components/editor/ContextAwarePicker.js';
+
 export { ContextBar } from './components/editor/ContextBar.js';
 export type { ContextBarProps } from './components/editor/ContextBar.js';
 

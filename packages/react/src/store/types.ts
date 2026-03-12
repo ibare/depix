@@ -20,6 +20,7 @@ export interface UISlice {
   inspectorTab: 'layers' | 'canvas' | 'scenes';
   objectPanelOpen: boolean;
   pickerSlot: { name: string; position: { x: number; y: number } } | null;
+  pickerExpanded: boolean;
   panelPositions: { toolbar: { top: number; left: number }; panel: { top: number; left: number } } | null;
   editDims: { width: number; height: number } | null;
 
@@ -30,6 +31,7 @@ export interface UISlice {
   setInspectorTab: (tab: 'layers' | 'canvas' | 'scenes') => void;
   setObjectPanelOpen: (open: boolean) => void;
   setPickerSlot: (slot: { name: string; position: { x: number; y: number } } | null) => void;
+  setPickerExpanded: (expanded: boolean) => void;
   setPanelPositions: (positions: { toolbar: { top: number; left: number }; panel: { top: number; left: number } } | null) => void;
   setEditDims: (dims: { width: number; height: number } | null) => void;
   enterEditMode: (dims: { width: number; height: number }) => void;

@@ -1173,6 +1173,7 @@ const DepixCanvasEditableInner = forwardRef<
         <DepixDSLEditor
           dsl={editingDsl}
           onDSLChange={setEditingDsl}
+          ir={editingIR}
           theme={dslTheme}
           width={effectiveWidth}
           height={effectiveHeight}

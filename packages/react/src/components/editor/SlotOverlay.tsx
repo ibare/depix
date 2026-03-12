@@ -22,7 +22,7 @@ export interface CoordinateTransform {
 export interface SlotOverlayProps {
   slots: SlotOverlaySlot[];
   transform: CoordinateTransform;
-  onSlotClick?: (slotName: string) => void;
+  onSlotClick?: (slotName: string, bounds: { x: number; y: number; w: number; h: number }) => void;
 }
 
 export function SlotOverlay({ slots, transform, onSlotClick }: SlotOverlayProps) {
@@ -63,7 +63,7 @@ export function SlotOverlay({ slots, transform, onSlotClick }: SlotOverlayProps)
               pointerEvents: slot.isEmpty ? 'auto' : 'none',
               cursor: slot.isEmpty ? 'pointer' : 'default',
             }}
-            onClick={slot.isEmpty ? () => onSlotClick?.(slot.name) : undefined}
+            onClick={slot.isEmpty ? () => onSlotClick?.(slot.name, slot.bounds) : undefined}
           >
             {slot.isEmpty && (
               <>
