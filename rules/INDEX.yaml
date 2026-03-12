@@ -93,3 +93,14 @@ specifics:
       patterns:
         - "structuredClone"
         - "DepixIR"
+
+  - id: S-zustand
+    file: specifics/S-zustand.md
+    description: Zustand Store — 인스턴스별 store, UI 전용 상태, selector 기반 구독, DSL/IR/Konva 저장 금지
+    triggers:
+      paths:
+        - "packages/react/src/store/**"
+      patterns:
+        - "useEditorStore"
+        - "useEditorStoreApi"
+        - "createEditorStore"

@@ -10,6 +10,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import { InspectorPanel } from '../src/components/editor/InspectorPanel.js';
 import type { InspectorPanelProps } from '../src/components/editor/InspectorPanel.js';
+import { EditorStoreProvider } from '../src/store/editor-store-context.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,6 +29,14 @@ function defaultProps(overrides: Partial<InspectorPanelProps> = {}): InspectorPa
     onCancel: vi.fn(),
     ...overrides,
   };
+}
+
+function renderPanel(props: InspectorPanelProps) {
+  return render(
+    <EditorStoreProvider>
+      <InspectorPanel {...props} />
+    </EditorStoreProvider>,
+  );
 }
 
 const irWithElement = {
@@ -50,14 +59,14 @@ afterEach(cleanup);
 
 describe('InspectorPanel — rendering', () => {
   it('renders with region role and aria-label', () => {
-    const { getByRole } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByRole } = renderPanel(defaultProps());
     const panel = getByRole('region');
     expect(panel).toBeDefined();
     expect(panel.getAttribute('aria-label')).toBe('Inspector panel');
   });
 
   it('renders 3 tab buttons (Layers, Canvas, Scenes)', () => {
-    const { container } = render(<InspectorPanel {...defaultProps()} />);
+    const { container } = renderPanel(defaultProps());
     const tabButtons = container.querySelectorAll('[data-panel-tab]');
     expect(tabButtons).toHaveLength(3);
 
@@ -66,13 +75,13 @@ describe('InspectorPanel — rendering', () => {
   });
 
   it('renders Cancel and Done buttons', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     expect(getByTestId('inspector-cancel')).toBeDefined();
     expect(getByTestId('inspector-done')).toBeDefined();
   });
 
   it('renders drag handle', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     expect(getByTestId('inspector-drag-handle')).toBeDefined();
   });
 });
@@ -83,19 +92,19 @@ describe('InspectorPanel — rendering', () => {
 
 describe('InspectorPanel — tab switching', () => {
   it('shows Layers tab content by default', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     expect(getByTestId('tab-content-layers')).toBeDefined();
   });
 
   it('switches to Canvas tab on click', () => {
-    const { container, getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { container, getByTestId } = renderPanel(defaultProps());
     const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
     fireEvent.click(canvasTab);
     expect(getByTestId('tab-content-canvas')).toBeDefined();
   });
 
   it('switches to Scenes tab on click', () => {
-    const { container, getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { container, getByTestId } = renderPanel(defaultProps());
     const scenesTab = container.querySelector('[data-panel-tab="scenes"]') as HTMLElement;
     fireEvent.click(scenesTab);
     expect(getByTestId('tab-content-scenes')).toBeDefined();
@@ -109,14 +118,14 @@ describe('InspectorPanel — tab switching', () => {
 describe('InspectorPanel — callbacks', () => {
   it('calls onCancel when Cancel is clicked', () => {
     const onCancel = vi.fn();
-    const { getByTestId } = render(<InspectorPanel {...defaultProps({ onCancel })} />);
+    const { getByTestId } = renderPanel(defaultProps({ onCancel }));
     fireEvent.click(getByTestId('inspector-cancel'));
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
   it('calls onConfirm when Done is clicked', () => {
     const onConfirm = vi.fn();
-    const { getByTestId } = render(<InspectorPanel {...defaultProps({ onConfirm })} />);
+    const { getByTestId } = renderPanel(defaultProps({ onConfirm }));
     fireEvent.click(getByTestId('inspector-done'));
     expect(onConfirm).toHaveBeenCalledOnce();
   });
@@ -137,7 +146,7 @@ describe('InspectorPanel — badges', () => {
       ],
     };
 
-    const { container } = render(<InspectorPanel {...defaultProps({ ir: ir as any })} />);
+    const { container } = renderPanel(defaultProps({ ir: ir as any }));
     const scenesTab = container.querySelector('[data-panel-tab="scenes"]') as HTMLElement;
     expect(scenesTab.textContent).toContain('3');
   });
@@ -149,22 +158,22 @@ describe('InspectorPanel — badges', () => {
 
 describe('InspectorPanel — object card', () => {
   it('object card is hidden (translateX 0) when no selection', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     const card = getByTestId('object-card');
     expect(card.style.transform).toBe('translateX(0)');
   });
 
   it('object card slides out when element is selected', () => {
-    const { getByTestId } = render(
-      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    const { getByTestId } = renderPanel(
+      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' }),
     );
     const card = getByTestId('object-card');
     expect(card.style.transform).toContain('translateX(-');
   });
 
   it('object card stays hidden on Canvas tab even with selection', () => {
-    const { container, getByTestId } = render(
-      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    const { container, getByTestId } = renderPanel(
+      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' }),
     );
     const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
     fireEvent.click(canvasTab);
@@ -179,12 +188,12 @@ describe('InspectorPanel — object card', () => {
 
 describe('InspectorPanel — edge handle', () => {
   it('renders edge handle on Layers tab', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     expect(getByTestId('object-edge-handle')).toBeDefined();
   });
 
   it('hides edge handle on non-Layers tabs', () => {
-    const { container, queryByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { container, queryByTestId } = renderPanel(defaultProps());
     const canvasTab = container.querySelector('[data-panel-tab="canvas"]') as HTMLElement;
     fireEvent.click(canvasTab);
     expect(queryByTestId('object-edge-handle')).toBeNull();
@@ -192,15 +201,15 @@ describe('InspectorPanel — edge handle', () => {
 
   it('edge handle click with selection calls onSelectElement(null)', () => {
     const onSelectElement = vi.fn();
-    const { getByTestId } = render(
-      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1', onSelectElement })} />,
+    const { getByTestId } = renderPanel(
+      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1', onSelectElement }),
     );
     fireEvent.click(getByTestId('object-edge-handle'));
     expect(onSelectElement).toHaveBeenCalledWith(null);
   });
 
   it('edge handle click without selection toggles object card open', () => {
-    const { getByTestId } = render(<InspectorPanel {...defaultProps()} />);
+    const { getByTestId } = renderPanel(defaultProps());
     // Initially hidden
     expect(getByTestId('object-card').style.transform).toBe('translateX(0)');
     // Click edge handle to open
@@ -209,8 +218,8 @@ describe('InspectorPanel — edge handle', () => {
   });
 
   it('edge handle is inside object card (moves together)', () => {
-    const { getByTestId } = render(
-      <InspectorPanel {...defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' })} />,
+    const { getByTestId } = renderPanel(
+      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' }),
     );
     const card = getByTestId('object-card');
     const handle = getByTestId('object-edge-handle');

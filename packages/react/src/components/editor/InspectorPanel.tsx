@@ -24,6 +24,7 @@ import { DotsSixVertical } from '@phosphor-icons/react';
 import { useDraggable } from '../../hooks/useDraggable.js';
 import { useResizable } from '../../hooks/useResizable.js';
 import { useDSLInspectorCallbacks } from '../../hooks/useDSLInspectorCallbacks.js';
+import { useEditorStore, useEditorStoreApi } from '../../store/editor-store-context.js';
 import { ObjectTab } from '../property-panel-tabs/ObjectTab.js';
 import { LayersTab } from '../property-panel-tabs/LayersTab.js';
 import { CanvasTab } from '../property-panel-tabs/CanvasTab.js';
@@ -78,8 +79,11 @@ export function InspectorPanel({
   onCancel,
   style,
 }: InspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('layers');
-  const [objectOpen, setObjectOpen] = useState(false);
+  const activeTab = useEditorStore((s) => s.inspectorTab);
+  const objectOpen = useEditorStore((s) => s.objectPanelOpen);
+  const storeApi = useEditorStoreApi();
+  const setActiveTab = storeApi.getState().setInspectorTab;
+  const setObjectOpen = storeApi.getState().setObjectPanelOpen;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [objectSide, setObjectSide] = useState<'left' | 'right'>('left');
@@ -160,12 +164,12 @@ export function InspectorPanel({
     if (selectedElementId) {
       // Deselect to close
       onSelectElement(null);
-      setObjectOpen(false);
+      storeApi.getState().setObjectPanelOpen(false);
     } else {
       // Toggle manually
-      setObjectOpen((o) => !o);
+      storeApi.getState().setObjectPanelOpen(!storeApi.getState().objectPanelOpen);
     }
-  }, [selectedElementId, onSelectElement]);
+  }, [selectedElementId, onSelectElement, storeApi]);
 
   return (
     <div

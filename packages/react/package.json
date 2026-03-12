@@ -21,7 +21,9 @@
     "@depix/core": "workspace:*",
     "@depix/editor": "workspace:*",
     "@depix/engine": "workspace:*",
-    "@phosphor-icons/react": "^2.1.10"
+    "@phosphor-icons/react": "^2.1.10",
+    "immer": "^10.0.0",
+    "zustand": "^5.0.0"
   },
   "peerDependencies": {
     "konva": "^9.0.0",

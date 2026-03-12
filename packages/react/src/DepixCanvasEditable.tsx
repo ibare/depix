@@ -33,10 +33,6 @@ import { CaretLeft, CaretRight, CornersOut, PencilSimple } from '@phosphor-icons
 import { findElement, compile } from '@depix/core';
 import { DepixEngine, fitToAspectRatio } from '@depix/engine';
 import {
-  SelectionManager,
-  HistoryManager,
-  HandleManager,
-  SnapGuideManager,
   addElement as irAddElement,
   removeElement as irRemoveElement,
   updateStyle as irUpdateStyle,
@@ -48,6 +44,7 @@ import type { ToolType } from './types.js';
 import { FloatingToolbar } from './components/FloatingToolbar.js';
 import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
 import { DepixDSLEditor } from './DepixDSLEditor.js';
+import { EditorStoreProvider, useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -174,6 +171,17 @@ export const DepixCanvasEditable = forwardRef<
   DepixCanvasEditableRef,
   DepixCanvasEditableProps
 >(function DepixCanvasEditable(props, ref) {
+  return (
+    <EditorStoreProvider>
+      <DepixCanvasEditableInner {...props} ref={ref} />
+    </EditorStoreProvider>
+  );
+});
+
+const DepixCanvasEditableInner = forwardRef<
+  DepixCanvasEditableRef,
+  DepixCanvasEditableProps
+>(function DepixCanvasEditableInner(props, ref) {
   const {
     ir,
     onIRChange,
@@ -201,15 +209,27 @@ export const DepixCanvasEditable = forwardRef<
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DepixEngine | null>(null);
 
+  // ---- Store access -------------------------------------------------------
+
+  const storeApi = useEditorStoreApi();
+  const isEditing = useEditorStore((s) => s.isEditing);
+  const isHovered = useEditorStore((s) => s.isHovered);
+  const isFullscreen = useEditorStore((s) => s.isFullscreen);
+  const activeTool = useEditorStore((s) => s.activeTool);
+  const editDims = useEditorStore((s) => s.editDims);
+  const panelPositions = useEditorStore((s) => s.panelPositions);
+  const currentSceneIndex = useEditorStore((s) => s.activeSceneIndex);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const canUndo = useEditorStore((s) => s.canUndo);
+  const canRedo = useEditorStore((s) => s.canRedo);
+  const managers = useEditorStore((s) => s._managers);
+
   // ---- DSL mode flag ------------------------------------------------------
 
   const isDSLMode = !!dsl && !!onDSLChange;
 
-  // ---- Edit mode state ---------------------------------------------------
+  // ---- Local state (not shared) -------------------------------------------
 
-  const [isEditing, setIsEditing] = useState(initialEditMode);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const snapshotRef = useRef<DepixIR | null>(null);
 
   // ---- Internal DSL editing state (isolated from parent) -----------------
@@ -234,8 +254,6 @@ export const DepixCanvasEditable = forwardRef<
 
   // ---- Fullscreen editing dimensions ------------------------------------
 
-  const [editDims, setEditDims] = useState<{ width: number; height: number } | null>(null);
-
   /** Compute canvas size to fit within 80% of viewport, preserving aspect ratio. */
   const computeEditDims = useCallback((aspectRatio: { width: number; height: number }) => {
     const maxW = window.innerWidth * 0.8;
@@ -258,67 +276,50 @@ export const DepixCanvasEditable = forwardRef<
 
   // ---- Internal tool state (used only in self-managed edit mode) ----------
 
-  const [internalTool, setInternalTool] = useState<ToolType>('select');
+  const internalTool = activeTool;
+  const setInternalTool = storeApi.getState().setActiveTool;
   const tool = toolProp ?? internalTool;
 
-  // ---- Scene state -------------------------------------------------------
+  // ---- Scene helpers ------------------------------------------------------
 
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const setCurrentSceneIndex = storeApi.getState().setActiveSceneIndex;
 
-  // ---- Editor managers (stable across renders) ---------------------------
+  // ---- Manager refs (convenience accessors from store) --------------------
 
-  const selectionRef = useRef<SelectionManager | null>(null);
-  const historyRef = useRef<HistoryManager | null>(null);
-  const handleRef = useRef<HandleManager | null>(null);
-  const snapRef = useRef<SnapGuideManager | null>(null);
+  const selectionRef = useRef(managers.selection);
+  const historyRef = useRef(managers.history);
+  const handleRef = useRef(managers.handle);
+  const snapRef = useRef(managers.snap);
+
+  // Keep refs in sync with store
+  selectionRef.current = managers.selection;
+  historyRef.current = managers.history;
+  handleRef.current = managers.handle;
+  snapRef.current = managers.snap;
 
   // ---- Derived edit-active flag ------------------------------------------
 
   /** True when editing functionality is active (self-managed or external tool). */
   const isEditActive = isEditing || !!toolProp;
 
-  // ---- Selection state for UI updates ------------------------------------
-
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // ---- History state for re-render triggers ------------------------------
-
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-
   // ---- Konva overlay refs (created only in edit mode) --------------------
 
   const overlayLayerRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
-  // ---- Initialize managers on mount --------------------------------------
+  // ---- Initialize managers on mount via store ----------------------------
 
   useEffect(() => {
-    const selection = new SelectionManager({
-      onChange: (state) => {
-        setSelectedIds(state.selectedIds);
-        onSelectionChange?.(state.selectedIds);
-      },
-    });
+    storeApi.getState()._initManagers(onSelectionChange);
 
-    const history = new HistoryManager();
-    history.onChange((state) => {
-      setCanUndo(state.canUndo);
-      setCanRedo(state.canRedo);
-    });
-
-    const handle = new HandleManager();
-    const snap = new SnapGuideManager();
-
-    selectionRef.current = selection;
-    historyRef.current = history;
-    handleRef.current = handle;
-    snapRef.current = snap;
+    // Set initial edit mode if requested
+    if (initialEditMode) {
+      const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
+      storeApi.getState().enterEditMode(computeEditDims(ar));
+    }
 
     return () => {
-      selection.destroy();
-      history.destroy();
-      handle.destroy();
+      storeApi.getState()._destroyManagers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -660,11 +661,11 @@ export const DepixCanvasEditable = forwardRef<
 
   useEffect(() => {
     const onChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      storeApi.getState().setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
+  }, [storeApi]);
 
   const enterFullscreen = useCallback(() => {
     containerRef.current?.parentElement?.requestFullscreen();
@@ -676,23 +677,24 @@ export const DepixCanvasEditable = forwardRef<
     if (!isFullscreen || isEditing) return;
 
     const handleKey = (e: KeyboardEvent) => {
+      const idx = storeApi.getState().activeSceneIndex;
       switch (e.key) {
         case ' ':
         case 'ArrowRight':
           e.preventDefault();
-          setCurrentSceneIndex((i) => Math.min(ir.scenes.length - 1, i + 1));
+          storeApi.getState().setActiveSceneIndex(Math.min(ir.scenes.length - 1, idx + 1));
           break;
         case 'Backspace':
         case 'ArrowLeft':
           e.preventDefault();
-          setCurrentSceneIndex((i) => Math.max(0, i - 1));
+          storeApi.getState().setActiveSceneIndex(Math.max(0, idx - 1));
           break;
       }
     };
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isFullscreen, isEditing, ir.scenes.length]);
+  }, [isFullscreen, isEditing, ir.scenes.length, storeApi]);
 
   // ---- Lock body scroll while editing (prevent background scroll) ---------
 
@@ -710,12 +712,12 @@ export const DepixCanvasEditable = forwardRef<
 
     const handleResize = () => {
       const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
-      setEditDims(computeEditDims(ar));
+      storeApi.getState().setEditDims(computeEditDims(ar));
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [isEditing, ir.meta.aspectRatio, computeEditDims]);
+  }, [isEditing, ir.meta.aspectRatio, computeEditDims, storeApi]);
 
   // ---- Edit mode management ----------------------------------------------
 
@@ -725,11 +727,9 @@ export const DepixCanvasEditable = forwardRef<
       setEditingDsl(dsl!);
     }
     const ar = ir.meta.aspectRatio ?? { width: 16, height: 9 };
-    setEditDims(computeEditDims(ar));
-    setIsEditing(true);
-    setInternalTool('select');
+    storeApi.getState().enterEditMode(computeEditDims(ar));
     onEditModeChange?.(true);
-  }, [ir, onEditModeChange, isDSLMode, dsl, computeEditDims]);
+  }, [ir, onEditModeChange, isDSLMode, dsl, computeEditDims, storeApi]);
 
   const handleConfirm = useCallback(() => {
     // Commit DSL edits to parent (only time onDSLChange is called)
@@ -739,11 +739,10 @@ export const DepixCanvasEditable = forwardRef<
     }
     snapshotRef.current = null;
     setEditingDsl(null);
-    setEditDims(null);
-    setIsEditing(false);
+    storeApi.getState().exitEditMode();
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
-  }, [onEditModeChange, isDSLMode, editingDsl, editingIR, onDSLChange, onIRChange]);
+  }, [onEditModeChange, isDSLMode, editingDsl, editingIR, onDSLChange, onIRChange, storeApi]);
 
   const handleCancel = useCallback(() => {
     // Discard edits — parent state is unchanged
@@ -753,11 +752,10 @@ export const DepixCanvasEditable = forwardRef<
     }
     snapshotRef.current = null;
     setEditingDsl(null);
-    setEditDims(null);
-    setIsEditing(false);
+    storeApi.getState().exitEditMode();
     selectionRef.current?.clearSelection();
     onEditModeChange?.(false);
-  }, [onIRChange, onEditModeChange, isDSLMode]);
+  }, [onIRChange, onEditModeChange, isDSLMode, storeApi]);
 
   // ---- IR manipulation callbacks -----------------------------------------
 
@@ -826,8 +824,8 @@ export const DepixCanvasEditable = forwardRef<
     };
     newIR.scenes.push(newScene);
     onIRChange(newIR);
-    setCurrentSceneIndex(newIR.scenes.length - 1);
-  }, [ir, onIRChange]);
+    storeApi.getState().setActiveSceneIndex(newIR.scenes.length - 1);
+  }, [ir, onIRChange, storeApi]);
 
   const handleDeleteScene = useCallback(
     (index: number) => {
@@ -835,22 +833,25 @@ export const DepixCanvasEditable = forwardRef<
       const newIR = structuredClone(ir);
       newIR.scenes.splice(index, 1);
       onIRChange(newIR);
-      if (currentSceneIndex >= newIR.scenes.length) {
-        setCurrentSceneIndex(newIR.scenes.length - 1);
+      const idx = storeApi.getState().activeSceneIndex;
+      if (idx >= newIR.scenes.length) {
+        storeApi.getState().setActiveSceneIndex(newIR.scenes.length - 1);
       }
     },
-    [ir, onIRChange, currentSceneIndex],
+    [ir, onIRChange, storeApi],
   );
 
   // ---- Scene navigation (read-mode pill) ----------------------------------
 
   const goToPrevScene = useCallback(() => {
-    setCurrentSceneIndex((i) => Math.max(0, i - 1));
-  }, []);
+    const idx = storeApi.getState().activeSceneIndex;
+    storeApi.getState().setActiveSceneIndex(Math.max(0, idx - 1));
+  }, [storeApi]);
 
   const goToNextScene = useCallback(() => {
-    setCurrentSceneIndex((i) => Math.min(ir.scenes.length - 1, i + 1));
-  }, [ir.scenes.length]);
+    const idx = storeApi.getState().activeSceneIndex;
+    storeApi.getState().setActiveSceneIndex(Math.min(ir.scenes.length - 1, idx + 1));
+  }, [ir.scenes.length, storeApi]);
 
   const handleRenameScene = useCallback(
     (index: number, name: string) => {
@@ -967,14 +968,9 @@ export const DepixCanvasEditable = forwardRef<
 
   // ---- Calculate panel positions relative to canvas ----------------------
 
-  const [panelPositions, setPanelPositions] = useState<{
-    toolbar: { top: number; left: number };
-    panel: { top: number; left: number };
-  } | null>(null);
-
   useEffect(() => {
     if (!showEditUI) {
-      setPanelPositions(null);
+      storeApi.getState().setPanelPositions(null);
       return;
     }
 
@@ -982,7 +978,7 @@ export const DepixCanvasEditable = forwardRef<
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      setPanelPositions({
+      storeApi.getState().setPanelPositions({
         toolbar: {
           top: rect.top + 8,
           left: rect.left + 8,
@@ -1001,7 +997,7 @@ export const DepixCanvasEditable = forwardRef<
       window.removeEventListener('scroll', updatePositions, true);
       window.removeEventListener('resize', updatePositions);
     };
-  }, [showEditUI]);
+  }, [showEditUI, storeApi]);
 
   // ---- Render ------------------------------------------------------------
 
@@ -1018,8 +1014,8 @@ export const DepixCanvasEditable = forwardRef<
       className={className}
       data-tool={tool}
       data-readonly={readOnly || undefined}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => storeApi.getState().setIsHovered(true)}
+      onMouseLeave={() => storeApi.getState().setIsHovered(false)}
     >
       {/* Dimmed backdrop (only in edit mode) */}
       {isEditing && (
@@ -1217,7 +1213,7 @@ export const DepixCanvasEditable = forwardRef<
           selectedIds={selectedIds}
           onCancel={toolProp ? undefined : handleCancel}
           onConfirm={toolProp ? undefined : handleConfirm}
-          onSceneChange={setCurrentSceneIndex}
+          onSceneChange={storeApi.getState().setActiveSceneIndex}
           onAddScene={handleAddScene}
           onDeleteScene={handleDeleteScene}
           onRenameScene={handleRenameScene}

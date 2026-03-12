@@ -10,13 +10,14 @@
  * the existing canvas without changing its size.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import type { DepixTheme } from '@depix/core';
 import { addSlotContent as addSlotContentMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { ContentTypePicker } from './components/editor/ContentTypePicker.js';
 import { InspectorPanel } from './components/editor/InspectorPanel.js';
 import { useDSLSync } from './hooks/useDSLSync.js';
+import { useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,13 +59,11 @@ export function DepixDSLEditor({
   onConfirm,
   onCancel,
 }: DepixDSLEditorProps) {
-  // --- State ---------------------------------------------------------------
-  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [pickerSlot, setPickerSlot] = useState<{
-    name: string;
-    position: { x: number; y: number };
-  } | null>(null);
+  // --- Store state ---------------------------------------------------------
+  const activeSceneIndex = useEditorStore((s) => s.activeSceneIndex);
+  const selectedElementId = useEditorStore((s) => s.selectedIds[0] ?? null);
+  const pickerSlot = useEditorStore((s) => s.pickerSlot);
+  const storeApi = useEditorStoreApi();
 
   // --- Derived state from DSL ----------------------------------------------
   const { ir, currentSceneSlots } = useDSLSync(dsl, activeSceneIndex, { theme });
@@ -74,20 +73,29 @@ export function DepixDSLEditor({
     (slotName: string) => {
       const x = width / 2;
       const y = height / 2;
-      setPickerSlot({ name: slotName, position: { x, y } });
+      storeApi.getState().setPickerSlot({ name: slotName, position: { x, y } });
     },
-    [width, height],
+    [width, height, storeApi],
   );
 
   const handleContentSelect = useCallback(
     (type: string) => {
-      if (!pickerSlot) return;
+      const slot = storeApi.getState().pickerSlot;
+      if (!slot) return;
       const content = `${type} "New ${type}"`;
-      const newDsl = addSlotContentMutation(dsl, activeSceneIndex, pickerSlot.name, content);
+      const idx = storeApi.getState().activeSceneIndex;
+      const newDsl = addSlotContentMutation(dsl, idx, slot.name, content);
       onDSLChange(newDsl);
-      setPickerSlot(null);
+      storeApi.getState().setPickerSlot(null);
     },
-    [dsl, onDSLChange, activeSceneIndex, pickerSlot],
+    [dsl, onDSLChange, storeApi],
+  );
+
+  const handleSelectElement = useCallback(
+    (id: string | null) => {
+      storeApi.getState().setSelectedIds(id ? [id] : []);
+    },
+    [storeApi],
   );
 
   // --- Coordinate transform for slot overlay -------------------------------
@@ -110,9 +118,9 @@ export function DepixDSLEditor({
         dsl={dsl}
         onDSLChange={onDSLChange}
         activeSceneIndex={activeSceneIndex}
-        onActiveSceneIndexChange={setActiveSceneIndex}
+        onActiveSceneIndexChange={storeApi.getState().setActiveSceneIndex}
         selectedElementId={selectedElementId}
-        onSelectElement={setSelectedElementId}
+        onSelectElement={handleSelectElement}
         onConfirm={onConfirm}
         onCancel={onCancel}
         style={{
@@ -150,7 +158,7 @@ export function DepixDSLEditor({
           <ContentTypePicker
             position={pickerSlot.position}
             onSelect={handleContentSelect}
-            onClose={() => setPickerSlot(null)}
+            onClose={() => storeApi.getState().setPickerSlot(null)}
           />
         </div>
       )}

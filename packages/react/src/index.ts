@@ -27,9 +27,6 @@ export type { UseKeyboardShortcutsOptions } from './hooks/useKeyboardShortcuts.j
 export { useObjectCreation } from './hooks/useObjectCreation.js';
 export type { UseObjectCreationOptions, CreationHandlers, UseObjectCreationReturn } from './hooks/useObjectCreation.js';
 
-export { usePanelPositions } from './hooks/usePanelPositions.js';
-export type { PanelPosition, UsePanelPositionsOptions, UsePanelPositionsReturn } from './hooks/usePanelPositions.js';
-
 // UI Components
 export { FloatingPanel, PanelSection, PanelDivider, PanelButton } from './components/FloatingPanel.js';
 export type { FloatingPanelProps, PanelSectionProps, PanelButtonProps } from './components/FloatingPanel.js';
@@ -131,3 +128,21 @@ export { InspectorPanel } from './components/editor/InspectorPanel.js';
 export type { InspectorPanelProps } from './components/editor/InspectorPanel.js';
 
 export { EDITOR_COLORS } from './components/editor/editor-colors.js';
+
+// Store
+export {
+  createEditorStore,
+  EditorStoreProvider,
+  useEditorStore,
+  useEditorStoreApi,
+  useSelectedElements,
+  useSceneElements,
+  useIsEditActive,
+} from './store/index.js';
+export type {
+  DepixEditorStore,
+  UISlice,
+  SelectionSlice,
+  SceneSlice,
+  HistorySlice,
+} from './store/index.js';
