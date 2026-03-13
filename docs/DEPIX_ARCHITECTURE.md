@@ -236,8 +236,11 @@ DSL 텍스트
 ⑧ Emit IR ────────── AST → IR 변환 + 동적 fontSize/padding 적용
 ```
 
-③~⑧은 `emitIR()` 내부에서 씬 단위로 실행된다:
-`planDiagram() → createScaleContext() → allocateDiagram() → emitDiagramFromPlan()`
+③~⑦은 블록 유형에 따라 두 경로로 처리된다:
+- **다이어그램 블록** (`flow`, `stack` 등): `emitIR()` 내부에서 `planDiagram() → createScaleContext() → allocateDiagram() → emitDiagramFromPlan()` 실행 후 IRScene으로 래핑
+- **씬 블록** (`scene {}`): `emitSceneIR()` 내부에서 `planScene() → emitScene()` 실행
+
+`emitSceneIR()`이 최종 통합 단계이며, 두 경로의 결과를 모아 `DepixIR`을 생성한다.
 
 ### 스케일 시스템 (`passes/scale-system.ts`)
 

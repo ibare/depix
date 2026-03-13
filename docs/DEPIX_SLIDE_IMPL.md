@@ -9,7 +9,6 @@
 ## 1. 추가되는 것 / 변경되는 것
 
 ### 추가
-- 프레젠테이션 선언 파싱 (`@presentation`, `@theme`, `@ratio`)
 - `scene` 컨테이너 의도
 - 씬 레이아웃 의도 8종
 - 콘텐츠 노드 5종 (`heading`, `label`, `bullet`, `stat`, `quote`)
@@ -25,16 +24,14 @@
 
 ## 2. DSL 문법
 
-### 2.1 프레젠테이션 선언
+### 2.1 문서 메타데이터
 
 ```depix
-@presentation
-@theme default
-@ratio 16:9
+@page 16:9
+@style default
 ```
 
-`@presentation`이 선언된 파일은 씬 모드로 컴파일된다.
-선언이 없으면 기존 다이어그램 모드로 동작한다. (하위 호환)
+모든 DSL은 단일 통합 파이프라인으로 컴파일된다. `@presentation` 지시자는 파싱은 되지만 no-op이다 — 컴파일 모드를 바꾸지 않는다. 씬 블록(`scene {}`)과 다이어그램 블록(`flow {}`, `stack {}` 등) 모두 동일한 파이프라인을 거쳐 `IRScene[]`으로 출력된다.
 
 ### 2.2 scene 컨테이너
 
@@ -329,8 +326,9 @@ packages/core/src/
 ```
 packages/core/src/
   compiler/
-    parser.ts     ← @presentation, @theme, @ratio, scene, 콘텐츠 노드 파싱
-    emit-ir.ts    ← 씬 모드 분기 (scene[]으로 IR 배열 생성)
+    parser.ts         ← @page, @style, @transition, scene, 콘텐츠 노드 파싱
+    compiler.ts       ← 통합 파이프라인 오케스트레이터
+    scene/emit-scene.ts ← 슬롯 기반 씬 및 다이어그램 블록 통합 처리
 ```
 
 ---
@@ -363,7 +361,7 @@ Renderer는 `IRScene[]`을 받아 씬 수만큼 페이지를 렌더링한다.
 
 ### Phase 1 — 파서 + 기본 레이아웃
 
-1. `@presentation`, `@theme`, `@ratio` 파싱
+1. `@page`, `@style`, `@transition` 파싱
 2. `scene` 컨테이너 파싱
 3. 콘텐츠 노드 파싱 (`heading`, `label`, `bullet`, `stat`, `quote`)
 4. `title`, `statement`, `bullets` 레이아웃 구현

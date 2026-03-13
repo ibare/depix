@@ -11,9 +11,12 @@ last_verified: 2026-03-07
 
 ## MUST
 
-- 컴파일러 패스는 정해진 순서를 따른다: `tokenize → parse → flattenHierarchy → resolveTheme → planLayout → createScaleContext → computeConstraints → allocateBudgets → measure → allocateBounds → layout → routeEdges → emitIR`
+- 컴파일러 최상위 파이프라인 순서: `parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → [emitIR per diagram block] → emitSceneIR → applyOverridesToIR`
   각 패스는 이전 패스의 출력만을 입력으로 받는다. 순서를 바꾸거나 패스를 건너뛰지 않는다.
   `flattenHierarchy`는 connection 계열 레이아웃(tree, flow)의 nested element를 flat children + implicit edges로 정규화하는 AST 변환 패스이다.
+  `emitSceneIR`이 최종 통합 단계이다: scene 블록은 슬롯 기반 파이프라인(`planScene → emitScene`)으로, 다이어그램 블록은 `emitIR`(다이어그램 파이프라인)으로 사전 처리 후 주입된다.
+
+- 다이어그램 블록의 내부 파이프라인 순서: `planLayout → createScaleContext → computeConstraints → allocateBudgets → measure → allocateBounds → layout → routeEdges → emitIR`
   `computeConstraints`는 plan 트리를 bottom-up(후위순회)으로 순회하며 각 노드의 최소/최대 크기 제약을 수집하는 패스이다.
   `allocateBudgets`는 캔버스 루트로부터 top-down(BFS)으로 가용 공간을 배분하여 각 노드의 예산(budget)을 결정하는 패스이다.
   `measure`는 plan 트리를 bottom-up으로 순회하며 각 노드의 fontSize, lineHeight, padding, 최소 크기를 산출하는 측정 패스이다. budgetMap이 제공되면 예산 기반으로 fontSize를 결정한다.

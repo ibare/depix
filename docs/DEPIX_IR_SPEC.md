@@ -85,6 +85,8 @@ interface IRScene {
   background?: IRBackground;
   /** 최상위 요소들 (z-order = 배열 순서) */
   elements: IRElement[];
+  /** 레이아웃 메타데이터 (에디터의 LayoutPicker에서 사용) */
+  layout?: { type: string; ratio?: number; direction?: string };
 }
 ```
 
@@ -178,7 +180,10 @@ interface IRTransform {
  */
 interface IROrigin {
   /** 원래 DSL 프리미티브 타입 */
-  sourceType: 'flow' | 'stack' | 'grid' | 'tree' | 'group' | 'layers' | 'canvas';
+  sourceType:
+    | 'flow' | 'stack' | 'grid' | 'tree' | 'group' | 'layers' | 'canvas'
+    | 'scene' | 'table' | 'chart'
+    | 'scene-background';  // 씬 배경 사각형 (에디터 레이어 패널에서 숨김)
   /** 원래 DSL에서의 속성들 (재컴파일 시 활용) */
   sourceProps?: Record<string, unknown>;
 }
