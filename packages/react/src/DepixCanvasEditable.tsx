@@ -28,7 +28,7 @@ import React, {
   forwardRef,
   useId,
 } from 'react';
-import type { DepixIR, IRElement, IRStyle, IRBounds, IRBackground } from '@depix/core';
+import type { DepixIR, IRElement, IRContainer, IRStyle, IRBounds, IRBackground } from '@depix/core';
 import { CaretLeft, CaretRight, CornersOut, PencilSimple } from '@phosphor-icons/react';
 import { findElement, compile } from '@depix/core';
 import { DepixEngine, fitToAspectRatio } from '@depix/engine';
@@ -45,6 +45,7 @@ import { FloatingToolbar } from './components/FloatingToolbar.js';
 import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
 import { DepixDSLEditor } from './DepixDSLEditor.js';
 import { EditorStoreProvider, useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -159,6 +160,31 @@ const pillIconBtnStyle: React.CSSProperties = {
   lineHeight: 0,
   transition: 'background-color 0.15s',
 };
+
+// ---------------------------------------------------------------------------
+// IR hit detection helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Find the deepest IR element (non-edge) at a given IR coordinate point.
+ * For containers, recursively checks children first (innermost match wins).
+ * Edges are skipped — they are handled by Konva's line-stroke hit detection.
+ */
+function findIRElementAtPoint(elements: IRElement[], irX: number, irY: number): IRElement | null {
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const el = elements[i];
+    if (el.type === 'edge') continue;
+    const { x, y, w, h } = el.bounds;
+    if (irX >= x && irX <= x + w && irY >= y && irY <= y + h) {
+      if (el.type === 'container') {
+        const child = findIRElementAtPoint((el as IRContainer).children, irX, irY);
+        if (child) return child;
+      }
+      return el;
+    }
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -393,41 +419,55 @@ const DepixCanvasEditableInner = forwardRef<
       const currentTool = toolProp ?? internalTool;
       if (currentTool !== 'select') return;
 
-      const target = e.target;
+      const shiftKey = e.evt?.shiftKey ?? false;
 
-      // Click on empty stage
-      if (target === stage) {
+      // Step 1: Konva walk-up — reliable ONLY for edges (line stroke hit detection)
+      const target = e.target;
+      if (target && target !== stage) {
+        let node = target;
+        while (node && node !== stage) {
+          const id = typeof node.id === 'function' ? node.id() : node.id;
+          if (id && typeof id === 'string' && id.startsWith('el-')) {
+            const element = irRef.current ? findElement(irRef.current, id) : null;
+            if (element?.type === 'edge') {
+              selectionRef.current?.select(id, shiftKey);
+              return;
+            }
+            break; // non-edge el- found — fall through to IR detection
+          }
+          node = node.parent;
+        }
+      }
+
+      // Step 2: IR coordinate-based hit detection for shapes/containers/text
+      const container = containerRef.current;
+      const engine = engineRef.current;
+      if (!container || !engine) return;
+
+      const nativeEvent = e.evt as MouseEvent | undefined;
+      if (!nativeEvent) return;
+
+      const rect = container.getBoundingClientRect();
+      const pixelX = nativeEvent.clientX - rect.left;
+      const pixelY = nativeEvent.clientY - rect.top;
+      const irPoint = engine.getTransform().toRelativePoint(pixelX, pixelY);
+
+      const sceneIdx = storeApi.getState().activeSceneIndex;
+      const scene = irRef.current?.scenes[sceneIdx];
+      if (!scene) return;
+
+      const hit = findIRElementAtPoint(scene.elements, irPoint.x, irPoint.y);
+      if (hit) {
+        selectionRef.current?.select(hit.id, shiftKey);
+      } else {
         const currentIds = storeApi.getState().selectedIds;
         if (currentIds.length > 0) {
-          // Something selected → deselect
           selectionRef.current?.clearSelection();
         } else {
-          // Nothing selected → select root layout container
-          const sceneIdx = storeApi.getState().activeSceneIndex;
-          const scene = irRef.current?.scenes[sceneIdx];
-          const rootEl = scene?.elements.find((el) => el.type === 'container');
+          // Nothing hit and nothing selected → select root layout container
+          const rootEl = scene.elements.find((el) => el.type === 'container');
           if (rootEl) selectionRef.current?.select(rootEl.id, false);
         }
-        return;
-      }
-
-      // Walk up the node tree to find a node with an element ID (starts with 'el-')
-      let node = target;
-      let elementId: string | null = null;
-      while (node && node !== stage) {
-        const id = typeof node.id === 'function' ? node.id() : node.id;
-        if (id && typeof id === 'string' && id.startsWith('el-')) {
-          elementId = id;
-          break;
-        }
-        node = node.parent;
-      }
-
-      if (elementId) {
-        const shiftKey = e.evt?.shiftKey ?? false;
-        selectionRef.current?.select(elementId, shiftKey);
-      } else {
-        selectionRef.current?.clearSelection();
       }
     };
 
@@ -623,67 +663,30 @@ const DepixCanvasEditableInner = forwardRef<
 
   // ---- Keyboard shortcuts ------------------------------------------------
 
-  useEffect(() => {
-    if (readOnly) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle shortcuts when in edit mode (or when tool is externally controlled)
-      if (!isEditing && !toolProp) return;
-
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-
-      // Undo: Ctrl+Z
-      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        historyRef.current?.undo();
-      }
-
-      // Redo: Ctrl+Shift+Z
-      if (isCtrlOrCmd && e.key === 'z' && e.shiftKey) {
-        e.preventDefault();
-        historyRef.current?.redo();
-      }
-
-      // Redo: Ctrl+Y (alternative)
-      if (isCtrlOrCmd && e.key === 'y') {
-        e.preventDefault();
-        historyRef.current?.redo();
-      }
-
-      // Delete: Delete/Backspace
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selection = selectionRef.current;
-        if (!selection) return;
-        const ids = selection.getSelectedIds();
-        if (ids.length === 0) return;
-
-        e.preventDefault();
-        let currentIR = ir;
-        for (const id of ids) {
-          currentIR = irRemoveElement(currentIR, id);
-        }
-        selection.clearSelection();
-        onIRChange(currentIR);
-      }
-
-      // Select all: Ctrl+A
-      if (isCtrlOrCmd && e.key === 'a') {
-        e.preventDefault();
-        const scene = ir.scenes[currentSceneIndex];
-        if (!scene) return;
-        const allIds = scene.elements.map((el) => el.id);
-        selectionRef.current?.selectMultiple(allIds);
-      }
-
-      // Escape: exit edit mode
-      if (e.key === 'Escape' && isEditing && !toolProp) {
-        handleCancel();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, ir, onIRChange, isEditing, toolProp, currentSceneIndex]);
+  useKeyboardShortcuts({
+    enabled: !readOnly && (isEditing || !!toolProp),
+    onUndo: useCallback(() => historyRef.current?.undo(), []),
+    onRedo: useCallback(() => historyRef.current?.redo(), []),
+    onDelete: useCallback(() => {
+      const selection = selectionRef.current;
+      if (!selection) return;
+      const ids = selection.getSelectedIds();
+      if (ids.length === 0) return;
+      let currentIR = ir;
+      for (const id of ids) currentIR = irRemoveElement(currentIR, id);
+      selection.clearSelection();
+      onIRChange(currentIR);
+    }, [ir, onIRChange]),
+    onSelectAll: useCallback(() => {
+      const scene = ir.scenes[currentSceneIndex];
+      if (!scene) return;
+      const allIds = scene.elements.map((el) => el.id);
+      selectionRef.current?.selectMultiple(allIds);
+    }, [ir, currentSceneIndex]),
+    onEscape: useCallback(() => {
+      if (isEditing && !toolProp) handleCancel();
+    }, [isEditing, toolProp]),
+  });
 
   // ---- Fullscreen management ----------------------------------------------
 

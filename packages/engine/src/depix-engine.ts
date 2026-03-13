@@ -9,7 +9,7 @@
 import Konva from 'konva';
 import type { DepixIR, IRScene, IRBackground, IRElement, IRContainer } from '@depix/core';
 import { CoordinateTransform } from './coordinate-transform.js';
-import { renderElements } from './ir-renderer.js';
+import { renderElements } from './ir-renderer/index.js';
 
 // ---------------------------------------------------------------------------
 // Types

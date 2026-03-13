@@ -3,7 +3,7 @@
 export { DepixEngine, fitToAspectRatio } from './depix-engine.js';
 export type { DepixEngineOptions } from './depix-engine.js';
 
-export { renderElement, renderElements } from './ir-renderer.js';
+export { renderElement, renderElements } from './ir-renderer/index.js';
 
 export { CoordinateTransform } from './coordinate-transform.js';
 export type { ViewportSize, AspectRatio } from './coordinate-transform.js';

@@ -31,31 +31,38 @@ export interface ScaleContext {
 // Constants
 // ---------------------------------------------------------------------------
 
+// baseUnit = sqrt(canvasArea / elementCount) * DENSITY_FACTOR
+// 0.55: 요소 평균 점유율 ~30%일 때 적절한 폰트·간격 스케일을 내도록 실측 튜닝된 값
 const DENSITY_FACTOR = 0.55;
 
 const GAP_RATIO: Record<GapType, number> = {
-  innerPadding: 0.06,
-  childGap: 0.03,
-  siblingGap: 0.10,
-  connectorGap: 0.15,
-  sectionGap: 0.12,
+  // baseUnit × ratio = 해당 간격 크기. 단위: 캔버스 0–100 상대 좌표
+  innerPadding: 0.06,   // 요소 내부 여백. 폰트 크기의 약 2배 여백 확보
+  childGap:     0.03,   // 부모–자식 간격. innerPadding 절반 (계층 구조 강조)
+  siblingGap:   0.10,   // 형제 간격. innerPadding보다 커야 그루핑이 시각적으로 드러남
+  connectorGap: 0.15,   // 엣지 연결 간격. 화살표 헤드 공간 확보
+  sectionGap:   0.12,   // 섹션 경계 간격. siblingGap과 connectorGap 사이 중간값
 };
 
 const GAP_CLAMP: Record<GapType, { min: number; max: number }> = {
+  // 극소·극대 캔버스에서 ratio 기반 값이 너무 작거나 커지는 것을 방지하는 절댓값 한계
+  // 단위: 캔버스 100 기준 상대 좌표 (예: 1.0 = 캔버스 너비의 1%)
   innerPadding: { min: 1.0, max: 5.0 },
-  childGap: { min: 0.5, max: 3.0 },
-  siblingGap: { min: 1.5, max: 6.0 },
+  childGap:     { min: 0.5, max: 3.0 },
+  siblingGap:   { min: 1.5, max: 6.0 },
   connectorGap: { min: 2.5, max: 8.0 },
-  sectionGap: { min: 2.0, max: 7.0 },
+  sectionGap:   { min: 2.0, max: 7.0 },
 };
 
 const TEXT_ROLE_RATIO: Record<TextRole, number> = {
-  innerLabel: 0.30,
-  standaloneText: 0.25,
-  listItem: 0.20,
-  edgeLabel: 0.60,
+  // fontSize = containerShortSide × ratio. 역할별 가독성 기준으로 튜닝된 비율
+  innerLabel:     0.30, // 박스 내부 라벨: 컨테이너 대비 작은 텍스트
+  standaloneText: 0.25, // 독립 텍스트 요소: 더 작은 기본 크기
+  listItem:       0.20, // 목록 항목: 여러 줄 표시를 위해 가장 작게
+  edgeLabel:      0.60, // 엣지 라벨: 연결 의미 전달을 위해 의도적으로 크게
 };
 
+// 폰트 크기 하한 (0–100 상대 좌표 기준). 0.6 미만 ≈ ~3px 이하 → 렌더링 불가
 const FONT_SIZE_MIN = 0.6;
 
 const FONT_SIZE_MAX_BY_ROLE: Record<TextRole, number> = {

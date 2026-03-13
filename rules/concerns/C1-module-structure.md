@@ -35,6 +35,10 @@ last_verified: 2026-03-05
 
 - React 컴포넌트 파일명은 PascalCase를 사용한다. (`DepixCanvas.tsx`, `FloatingToolbar.tsx`)
 
+- 신규 파일은 300줄을 초과하지 않는다. React 컴포넌트 파일(`.tsx`)도 동일 기준 적용.
+  300줄 초과 시 책임을 custom hook 또는 하위 컴포넌트로 분리한다.
+  기존 파일이 300줄을 초과하는 경우, 해당 파일을 수정하는 PR은 별도 리팩터링 태스크를 통해 분리 계획을 수립한다.
+
 ## MUST NOT
 
 - 순환 의존을 만들지 않는다. A가 B를 import하고 B가 A를 import하는 구조 금지.

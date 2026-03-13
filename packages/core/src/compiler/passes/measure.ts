@@ -48,6 +48,7 @@ export type MeasureMap = Map<string, MeasureResult>;
 // Constants
 // ---------------------------------------------------------------------------
 
+// 1.4: CSS 표준 line-height 기본값과 일치. 가독성을 확보하는 최솟값
 const DEFAULT_LINE_HEIGHT = 1.4;
 const TEXT_BLOCK_MULTIPLIER = 1.8; // height = fontSize * multiplier (accounts for lineHeight + vertical padding)
 
@@ -281,7 +282,7 @@ function measureBox(
   const minHeight = contentHeight + padding * 2;
   const minWidth = typeof element.props.width === 'number'
     ? element.props.width
-    : Math.max(titleFontSize * 4, 10) + padding * 2;
+    : Math.max(titleFontSize * 4, 10) + padding * 2; // 제목 폰트의 4배 최소 너비, 절댓값 하한 10 (0–100 기준)
 
   return {
     fontSize: titleFontSize,
@@ -311,7 +312,7 @@ function measureList(
   const fontSize = resolveListFontSize(element, plan, theme, scaleCtx, itemCount, budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const itemHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
-  const itemGap = fontSize * 0.3;
+  const itemGap = fontSize * 0.3; // 항목 간격 = 폰트 크기의 30% (텍스트 행 간격 기준)
   const totalHeight = items.length > 0
     ? items.length * itemHeight + (items.length - 1) * itemGap
     : itemHeight;
@@ -321,7 +322,7 @@ function measureList(
     lineHeight,
     padding: 0,
     childGap: itemGap,
-    minWidth: fontSize * 4,
+    minWidth: fontSize * 4, // 최소 너비 = 폰트 크기의 4배 (단어 1~2개 표시 공간)
     minHeight: totalHeight,
   };
 }
@@ -365,14 +366,14 @@ function measureDivider(): MeasureResult {
     lineHeight: 1,
     padding: 0,
     childGap: 0,
-    minWidth: 1,
-    minHeight: 0.5,
+    minWidth: 1,    // 구분선 최소 너비 (0–100 기준 1%)
+    minHeight: 0.5, // 구분선 최소 높이 = 선 두께에 해당 (~2.5px at 500px canvas)
   };
 }
 
 function measureImage(element: ASTElement): MeasureResult {
-  const w = typeof element.props.width === 'number' ? element.props.width : 20;
-  const h = typeof element.props.height === 'number' ? element.props.height : 15;
+  const w = typeof element.props.width === 'number' ? element.props.width : 20;  // 기본 이미지 너비 (0–100 기준 20%)
+  const h = typeof element.props.height === 'number' ? element.props.height : 15; // 기본 이미지 높이 (0–100 기준 15%)
   return {
     fontSize: 0,
     lineHeight: 1,
@@ -389,7 +390,9 @@ function measureImage(element: ASTElement): MeasureResult {
 
 type TextRole = 'innerLabel' | 'standaloneText' | 'listItem' | 'edgeLabel';
 
+// 0.55: 프로포셔널 폰트의 평균 문자 너비 ≈ fontSize × 0.55 (실측 기반 근삿값)
 const AVG_CHAR_WIDTH_RATIO = 0.55;
+// 0.15: 노드 너비의 양측 15%씩 수평 패딩 여백 (텍스트 끝–경계 간격 확보)
 const TEXT_PADDING_H_RATIO = 0.15;
 
 /**

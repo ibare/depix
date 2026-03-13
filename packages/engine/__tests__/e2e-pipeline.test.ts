@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import Konva from 'konva';
 import { compile, lightTheme, darkTheme } from '@depix/core';
 import type { IRContainer, IRShape, IREdge as IREdgeType, IRText, DepixIR } from '@depix/core';
-import { renderElement, renderElements } from '../src/ir-renderer.js';
+import { renderElement, renderElements } from '../src/ir-renderer/index.js';
 import { CoordinateTransform } from '../src/coordinate-transform.js';
 
 // ---------------------------------------------------------------------------

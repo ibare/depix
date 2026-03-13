@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Konva from 'konva';
-import { renderElement, renderElements } from '../src/ir-renderer.js';
+import { renderElement, renderElements } from '../src/ir-renderer/index.js';
 import { CoordinateTransform } from '../src/coordinate-transform.js';
 import type {
   IRShape,

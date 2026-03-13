@@ -27,7 +27,13 @@ last_verified: 2026-03-05
 
 - 씬 전환 로직이 요소 렌더링 로직과 혼재되지 않는다. 씬 관리는 `scene-manager.ts`에서 담당한다.
 
-## PREFER
+## MUST
 
 - 각 element type의 렌더링 로직은 별도 함수로 분리한다. `renderElement`는 type 기반 디스패치만 담당한다.
+- 렌더러 파일은 단일 파일 300줄을 초과하지 않는다. 초과 시 element type별 또는 기능별로 파일을 분리한다.
+- 렌더러 코드에서 Konva API의 비직관적 동작(좌표 보정, offsetX/Y 중심화, clipFunc 좌표 공간, 그래디언트 배열 인코딩 등)을
+  사용할 때는 해당 위치에 이유를 1줄 이상의 주석으로 명시한다.
+
+## PREFER
+
 - Konva 노드 생성 시 style이 없는 기본값을 명시적으로 설정한다. undefined 암묵적 기본값에 의존하지 않는다.
