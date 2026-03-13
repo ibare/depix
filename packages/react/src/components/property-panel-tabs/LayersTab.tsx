@@ -137,8 +137,13 @@ function getElementLabel(el: IRElement): string {
       return el.labels?.[0]?.text?.slice(0, 20) || 'Edge';
     case 'image':
       return 'Image';
-    case 'container':
-      return `Container (${(el as IRContainer).children.length})`;
+    case 'container': {
+      const container = el as IRContainer;
+      if (container.origin?.sourceType === 'scene-slot' && container.origin.slotName) {
+        return container.origin.slotName;
+      }
+      return `Container (${container.children.length})`;
+    }
     case 'line':
       return 'Line';
     case 'path':

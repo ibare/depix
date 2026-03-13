@@ -113,8 +113,23 @@ function emitScene(
 
     if (!bounds) continue;
 
-    const el = emitSceneContent(child, childId, bounds, theme, sceneTheme, baseFontSize);
-    if (el) elements.push(el);
+    const slotName = 'slot' in child ? (child as { slot?: string }).slot : undefined;
+    const inner = emitSceneContent(child, childId, bounds, theme, sceneTheme, baseFontSize);
+    if (!inner) continue;
+
+    // Wrap all slot content in a named IRContainer so the Layers panel can display
+    // the slot name (header, main, left, etc.) instead of generic "Container (N)".
+    const el: IRContainer = inner.type === 'container'
+      ? { ...(inner as IRContainer), origin: { sourceType: 'scene-slot', slotName } }
+      : {
+          id: `${childId}-slot`,
+          type: 'container',
+          bounds,
+          style: {},
+          children: [inner],
+          origin: { sourceType: 'scene-slot', slotName },
+        };
+    elements.push(el);
   }
 
   return {
