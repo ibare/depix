@@ -18,7 +18,6 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { parse } from '@depix/core';
 import type { DepixIR } from '@depix/core';
 import { DotsSixVertical } from '@phosphor-icons/react';
 import { useDraggable } from '../../hooks/useDraggable.js';
@@ -137,15 +136,7 @@ export function InspectorPanel({
     return found ? [found] : [];
   }, [ir, activeSceneIndex, selectedElementId]);
 
-  const currentLayout = useMemo(() => {
-    try {
-      const { ast } = parse(dsl);
-      const scene = ast.scenes[activeSceneIndex];
-      return scene?.props?.layout ?? 'full';
-    } catch {
-      return 'full';
-    }
-  }, [dsl, activeSceneIndex]);
+  const currentLayout = ir?.scenes[activeSceneIndex]?.layout?.type ?? 'full';
 
   const elementCount = callbacks.sceneElements.length;
   const sceneCount = callbacks.scenes.length;

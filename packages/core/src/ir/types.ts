@@ -110,7 +110,8 @@ export interface IROrigin {
     | 'canvas'
     | 'scene'
     | 'table'
-    | 'chart';
+    | 'chart'
+    | 'scene-background';
   /** Original DSL properties preserved for re-compilation. */
   sourceProps?: Record<string, unknown>;
 }
@@ -572,6 +573,8 @@ export interface IRScene {
   background?: IRBackground;
   /** Top-level elements in the scene (z-order follows array order). */
   elements: IRElement[];
+  /** Layout metadata from the DSL scene block (for editor use). */
+  layout?: { type: string; ratio?: number; direction?: string };
 }
 
 // ---------------------------------------------------------------------------

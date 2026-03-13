@@ -190,6 +190,38 @@ scene "Main" {
 });
 
 // ---------------------------------------------------------------------------
+// Unified pipeline — layout field
+// ---------------------------------------------------------------------------
+
+describe('compile — unified pipeline layout', () => {
+  it('diagram DSL without @presentation gets layout.type === "full"', () => {
+    const result = compile('node "Hello" #n1');
+    expect(result.ir.scenes[0].layout).toEqual({ type: 'full' });
+  });
+
+  it('@presentation directive is a no-op — same scene structure', () => {
+    const dsl = 'node "Hello" #n1';
+    const withoutPresentation = compile(dsl);
+    const withPresentation = compile('@presentation\n' + dsl);
+
+    expect(withPresentation.ir.scenes[0].layout).toEqual({ type: 'full' });
+    expect(withPresentation.ir.scenes[0].elements.length).toBe(
+      withoutPresentation.ir.scenes[0].elements.length,
+    );
+  });
+
+  it('scene block gets layout.type from its layout property', () => {
+    const dsl = `
+scene "Slide" layout:split {
+  left: heading "Left"
+  right: text "Right"
+}`;
+    const result = compile(dsl);
+    expect(result.ir.scenes[0].layout?.type).toBe('split');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 

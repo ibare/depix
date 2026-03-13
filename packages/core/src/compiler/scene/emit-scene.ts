@@ -48,23 +48,34 @@ import { getChartColor } from '../layout/chart-colors.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Compile a presentation-mode AST document into DepixIR.
+ * Compile an AST document into DepixIR using the unified scene pipeline.
  *
- * Each scene block becomes an independent IRScene.
- * Non-scene content is ignored in presentation mode.
+ * Each top-level block becomes an IRScene:
+ * - scene {} blocks are processed via slot-based scene layout.
+ * - Diagram blocks (flow, stack, etc.) are injected as pre-resolved IRScenes
+ *   via the `diagramScenes` map (pre-processed by the compiler orchestrator).
  */
 export function emitSceneIR(
   ast: ASTDocument,
   theme: DepixTheme,
   sceneTheme: SceneTheme,
+  diagramScenes?: ReadonlyMap<number, IRScene>,
 ): DepixIR {
   const meta = buildSceneMeta(ast.directives, theme, sceneTheme);
   const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
   const scenes: IRScene[] = [];
 
-  // Each scene block is a presentation scene
   for (let sceneIndex = 0; sceneIndex < ast.scenes.length; sceneIndex++) {
     const sceneBlock = ast.scenes[sceneIndex];
+
+    // Diagram blocks are pre-processed by the compiler orchestrator
+    const preResolved = diagramScenes?.get(sceneIndex);
+    if (preResolved) {
+      scenes.push(preResolved);
+      continue;
+    }
+
+    // scene {} blocks: slot-based layout pipeline
     const plan = planScene(sceneBlock, canvasBounds, sceneTheme);
     const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
     scenes.push(irScene);
@@ -110,6 +121,11 @@ function emitScene(
     id: sceneBlock.label ?? sceneBlock.id ?? `scene-${index}`,
     background: { type: 'solid', color: sceneTheme.colors.background },
     elements,
+    layout: {
+      type: plan.layoutType,
+      ...(sceneBlock.props.ratio !== undefined && { ratio: Number(sceneBlock.props.ratio) }),
+      ...(typeof sceneBlock.props.direction === 'string' && { direction: sceneBlock.props.direction }),
+    },
   };
 }
 
@@ -824,6 +840,7 @@ function emitSceneBackground(bounds: IRBounds, sceneTheme: SceneTheme): IRElemen
     bounds: { ...bounds },
     style: { fill: sceneTheme.colors.background },
     shape: 'rect',
+    origin: { sourceType: 'scene-background' },
   };
 }
 
@@ -837,9 +854,11 @@ function buildSceneMeta(
   sceneTheme: SceneTheme,
 ): IRMeta {
   let aspectRatio = { width: 16, height: 9 };
+  let drawingStyle: 'default' | 'sketch' = 'default';
 
   for (const d of directives) {
-    if (d.key === 'ratio') {
+    // @ratio and @page are both valid aspect ratio directives
+    if (d.key === 'ratio' || d.key === 'page') {
       const parts = d.value.split(':');
       if (parts.length === 2) {
         const w = parseInt(parts[0], 10);
@@ -849,12 +868,15 @@ function buildSceneMeta(
         }
       }
     }
+    if (d.key === 'style' && (d.value === 'default' || d.value === 'sketch')) {
+      drawingStyle = d.value;
+    }
   }
 
   return {
     aspectRatio,
-    background: { type: 'solid', color: sceneTheme.colors.background },
-    drawingStyle: 'default',
+    background: { type: 'solid', color: theme.background ?? sceneTheme.colors.background },
+    drawingStyle,
   };
 }
 

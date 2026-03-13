@@ -51,7 +51,7 @@ export interface UseCanvasClickHandlerOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   irRef: React.RefObject<DepixIR | null>;
   selectionRef: React.RefObject<SelectionManager | null>;
-  storeApi: { getState(): { activeSceneIndex: number; selectedIds: string[] } };
+  storeApi: { getState(): { activeSceneIndex: number; selectedIds: string[]; setInspectorTab: (tab: 'layers' | 'canvas' | 'scenes') => void } };
   toolProp: ToolType | undefined;
   internalTool: ToolType;
   isEditing: boolean;
@@ -123,9 +123,8 @@ export function useCanvasClickHandler(opts: UseCanvasClickHandlerOptions): void 
         if (currentIds.length > 0) {
           selectionRef.current?.clearSelection();
         } else {
-          // Nothing hit and nothing selected → select root layout container
-          const rootEl = scene.elements.find((el) => el.type === 'container');
-          if (rootEl) selectionRef.current?.select(rootEl.id, false);
+          // 아무것도 선택되지 않은 빈 캔버스 클릭 → Canvas 탭 활성화
+          storeApi.getState().setInspectorTab('canvas');
         }
       }
     };

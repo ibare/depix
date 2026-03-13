@@ -3,18 +3,19 @@
  *
  * Orchestrates the full DSL → DepixIR pipeline:
  *   1. Parse (tokenize + parse → AST)
- *   2. Resolve theme (semantic tokens → concrete values)
- *   3. Emit IR (layout + edge routing + element conversion)
+ *   2. Resolve data, flatten hierarchy, resolve theme
+ *   3. Emit IR — all blocks go through the unified scene pipeline:
+ *      - scene {} blocks → emitSceneIR (slot-based layout)
+ *      - diagram blocks  → emitIR (diagram pipeline), pre-processed and injected
  *
- * When @presentation directive is present, switches to scene mode:
- *   1. Parse → 2. Flatten → 3. Resolve theme → 4. Scene layout + emit
+ * @presentation directive is a no-op and no longer gates compilation mode.
  */
 
-import type { DepixIR } from '../ir/types.js';
+import type { DepixIR, IRScene } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
 import type { SceneTheme } from '../theme/scene-theme.js';
 import { defaultSceneTheme } from '../theme/scene-theme.js';
-import type { ASTDocument, ParseError } from './ast.js';
+import type { ASTBlock, ASTDocument, ParseError } from './ast.js';
 import { parse } from './parser.js';
 import { resolveData } from './data/resolve-data.js';
 import { flattenHierarchy } from './passes/flatten-hierarchy.js';
@@ -34,7 +35,7 @@ import { extractOverrides, applyOverridesToIR } from './passes/apply-overrides.j
 export interface CompileOptions {
   /** Theme to use for resolving semantic tokens. Defaults to the light theme. */
   theme?: DepixTheme;
-  /** Scene theme for presentation mode. Defaults to defaultSceneTheme. */
+  /** Scene theme for scene layout rendering. Defaults to defaultSceneTheme. */
   sceneTheme?: SceneTheme;
 }
 
@@ -58,7 +59,9 @@ export interface CompileResult {
  * This is the main entry point for the Depix compiler. It runs the full
  * pipeline: parse → theme resolution → layout → edge routing → IR emission.
  *
- * When @presentation directive is found, switches to scene compilation mode.
+ * All DSL compiles through the unified scene pipeline. Diagram blocks
+ * (flow, stack, grid, etc.) are pre-processed via the diagram pipeline
+ * and injected into emitSceneIR as pre-resolved IRScene objects.
  *
  * @param dsl     - The DSL source string.
  * @param options - Optional compiler configuration.
@@ -66,6 +69,7 @@ export interface CompileResult {
  */
 export function compile(dsl: string, options?: CompileOptions): CompileResult {
   const theme = options?.theme ?? lightTheme;
+  const sceneTheme = options?.sceneTheme ?? defaultSceneTheme;
 
   // 1. Parse DSL → AST
   const { ast, errors } = parse(dsl);
@@ -79,30 +83,53 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 4. Resolve theme (semantic tokens → concrete values)
   const resolvedAST = resolveTheme(flatAST, theme);
 
-  // 5. Check for presentation mode
-  const isPresentation = resolvedAST.directives.some(d => d.key === 'presentation');
-
-  // 5b. Extract @overrides from AST (before IR emission, applied after)
+  // 5. Extract @overrides from AST (applied after IR emission)
   const overrides = extractOverrides(resolvedAST);
 
-  if (isPresentation) {
-    // Scene pipeline: scene layout → scene IR emission
-    const sceneTheme = options?.sceneTheme ?? defaultSceneTheme;
-    let ir = emitSceneIR(resolvedAST, theme, sceneTheme);
-    // 7. Post-processing: apply @overrides to IR bounds
-    if (overrides.size > 0) {
-      ir = applyOverridesToIR(ir, overrides);
+  // 6. Pre-process diagram blocks and slot-less scene blocks through the diagram
+  //    pipeline. Results are injected into emitSceneIR at the correct indices.
+  //
+  //    Two cases route through emitIR:
+  //    a) Non-scene blockTypes (flow, stack, etc.) — explicit diagram blocks.
+  //    b) Scene blocks with NO slotted children — the parser wraps standalone
+  //       elements (node, badge, box, etc.) in an implicit blockType:'scene',
+  //       but planScene requires slot assignments to allocate bounds; without
+  //       them every element is dropped. Route these through emitIR instead.
+  const diagramScenes = new Map<number, IRScene>();
+  for (let i = 0; i < resolvedAST.scenes.length; i++) {
+    const block = resolvedAST.scenes[i];
+    if (block.blockType !== 'scene' || !hasSlottedContent(block)) {
+      const singleDoc: ASTDocument = { directives: resolvedAST.directives, scenes: [block] };
+      const diagramIR = emitIR(singleDoc, theme);
+      if (diagramIR.scenes[0]) {
+        diagramScenes.set(i, { ...diagramIR.scenes[0], layout: { type: 'full' } });
+      }
     }
-    return { ir, errors };
   }
 
-  // 6. Standard pipeline: diagram layout + edge routing + IR emission
-  let ir = emitIR(resolvedAST, theme);
+  // 7. Unified scene pipeline — handles both scene blocks and injected diagram scenes
+  let ir = emitSceneIR(resolvedAST, theme, sceneTheme, diagramScenes);
 
-  // 7. Post-processing: apply @overrides to IR bounds
+  // 8. Post-processing: apply @overrides to IR bounds
   if (overrides.size > 0) {
     ir = applyOverridesToIR(ir, overrides);
   }
 
   return { ir, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the scene block has at least one child with a slot assignment.
+ * Scene blocks without slotted children are "implicit scenes" (parser-created
+ * wrappers around standalone diagram content) and should be routed through
+ * the diagram pipeline (emitIR) rather than the slot-based scene pipeline.
+ */
+function hasSlottedContent(block: ASTBlock): boolean {
+  return block.children.some(
+    c => (c.kind === 'element' || c.kind === 'block') && c.slot !== undefined,
+  );
 }

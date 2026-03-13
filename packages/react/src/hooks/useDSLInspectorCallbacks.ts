@@ -189,7 +189,10 @@ export function useDSLInspectorCallbacks({
   const sceneElements = useMemo(() => {
     if (!ir) return [];
     const scene = ir.scenes[activeSceneIndex];
-    return scene?.elements ?? [];
+    // origin.sourceType === 'scene-background' 요소는 사용자 콘텐츠가 아님 — 레이어에서 숨김
+    return (scene?.elements ?? []).filter(
+      (el) => el.origin?.sourceType !== 'scene-background',
+    );
   }, [ir, activeSceneIndex]);
 
   return {
