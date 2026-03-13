@@ -14,6 +14,7 @@ import React, { useCallback, useMemo } from 'react';
 import type { DepixIR, DepixTheme } from '@depix/core';
 import { addSlotContent as addSlotContentMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
+import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
 import { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
 import { InspectorPanel } from './components/editor/InspectorPanel.js';
 import { useDSLSync } from './hooks/useDSLSync.js';
@@ -66,6 +67,7 @@ export function DepixDSLEditor({
   // --- Store state ---------------------------------------------------------
   const activeSceneIndex = useEditorStore((s) => s.activeSceneIndex);
   const selectedElementId = useEditorStore((s) => s.selectedIds[0] ?? null);
+  const showSlotAreas = useEditorStore((s) => s.showSlotAreas);
   const storeApi = useEditorStoreApi();
 
   // --- Derived state from DSL ----------------------------------------------
@@ -155,6 +157,9 @@ export function DepixDSLEditor({
           zIndex: 10000,
         }}
       >
+        {showSlotAreas && currentSceneSlots.length > 0 && (
+          <LayoutAreaOverlay slots={currentSceneSlots} transform={transform} />
+        )}
         <SlotOverlay
           slots={currentSceneSlots}
           transform={transform}

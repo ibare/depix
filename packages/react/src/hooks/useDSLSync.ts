@@ -6,10 +6,10 @@
  */
 
 import { useMemo } from 'react';
-import type { DepixIR, IRBounds } from '@depix/core';
+import type { DepixIR, IRBounds, SceneLayoutConfig, SceneLayoutType } from '@depix/core';
 import type { DepixTheme } from '@depix/core';
 import type { ParseError } from '@depix/core';
-import { compile, parse } from '@depix/core';
+import { compile, parse, layoutScene, defaultSceneTheme } from '@depix/core';
 
 export interface SlotInfo {
   name: string;
@@ -50,22 +50,50 @@ export function useDSLSync(
     }
   }, [dsl, options?.theme]);
 
+  const parsedAst = useMemo(() => {
+    if (!dsl.trim() || !compiled.ir) return null;
+    try { return parse(dsl).ast; } catch { return null; }
+  }, [dsl, compiled.ir]);
+
   const scenes = useMemo<SceneInfo[]>(() => {
-    if (!compiled.ir) return [];
-    // Parse AST to get scene titles
-    const { ast } = parse(dsl);
-    return ast.scenes.map((scene, index) => ({
+    if (!parsedAst) return [];
+    return parsedAst.scenes.map((scene, index) => ({
       index,
       title: scene.label ?? `Scene ${index + 1}`,
     }));
-  }, [dsl, compiled.ir]);
+  }, [parsedAst]);
 
   const currentSceneSlots = useMemo<SlotInfo[]>(() => {
-    // Slot info extraction from IR is a future enhancement.
-    // For now, return empty array — slots will be populated
-    // when scene layout integration is complete.
-    return [];
-  }, [compiled.ir, activeSceneIndex]);
+    if (!compiled.ir || !parsedAst) return [];
+    const scene = compiled.ir.scenes[activeSceneIndex];
+    if (!scene?.layout) return [];
+
+    const layoutType = scene.layout.type as SceneLayoutType;
+    const sceneBlock = parsedAst.scenes[activeSceneIndex];
+    const cellCount = sceneBlock
+      ? sceneBlock.children.filter(
+          (n) => n.kind !== 'edge' && 'slot' in n && (n as { slot?: string }).slot === 'cell',
+        ).length
+      : 0;
+
+    const config: SceneLayoutConfig = {
+      bounds: { x: 0, y: 0, w: 100, h: 100 },
+      padding: defaultSceneTheme.layout.scenePadding,
+      headerHeight: defaultSceneTheme.layout.headingHeight,
+      gap: defaultSceneTheme.layout.columnGap,
+      ratio: scene.layout.ratio,
+      direction: scene.layout.direction,
+    };
+
+    const result = layoutScene(layoutType, config, cellCount);
+    const slots: SlotInfo[] = [];
+    for (const [slotName, boundsArr] of result.slotBounds) {
+      for (const bounds of boundsArr) {
+        slots.push({ name: slotName, bounds, isEmpty: false });
+      }
+    }
+    return slots;
+  }, [compiled.ir, parsedAst, activeSceneIndex]);
 
   return {
     ir: compiled.ir,

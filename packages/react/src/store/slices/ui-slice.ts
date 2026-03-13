@@ -17,6 +17,7 @@ export const createUISlice: StateCreator<
   pickerExpanded: false,
   panelPositions: null,
   editDims: null,
+  showSlotAreas: false,
 
   setIsEditing: (editing) => set({ isEditing: editing }),
   setIsHovered: (hovered) => set({ isHovered: hovered }),
@@ -28,6 +29,7 @@ export const createUISlice: StateCreator<
   setPickerExpanded: (expanded) => set({ pickerExpanded: expanded }),
   setPanelPositions: (positions) => set({ panelPositions: positions }),
   setEditDims: (dims) => set({ editDims: dims }),
+  setShowSlotAreas: (v) => set({ showSlotAreas: v }),
 
   enterEditMode: (dims) =>
     set({
@@ -45,5 +47,6 @@ export const createUISlice: StateCreator<
       pickerExpanded: false,
       objectPanelOpen: false,
       inspectorTab: 'layers',
+      showSlotAreas: false,
     }),
 });

@@ -23,6 +23,7 @@ export interface UISlice {
   pickerExpanded: boolean;
   panelPositions: { toolbar: { top: number; left: number }; panel: { top: number; left: number } } | null;
   editDims: { width: number; height: number } | null;
+  showSlotAreas: boolean;
 
   setIsEditing: (editing: boolean) => void;
   setIsHovered: (hovered: boolean) => void;
@@ -34,6 +35,7 @@ export interface UISlice {
   setPickerExpanded: (expanded: boolean) => void;
   setPanelPositions: (positions: { toolbar: { top: number; left: number }; panel: { top: number; left: number } } | null) => void;
   setEditDims: (dims: { width: number; height: number } | null) => void;
+  setShowSlotAreas: (v: boolean) => void;
   enterEditMode: (dims: { width: number; height: number }) => void;
   exitEditMode: () => void;
 }

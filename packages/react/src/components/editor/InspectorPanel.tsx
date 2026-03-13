@@ -80,6 +80,7 @@ export function InspectorPanel({
 }: InspectorPanelProps) {
   const activeTab = useEditorStore((s) => s.inspectorTab);
   const objectOpen = useEditorStore((s) => s.objectPanelOpen);
+  const showSlotAreas = useEditorStore((s) => s.showSlotAreas);
   const storeApi = useEditorStoreApi();
   const setActiveTab = storeApi.getState().setInspectorTab;
   const setObjectOpen = storeApi.getState().setObjectPanelOpen;
@@ -287,6 +288,26 @@ export function InspectorPanel({
                   currentLayout={String(currentLayout)}
                   onLayoutChange={callbacks.onLayoutChange}
                 />
+                <div style={slotAreaRowStyle}>
+                  <span style={{ fontSize: 11, color: EDITOR_COLORS.textMuted }}>영역 확인</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showSlotAreas}
+                    onClick={() => storeApi.getState().setShowSlotAreas(!showSlotAreas)}
+                    style={{
+                      ...toggleTrackStyle,
+                      backgroundColor: showSlotAreas ? EDITOR_COLORS.accent : EDITOR_COLORS.bgLighter,
+                    }}
+                  >
+                    <span
+                      style={{
+                        ...toggleThumbStyle,
+                        left: showSlotAreas ? 14 : 2,
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
               <CanvasTab
                 aspectRatio={ir?.meta?.aspectRatio ?? { width: 16, height: 9 }}
@@ -504,4 +525,33 @@ const bodyStyle: React.CSSProperties = {
 const layoutSectionStyle: React.CSSProperties = {
   padding: '8px 10px',
   borderBottom: `1px solid ${EDITOR_COLORS.border}`,
+};
+
+const slotAreaRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginTop: 8,
+};
+
+const toggleTrackStyle: React.CSSProperties = {
+  position: 'relative',
+  width: 28,
+  height: 16,
+  borderRadius: 8,
+  border: 'none',
+  cursor: 'pointer',
+  padding: 0,
+  flexShrink: 0,
+  transition: 'background-color 150ms',
+};
+
+const toggleThumbStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 2,
+  width: 12,
+  height: 12,
+  borderRadius: '50%',
+  backgroundColor: '#fff',
+  transition: 'left 150ms',
 };
