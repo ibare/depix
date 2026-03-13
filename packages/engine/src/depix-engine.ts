@@ -70,6 +70,8 @@ export class DepixEngine {
   private transform: CoordinateTransform;
   private availableSize: { width: number; height: number } | null = null;
   private _debugMode = false;
+  private overlayLayer: Konva.Layer | null = null;
+  private editTransformer: Konva.Transformer | null = null;
 
   constructor(options: DepixEngineOptions) {
     const container =
@@ -239,8 +241,69 @@ export class DepixEngine {
     return this.transform;
   }
 
+  // ---- Edit overlay ---------------------------------------------------------
+
+  /**
+   * Create an overlay Layer and Transformer for edit mode.
+   * Destroys any existing overlay first.
+   * isDSLMode=true → border-only indicator; false → full handle UI.
+   */
+  createEditOverlay(isDSLMode: boolean): void {
+    this.destroyEditOverlay();
+    const layer = new Konva.Layer();
+    this.stage.add(layer);
+    const transformer = new Konva.Transformer(isDSLMode ? {
+      borderStroke: '#3b82f6',
+      borderStrokeWidth: 1.5,
+      borderDash: [4, 4],
+      enabledAnchors: [],
+      rotateEnabled: false,
+      resizeEnabled: false,
+    } : {
+      borderStroke: '#3b82f6',
+      borderStrokeWidth: 1,
+      anchorFill: '#ffffff',
+      anchorStroke: '#3b82f6',
+      anchorStrokeWidth: 2,
+      anchorSize: 8,
+      anchorCornerRadius: 2,
+      keepRatio: false,
+      rotateEnabled: true,
+      rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
+      rotationSnapTolerance: 5,
+    });
+    layer.add(transformer);
+    this.overlayLayer = layer;
+    this.editTransformer = transformer;
+    layer.batchDraw();
+  }
+
+  /** Destroy the overlay Layer and Transformer, releasing Konva resources. */
+  destroyEditOverlay(): void {
+    if (this.editTransformer) {
+      this.editTransformer.nodes([]);
+      this.editTransformer.destroy();
+      this.editTransformer = null;
+    }
+    if (this.overlayLayer) {
+      this.overlayLayer.destroy();
+      this.overlayLayer = null;
+    }
+  }
+
+  /** Get the Transformer created by createEditOverlay, or null if not in edit mode. */
+  getEditTransformer(): Konva.Transformer | null {
+    return this.editTransformer;
+  }
+
+  /** Get the overlay Layer created by createEditOverlay, or null if not in edit mode. */
+  getOverlayLayer(): Konva.Layer | null {
+    return this.overlayLayer;
+  }
+
   /** Destroy the engine and its Konva stage. */
   destroy(): void {
+    this.destroyEditOverlay();
     this.stage.destroy();
   }
 

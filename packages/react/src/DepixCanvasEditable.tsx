@@ -28,7 +28,7 @@ import React, {
   forwardRef,
   useId,
 } from 'react';
-import type { DepixIR, IRElement, IRContainer, IRStyle, IRBounds, IRBackground } from '@depix/core';
+import type { DepixIR, IRElement, IRStyle, IRBounds, IRBackground } from '@depix/core';
 import { CaretLeft, CaretRight, CornersOut, PencilSimple } from '@phosphor-icons/react';
 import { findElement, compile } from '@depix/core';
 import { DepixEngine, fitToAspectRatio } from '@depix/engine';
@@ -46,6 +46,8 @@ import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
 import { DepixDSLEditor } from './DepixDSLEditor.js';
 import { EditorStoreProvider, useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
+import { useCanvasClickHandler } from './hooks/useCanvasClickHandler.js';
+import { useKonvaTransformer } from './hooks/useKonvaTransformer.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,31 +162,6 @@ const pillIconBtnStyle: React.CSSProperties = {
   lineHeight: 0,
   transition: 'background-color 0.15s',
 };
-
-// ---------------------------------------------------------------------------
-// IR hit detection helper
-// ---------------------------------------------------------------------------
-
-/**
- * Find the deepest IR element (non-edge) at a given IR coordinate point.
- * For containers, recursively checks children first (innermost match wins).
- * Edges are skipped — they are handled by Konva's line-stroke hit detection.
- */
-function findIRElementAtPoint(elements: IRElement[], irX: number, irY: number): IRElement | null {
-  for (let i = elements.length - 1; i >= 0; i--) {
-    const el = elements[i];
-    if (el.type === 'edge') continue;
-    const { x, y, w, h } = el.bounds;
-    if (irX >= x && irX <= x + w && irY >= y && irY <= y + h) {
-      if (el.type === 'container') {
-        const child = findIRElementAtPoint((el as IRContainer).children, irX, irY);
-        if (child) return child;
-      }
-      return el;
-    }
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -330,11 +307,6 @@ const DepixCanvasEditableInner = forwardRef<
   /** True when editing functionality is active (self-managed or external tool). */
   const isEditActive = isEditing || !!toolProp;
 
-  // ---- Konva overlay refs (created only in edit mode) --------------------
-
-  const overlayLayerRef = useRef<any>(null);
-  const transformerRef = useRef<any>(null);
-
   // ---- Initialize managers on mount via store ----------------------------
 
   useEffect(() => {
@@ -399,83 +371,19 @@ const DepixCanvasEditableInner = forwardRef<
     engine.setScene(currentSceneIndex);
   }, [currentSceneIndex]);
 
-  // ---- Canvas click → element selection (via Konva Stage) ----------------
-  // Only active when in edit mode — prevents selection in read mode.
+  // ---- Canvas click → element selection ----------------------------------
 
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine || readOnly || !isEditActive) return;
-
-    let stage: any;
-    try {
-      stage = engine.getStage();
-    } catch {
-      return;
-    }
-    if (!stage || typeof stage.on !== 'function') return;
-
-    const handleStageClick = (e: any) => {
-      // Only handle selection when in select mode
-      const currentTool = toolProp ?? internalTool;
-      if (currentTool !== 'select') return;
-
-      const shiftKey = e.evt?.shiftKey ?? false;
-
-      // Step 1: Konva walk-up — reliable ONLY for edges (line stroke hit detection)
-      const target = e.target;
-      if (target && target !== stage) {
-        let node = target;
-        while (node && node !== stage) {
-          const id = typeof node.id === 'function' ? node.id() : node.id;
-          if (id && typeof id === 'string' && id.startsWith('el-')) {
-            const element = irRef.current ? findElement(irRef.current, id) : null;
-            if (element?.type === 'edge') {
-              selectionRef.current?.select(id, shiftKey);
-              return;
-            }
-            break; // non-edge el- found — fall through to IR detection
-          }
-          node = node.parent;
-        }
-      }
-
-      // Step 2: IR coordinate-based hit detection for shapes/containers/text
-      const container = containerRef.current;
-      const engine = engineRef.current;
-      if (!container || !engine) return;
-
-      const nativeEvent = e.evt as MouseEvent | undefined;
-      if (!nativeEvent) return;
-
-      const rect = container.getBoundingClientRect();
-      const pixelX = nativeEvent.clientX - rect.left;
-      const pixelY = nativeEvent.clientY - rect.top;
-      const irPoint = engine.getTransform().toRelativePoint(pixelX, pixelY);
-
-      const sceneIdx = storeApi.getState().activeSceneIndex;
-      const scene = irRef.current?.scenes[sceneIdx];
-      if (!scene) return;
-
-      const hit = findIRElementAtPoint(scene.elements, irPoint.x, irPoint.y);
-      if (hit) {
-        selectionRef.current?.select(hit.id, shiftKey);
-      } else {
-        const currentIds = storeApi.getState().selectedIds;
-        if (currentIds.length > 0) {
-          selectionRef.current?.clearSelection();
-        } else {
-          // Nothing hit and nothing selected → select root layout container
-          const rootEl = scene.elements.find((el) => el.type === 'container');
-          if (rootEl) selectionRef.current?.select(rootEl.id, false);
-        }
-      }
-    };
-
-    stage.on('click', handleStageClick);
-    return () => {
-      stage.off('click', handleStageClick);
-    };
-  }, [readOnly, toolProp, internalTool, isEditing]);
+  useCanvasClickHandler({
+    engineRef,
+    containerRef,
+    irRef,
+    selectionRef,
+    storeApi,
+    toolProp,
+    internalTool,
+    isEditing,
+    readOnly,
+  });
 
   // ---- Responsive resize -------------------------------------------------
 
@@ -497,156 +405,17 @@ const DepixCanvasEditableInner = forwardRef<
     return () => observer.disconnect();
   }, []);
 
-  // ---- Konva overlay: create/destroy Transformer on edit mode change ------
-  // Uses Konva.Transformer (like the original) instead of manual drawing.
-  // Only active when in edit mode.
+  // ---- Konva Transformer lifecycle + node sync ---------------------------
 
-  useEffect(() => {
-    if (!isEditActive) {
-      // Teardown on edit mode exit
-      if (transformerRef.current) {
-        transformerRef.current.nodes([]);
-        transformerRef.current.destroy();
-        transformerRef.current = null;
-      }
-      if (overlayLayerRef.current) {
-        overlayLayerRef.current.destroy();
-        overlayLayerRef.current = null;
-      }
-      return;
-    }
-
-    const engine = engineRef.current;
-    if (!engine) return;
-
-    let stage: any;
-    try {
-      stage = engine.getStage();
-    } catch {
-      return;
-    }
-    if (!stage || typeof stage.add !== 'function') return;
-
-    let cancelled = false;
-
-    import('konva').then((mod) => {
-      if (cancelled) return;
-      const K = mod.default ?? mod;
-
-      const layer = new K.Layer();
-      stage.add(layer);
-
-      const transformer = new K.Transformer(isDSLMode ? {
-        // DSL mode: border-only, no handles
-        borderStroke: '#3b82f6',
-        borderStrokeWidth: 1.5,
-        borderDash: [4, 4],
-        enabledAnchors: [],
-        rotateEnabled: false,
-        resizeEnabled: false,
-      } : {
-        // Freeform mode: full handles
-        borderStroke: '#3b82f6',
-        borderStrokeWidth: 1,
-        anchorFill: '#ffffff',
-        anchorStroke: '#3b82f6',
-        anchorStrokeWidth: 2,
-        anchorSize: 8,
-        anchorCornerRadius: 2,
-        keepRatio: false,
-        rotateEnabled: true,
-        rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
-        rotationSnapTolerance: 5,
-      });
-      layer.add(transformer);
-
-      overlayLayerRef.current = layer;
-      transformerRef.current = transformer;
-      layer.batchDraw();
-    }).catch(() => {
-      // Konva not available (test environment)
-    });
-
-    return () => {
-      cancelled = true;
-      if (transformerRef.current) {
-        transformerRef.current.nodes([]);
-        transformerRef.current.destroy();
-        transformerRef.current = null;
-      }
-      if (overlayLayerRef.current) {
-        overlayLayerRef.current.destroy();
-        overlayLayerRef.current = null;
-      }
-    };
-  }, [isEditing, toolProp, isDSLMode]);
-
-  // ---- Update Transformer nodes when selection changes -------------------
-  // Finds rendered Konva nodes by element ID and attaches Transformer.
-  // Configures Transformer based on HandleManager definition.
-
-  useEffect(() => {
-    const transformer = transformerRef.current;
-    if (!transformer || !isEditActive) return;
-
-    const engine = engineRef.current;
-    if (!engine) return;
-
-    let stage: any;
-    try {
-      stage = engine.getStage();
-    } catch {
-      return;
-    }
-    if (!stage) return;
-
-    if (selectedIds.length === 0) {
-      transformer.nodes([]);
-      overlayLayerRef.current?.batchDraw();
-      return;
-    }
-
-    // Find rendered Konva nodes by element ID
-    const nodes: any[] = [];
-    for (const id of selectedIds) {
-      const node = stage.findOne(`#${id}`);
-      if (node) nodes.push(node);
-    }
-
-    if (nodes.length === 0) {
-      transformer.nodes([]);
-      overlayLayerRef.current?.batchDraw();
-      return;
-    }
-
-    // Configure Transformer based on mode
-    if (isDSLMode) {
-      // DSL mode: border-only selection indicator, no manipulation
-      transformer.enabledAnchors([]);
-      transformer.rotateEnabled(false);
-      transformer.resizeEnabled(false);
-    } else {
-      // Freeform mode: configure from HandleManager definition
-      const elements = selectedIds
-        .map((id) => findElement(ir, id))
-        .filter((el): el is IRElement => el !== undefined);
-
-      handleRef.current?.updateForElements(elements);
-      const def = handleRef.current?.getDefinition();
-
-      if (def?.handleType === 'bounding-box') {
-        transformer.keepRatio(def.keepRatio ?? false);
-        transformer.rotateEnabled(def.rotateEnabled ?? true);
-        if (def.enabledAnchors) {
-          transformer.enabledAnchors(def.enabledAnchors);
-        }
-      }
-    }
-
-    transformer.nodes(nodes);
-    overlayLayerRef.current?.moveToTop();
-    overlayLayerRef.current?.batchDraw();
-  }, [selectedIds, ir, isEditing, toolProp]);
+  useKonvaTransformer({
+    engineRef,
+    ir,
+    isEditing,
+    toolProp,
+    isDSLMode,
+    selectedIds,
+    handleRef,
+  });
 
   // ---- Clear selection when leaving edit mode ----------------------------
 
