@@ -230,12 +230,14 @@ export const LayersTab: React.FC<LayersTabProps> = ({
     return <div style={emptyStyle}>No elements</div>;
   }
 
-  // Show elements in reverse order (top element first, like Figma)
-  const reversed = [...elements].reverse();
+  // scene-slot layouts are ordered by visual position (top→bottom in DSL),
+  // so preserve original order. Diagram mode: reverse to show highest z-order first.
+  const hasSlotLayout = elements.some((el) => el.origin?.sourceType === 'scene-slot');
+  const displayElements = hasSlotLayout ? elements : [...elements].reverse();
 
   return (
     <ul style={listStyle} data-tab="layers">
-      {reversed.map((el) => (
+      {displayElements.map((el) => (
         <LayerItem
           key={el.id}
           element={el}
