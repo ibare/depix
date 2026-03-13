@@ -12,7 +12,7 @@ export function ScenePage({ debug }: { debug?: boolean }) {
       <section className="scene-page__hero">
         <h1 className="scene-page__title">Slide DSL</h1>
         <p className="scene-page__subtitle">
-          <code>@presentation</code> 디렉티브로 슬라이드 모드 활성화.
+          <code>scene</code> 블록으로 슬라이드를 나누고,
           14가지 슬롯 기반 레이아웃으로 프레젠테이션을 선언적으로 작성한다.
         </p>
       </section>

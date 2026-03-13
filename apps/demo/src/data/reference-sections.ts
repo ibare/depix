@@ -97,36 +97,6 @@ scene "Content" {
         ],
       },
       {
-        id: 'presentation',
-        title: '@presentation',
-        description: '프레젠테이션 모드를 활성화한다. scene 블록과 함께 사용하여 슬라이드 기반 프레젠테이션을 만든다.',
-        syntax: '@presentation',
-        examples: [
-          {
-            label: '프레젠테이션 모드',
-            dsl: `@presentation
-
-scene "Title" {
-  layout: center
-  body: column {
-    heading "Depix Presentation"
-    label "DSL로 슬라이드를 선언적으로 작성"
-  }
-}
-
-scene "Content" {
-  layout: header
-  header: heading "주요 기능"
-  body: bullet {
-    item "선언적 DSL"
-    item "시맨틱 컬러"
-    item "다양한 레이아웃"
-  }
-}`,
-          },
-        ],
-      },
-      {
         id: 'style',
         title: '@style',
         description: '렌더링 스타일을 지정한다. sketch를 사용하면 손으로 그린 듯한 느낌을 준다.',
@@ -156,8 +126,7 @@ flow direction:right {
         examples: [
           {
             label: 'Fade 전환',
-            dsl: `@presentation
-@transition fade
+            dsl: `@transition fade
 
 scene "First" {
   layout: center
@@ -179,8 +148,7 @@ scene "Second" {
         examples: [
           {
             label: '@data + table + chart',
-            dsl: `@presentation
-
+            dsl: `
 @data "revenue" {
   "Quarter" "Revenue"
   "Q1" 120
@@ -788,8 +756,7 @@ stack direction:col gap:sm {
         examples: [
           {
             label: 'Full 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "System" {
   layout: full
   body: flow direction:right {
@@ -809,8 +776,7 @@ scene "System" {
         examples: [
           {
             label: 'Center 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Title" {
   layout: center
   body: column {
@@ -829,8 +795,7 @@ scene "Title" {
         examples: [
           {
             label: 'Split 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Compare" {
   layout: split
   left: column {
@@ -855,8 +820,7 @@ scene "Compare" {
         examples: [
           {
             label: 'Rows 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Stack" {
   layout: rows
   top: heading "상단 영역"
@@ -873,8 +837,7 @@ scene "Stack" {
         examples: [
           {
             label: 'Sidebar 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Dashboard" {
   layout: sidebar
   main: heading "메인 콘텐츠"
@@ -894,8 +857,7 @@ scene "Dashboard" {
         examples: [
           {
             label: 'Header 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Key Points" {
   layout: header
   header: heading "주요 특징"
@@ -917,8 +879,7 @@ scene "Key Points" {
         examples: [
           {
             label: 'Header-split 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Comparison" {
   layout: header-split
   header: heading "Before vs After"
@@ -944,8 +905,7 @@ scene "Comparison" {
         examples: [
           {
             label: 'Header-rows 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Analysis" {
   layout: header-rows
   header: heading "분석 결과"
@@ -963,8 +923,7 @@ scene "Analysis" {
         examples: [
           {
             label: 'Header-sidebar 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Overview" {
   layout: header-sidebar
   header: heading "Dashboard"
@@ -985,8 +944,7 @@ scene "Overview" {
         examples: [
           {
             label: 'Grid 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Features" {
   layout: grid
   cell: heading "Feature 1"
@@ -1005,8 +963,7 @@ scene "Features" {
         examples: [
           {
             label: 'Header-grid 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Metrics" {
   layout: header-grid
   header: heading "KPI Dashboard"
@@ -1025,8 +982,7 @@ scene "Metrics" {
         examples: [
           {
             label: 'Focus 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Hero" {
   layout: focus
   focus: heading "핵심 기능"
@@ -1045,8 +1001,7 @@ scene "Hero" {
         examples: [
           {
             label: 'Header-focus 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Product" {
   layout: header-focus
   header: heading "Product Line"
@@ -1065,8 +1020,7 @@ scene "Product" {
         examples: [
           {
             label: 'Custom 레이아웃',
-            dsl: `@presentation
-
+            dsl: `
 scene "Freeform" {
   layout: custom
   cell: heading "Section A"

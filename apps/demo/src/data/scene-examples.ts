@@ -15,8 +15,7 @@ export const SCENE_EXAMPLES: SceneExample[] = [
     title: 'Full Layout',
     description: '전체 캔버스를 body 슬롯 하나로 사용. 다이어그램을 꽉 채워 배치할 때 적합.',
     layout: 'full',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "system" {
   layout: full
@@ -34,8 +33,7 @@ scene "system" {
     title: 'Center Layout',
     description: '중앙에 내용을 배치. 타이틀, 인용문, 강조 메시지에 적합.',
     layout: 'center',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "cover" {
   layout: center
@@ -51,8 +49,7 @@ scene "cover" {
     title: 'Split Layout',
     description: '좌우 2분할. left, right 슬롯으로 나란히 배치.',
     layout: 'split',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "compare" {
   layout: split
@@ -75,8 +72,7 @@ scene "compare" {
     title: 'Rows Layout',
     description: '상하 2분할. top, bottom 슬롯으로 위아래 배치.',
     layout: 'rows',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "summary" {
   layout: rows
@@ -96,8 +92,7 @@ scene "summary" {
     title: 'Sidebar Layout',
     description: '메인 + 사이드바. main은 넓게, side는 좁게 배치.',
     layout: 'sidebar',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "dashboard" {
   layout: sidebar
@@ -119,8 +114,7 @@ scene "dashboard" {
     title: 'Header Layout',
     description: '상단 헤더 + 하단 본문. 가장 기본적인 프레젠테이션 레이아웃.',
     layout: 'header',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "agenda" {
   layout: header
@@ -138,8 +132,7 @@ scene "agenda" {
     title: 'Header-Split Layout',
     description: '상단 헤더 + 좌우 분할. 비교, 2단 구성에 적합.',
     layout: 'header-split',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "compare" {
   layout: header-split
@@ -163,8 +156,7 @@ scene "compare" {
     title: 'Header-Rows Layout',
     description: '상단 헤더 + 상하 분할 본문.',
     layout: 'header-rows',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "analysis" {
   layout: header-rows
@@ -186,8 +178,7 @@ scene "analysis" {
     title: 'Header-Sidebar Layout',
     description: '상단 헤더 + 메인/사이드바 본문.',
     layout: 'header-sidebar',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "workspace" {
   layout: header-sidebar
@@ -209,8 +200,7 @@ scene "workspace" {
     title: 'Grid Layout',
     description: '균등 그리드. cell 슬롯을 반복하여 N개 셀 배치.',
     layout: 'grid',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "overview" {
   layout: grid
@@ -237,8 +227,7 @@ scene "overview" {
     title: 'Header-Grid Layout',
     description: '상단 헤더 + 그리드 본문. 지표, 아이콘 그리드에 적합.',
     layout: 'header-grid',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "metrics" {
   layout: header-grid
@@ -253,8 +242,7 @@ scene "metrics" {
     title: 'Focus Layout',
     description: '중심 포커스 + 하단 셀들. 주요 항목 강조에 적합.',
     layout: 'focus',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "spotlight" {
   layout: focus
@@ -272,8 +260,7 @@ scene "spotlight" {
     title: 'Header-Focus Layout',
     description: '헤더 + 포커스 + 셀. 가장 풍부한 계층 구조.',
     layout: 'header-focus',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "product" {
   layout: header-focus
@@ -289,8 +276,7 @@ scene "product" {
     title: 'Custom Layout',
     description: '자유 배치. cell 슬롯이 세로로 쌓인다. layout 미지정 시 기본값.',
     layout: 'custom',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "agenda" {
   layout: custom
@@ -308,8 +294,7 @@ scene "agenda" {
     title: 'Quote Scene',
     description: '인용문을 중앙에 크게 배치하는 레이아웃.',
     layout: 'center',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "inspiration" {
   layout: center
@@ -323,8 +308,7 @@ scene "inspiration" {
     title: 'Three Column Scene',
     description: '3분할 레이아웃으로 기능을 나열한다.',
     layout: 'header-grid',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "features" {
   layout: header-grid
@@ -351,8 +335,7 @@ scene "features" {
     title: 'Image + Text Scene',
     description: '이미지와 텍스트를 좌우로 배치하는 레이아웃. 제품 소개에 적합.',
     layout: 'header-split',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "product" {
   layout: header-split
@@ -370,8 +353,7 @@ scene "product" {
     title: 'Icon Grid Scene',
     description: '아이콘과 설명을 그리드로 배치. SaaS 기능 소개에 적합.',
     layout: 'header-grid',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "features" {
   layout: header-grid
@@ -387,8 +369,7 @@ scene "features" {
     title: 'Timeline Scene',
     description: '수평 타임라인으로 단계별 프로세스를 보여주는 레이아웃.',
     layout: 'header-grid',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "roadmap" {
   layout: header-grid
@@ -404,8 +385,7 @@ scene "roadmap" {
     title: 'Comparison Scene',
     description: 'Before/After 비교 레이아웃. 변화 전후를 나란히 보여준다.',
     layout: 'header-split',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "comparison" {
   layout: header-split
@@ -431,8 +411,7 @@ scene "comparison" {
     title: 'Full Presentation (5 Slides)',
     description: '여러 레이아웃을 조합한 완성된 프레젠테이션 예시.',
     layout: 'center',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 @transition fade
 
 scene "title" {
@@ -485,8 +464,7 @@ scene "closing" {
     title: 'Table Scene',
     description: '데이터를 표로 시각화하는 레이아웃. 인라인 데이터를 바로 정의한다.',
     layout: 'header',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "metrics" {
   layout: header
@@ -505,8 +483,7 @@ scene "metrics" {
     title: 'Chart Scene',
     description: '@data로 정의한 데이터를 차트로 시각화한다.',
     layout: 'header',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 @data "revenue" {
   "Quarter" "Revenue" "Profit"
@@ -537,8 +514,7 @@ scene "trend" {
     title: 'Flow Diagram Scene',
     description: 'scene 안에 flow 다이어그램을 직접 배치한다.',
     layout: 'full',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "architecture" {
   layout: full
@@ -561,8 +537,7 @@ scene "architecture" {
     title: 'Tree Diagram Scene',
     description: 'scene 안에 tree 다이어그램으로 조직도를 표현한다.',
     layout: 'full',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "org-chart" {
   layout: full
@@ -590,8 +565,7 @@ scene "org-chart" {
     title: 'Layers Diagram Scene',
     description: 'scene 안에 layers로 아키텍처 스택을 표현한다.',
     layout: 'full',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 
 scene "tech-stack" {
   layout: full
@@ -609,8 +583,7 @@ scene "tech-stack" {
     title: 'Mixed Diagrams (Multi-Scene)',
     description: '여러 scene에 서로 다른 다이어그램 유형을 배치한 프레젠테이션.',
     layout: 'center',
-    dsl: `@presentation
-@ratio 16:9
+    dsl: `@ratio 16:9
 @transition slide-left
 
 scene "cover" {

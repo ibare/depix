@@ -8,9 +8,7 @@ interface EditorPageProps {
   debug?: boolean;
 }
 
-const DEFAULT_DSL = `@presentation
-
-scene "Welcome" {
+const DEFAULT_DSL = `scene "Welcome" {
   layout: header
   header: heading "DSL Editor"
   body: bullet "Edit DSL on the left, see changes on the right"
