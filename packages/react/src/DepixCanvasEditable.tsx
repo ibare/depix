@@ -208,6 +208,8 @@ const DepixCanvasEditableInner = forwardRef<
 
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DepixEngine | null>(null);
+  const irRef = useRef(ir);
+  irRef.current = ir;
 
   // ---- Store access -------------------------------------------------------
 
@@ -393,9 +395,19 @@ const DepixCanvasEditableInner = forwardRef<
 
       const target = e.target;
 
-      // Click on empty stage → clear selection
+      // Click on empty stage
       if (target === stage) {
-        selectionRef.current?.clearSelection();
+        const currentIds = storeApi.getState().selectedIds;
+        if (currentIds.length > 0) {
+          // Something selected → deselect
+          selectionRef.current?.clearSelection();
+        } else {
+          // Nothing selected → select root layout container
+          const sceneIdx = storeApi.getState().activeSceneIndex;
+          const scene = irRef.current?.scenes[sceneIdx];
+          const rootEl = scene?.elements.find((el) => el.type === 'container');
+          if (rootEl) selectionRef.current?.select(rootEl.id, false);
+        }
         return;
       }
 
