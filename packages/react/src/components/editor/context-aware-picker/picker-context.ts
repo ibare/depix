@@ -6,7 +6,7 @@
  */
 
 import type { DepixIR, IRElement, IRBounds } from '@depix/core';
-import { findElement } from '@depix/core';
+import { findElement, PICKER_BLOCK_TYPES, LAYOUT_TYPES } from '@depix/core';
 import { getSuggestionsForSlot, getActionsForElement, type SuggestionItem, type ActionItem } from './picker-suggestions.js';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,7 @@ export interface PickerContext {
   elementId?: string;
   elementType?: string;
   elementBounds?: IRBounds;
+  containerCategory?: 'layout' | 'content';
   suggestions: SuggestionItem[];
   actions: ActionItem[];
   label: string;
@@ -71,8 +72,8 @@ function inferDSLType(element: IRElement): string {
     if (origin?.sourceProps?.blockType && typeof origin.sourceProps.blockType === 'string') {
       return origin.sourceProps.blockType;
     }
-    // Direct layout containers (not scene-slot wrapped)
-    if (origin?.sourceType && BLOCK_TYPES.has(origin.sourceType)) {
+    // Direct layout/content containers (not scene-slot wrapped)
+    if (origin?.sourceType && PICKER_BLOCK_TYPES.has(origin.sourceType)) {
       return origin.sourceType;
     }
     return 'flow';
@@ -93,8 +94,6 @@ function capitalize(s: string): string {
 // ---------------------------------------------------------------------------
 // Resolver
 // ---------------------------------------------------------------------------
-
-const BLOCK_TYPES = new Set(['flow', 'tree', 'grid', 'stack', 'table', 'chart']);
 
 export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
   const { selectedIds, pickerSlot, ir, activeSceneIndex } = input;
@@ -142,7 +141,7 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
   if (!element) return NONE;
 
   const dslType = inferDSLType(element);
-  const isBlock = BLOCK_TYPES.has(dslType);
+  const isBlock = PICKER_BLOCK_TYPES.has(dslType);
   const slotName = element.origin?.sourceType === 'scene-slot'
     ? element.origin.slotName
     : undefined;
@@ -154,6 +153,7 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
       elementId: id,
       elementType: dslType,
       elementBounds: element.bounds,
+      containerCategory: LAYOUT_TYPES.has(dslType) ? 'layout' : 'content',
       suggestions: [],
       actions: getActionsForElement(dslType),
       label: capitalize(dslType),

@@ -92,9 +92,9 @@ describe('getActionsForElement', () => {
     expect(actionNames).toContain('delete');
   });
 
-  it('returns edit-text and delete for bullet', () => {
+  it('returns add-child and delete for bullet (content block)', () => {
     const actions = getActionsForElement('bullet');
-    expect(actions.map((a) => a.action)).toContain('edit-text');
+    expect(actions.map((a) => a.action)).toEqual(['add-child', 'delete']);
   });
 
   it('returns edit-text and delete for stat', () => {

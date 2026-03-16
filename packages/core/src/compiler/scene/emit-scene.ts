@@ -292,6 +292,7 @@ function emitBullet(
     bounds,
     style: {},
     children,
+    origin: { sourceType: 'bullet' as const },
   };
 }
 

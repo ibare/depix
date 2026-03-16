@@ -65,6 +65,7 @@ export {
   changeLayout,
   addSlotContent,
   changeSlotBlockType,
+  addBlockChild,
   changeElementLabel,
   removeElement as removeElementDSL,
   changeElementStyle,

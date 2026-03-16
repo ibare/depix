@@ -137,6 +137,39 @@ export function changeSlotBlockType(
   return serialize(ast);
 }
 
+/**
+ * Add a child to a block or element container within a slot.
+ * Unlike addSlotContent (slot-level), this adds inside the container's children.
+ */
+export function addBlockChild(
+  dsl: string,
+  sceneIndex: number,
+  slotName: string,
+  content: string,
+): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+
+  const target = scene.children.find((c) => {
+    if (c.kind === 'block') return (c as ASTBlock).slot === slotName;
+    if (c.kind === 'element') return (c as ASTElement).slot === slotName;
+    return false;
+  });
+  if (!target) return dsl;
+
+  const fragment = parse(`scene { ${content} }`);
+  const nodes = fragment.ast.scenes[0]?.children ?? [];
+
+  if (target.kind === 'block') {
+    (target as ASTBlock).children.push(...nodes);
+  } else if (target.kind === 'element') {
+    (target as ASTElement).children.push(...nodes);
+  }
+
+  return serialize(ast);
+}
+
 // ---------------------------------------------------------------------------
 // Element mutations
 // ---------------------------------------------------------------------------

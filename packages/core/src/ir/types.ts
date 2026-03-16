@@ -111,6 +111,8 @@ export interface IROrigin {
     | 'scene'
     | 'table'
     | 'chart'
+    | 'bullet'
+    | 'list'
     | 'scene-background'
     | 'scene-slot';
   /** DSL slot name for scene-slot containers (e.g. 'header', 'main', 'left'). */

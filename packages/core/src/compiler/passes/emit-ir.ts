@@ -47,6 +47,7 @@ import { createScaleContext, computeFontSize, computePadding } from './scale-sys
 import { measureDiagram } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
+import { isOriginSourceType } from '../container-meta.js';
 import { allocateBudgets } from './allocate-budgets.js';
 import {
   computeChartPositions,
@@ -273,7 +274,7 @@ function emitBlockFromPlan(
 }
 
 function isLayoutSourceType(type: string): boolean {
-  return ['flow', 'stack', 'grid', 'tree', 'group', 'layers', 'canvas', 'scene', 'table', 'chart'].includes(type);
+  return isOriginSourceType(type);
 }
 
 // ---------------------------------------------------------------------------
@@ -692,7 +693,7 @@ function emitListElement(
     color: theme.foreground,
   }));
 
-  return { id, type: 'container', bounds, style, children };
+  return { id, type: 'container', bounds, style, children, origin: { sourceType: 'list' } };
 }
 
 // ---------------------------------------------------------------------------

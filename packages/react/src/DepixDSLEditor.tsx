@@ -12,7 +12,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import type { DepixIR, DepixTheme, IRContainer } from '@depix/core';
-import { addSlotContent as addSlotContentMutation, changeSlotBlockType as changeSlotBlockTypeMutation } from '@depix/editor';
+import { addSlotContent as addSlotContentMutation, changeSlotBlockType as changeSlotBlockTypeMutation, addBlockChild as addBlockChildMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
 import { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
@@ -116,7 +116,7 @@ export function DepixDSLEditor({
         if (!slotName || !type) return;
         const content = `${type} "New ${type}"`;
         const idx = storeApi.getState().activeSceneIndex;
-        const newDsl = addSlotContentMutation(dsl, idx, slotName, content);
+        const newDsl = addBlockChildMutation(dsl, idx, slotName, content);
         onDSLChange(newDsl);
       }
       // Other actions (edit-text, delete, style, etc.) can be handled here

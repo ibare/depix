@@ -28,6 +28,8 @@ export * from './passes/index.js';
 export * from './layout/index.js';
 export * from './scene/index.js';
 
+export { LAYOUT_TYPES, CONTENT_TYPES, PICKER_BLOCK_TYPES, isOriginSourceType } from './container-meta.js';
+
 export { compile } from './compiler.js';
 export type { CompileOptions, CompileResult } from './compiler.js';
 

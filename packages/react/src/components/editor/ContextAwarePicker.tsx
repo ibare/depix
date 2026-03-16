@@ -14,7 +14,7 @@ import type { DepixIR } from '@depix/core';
 import { CaretDown, Plus } from '@phosphor-icons/react';
 import { useEditorStore, useEditorStoreApi } from '../../store/editor-store-context.js';
 import { resolvePickerContext, type PickerContext, type SuggestionItem, type ActionItem } from './context-aware-picker/picker-context.js';
-import { getSuggestionsForSlot } from './context-aware-picker/picker-suggestions.js';
+import { getSuggestionsForBlock } from './context-aware-picker/picker-suggestions.js';
 import { PickerPill, PickerDropdown, TYPE_ICONS } from './context-aware-picker/PickerUI.js';
 import { TypeGridDropdown } from './context-aware-picker/TypeGridDropdown.js';
 import { EDITOR_COLORS } from './editor-colors.js';
@@ -122,7 +122,7 @@ export function ContextAwarePicker({
 
   const handleAddChildSuggestion = useCallback(
     (item: SuggestionItem) => {
-      onAction('add-child', { slotName: ctx.slotName, type: item.type, category: item.category });
+      onAction('add-child', { slotName: ctx.slotName, type: item.type, category: item.category, parentType: ctx.elementType });
       setDropdownMode(null);
     },
     [onAction, ctx.slotName],
@@ -134,11 +134,11 @@ export function ContextAwarePicker({
   const pos = computePosition(ctx, pickerSlot, width, height);
   const isBlock = ctx.kind === 'existing-block';
 
-  // For add-child dropdown: show slot suggestions + delete action only
+  // For add-child dropdown: show block-type-specific children + delete action only
   const addChildCtx: PickerContext | null = isBlock
     ? {
         ...ctx,
-        suggestions: getSuggestionsForSlot(ctx.slotName ?? 'body'),
+        suggestions: getSuggestionsForBlock(ctx.elementType!),
         actions: ctx.actions.filter((a) => a.action !== 'add-child' && a.action !== 'change-type'),
       }
     : null;
@@ -159,6 +159,7 @@ export function ContextAwarePicker({
       {isBlock ? (
         <TwoZonePill
           currentType={ctx.elementType!}
+          canChangeType={ctx.containerCategory === 'layout'}
           onTypeClick={handleTypeZoneClick}
           onAddClick={handleAddZoneClick}
         />
@@ -199,17 +200,19 @@ export function ContextAwarePicker({
 
 function TwoZonePill({
   currentType,
+  canChangeType,
   onTypeClick,
   onAddClick,
 }: {
   currentType: string;
+  canChangeType: boolean;
   onTypeClick: () => void;
   onAddClick: () => void;
 }) {
   return (
     <div style={{ display: 'flex', gap: 0, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}>
       <button
-        onClick={onTypeClick}
+        onClick={canChangeType ? onTypeClick : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -222,13 +225,13 @@ function TwoZonePill({
           color: EDITOR_COLORS.text,
           fontSize: 11,
           fontWeight: 500,
-          cursor: 'pointer',
+          cursor: canChangeType ? 'pointer' : 'default',
           whiteSpace: 'nowrap',
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center' }}>{TYPE_ICONS[currentType] ?? null}</span>
         <span>{capitalize(currentType)}</span>
-        <CaretDown size={10} />
+        {canChangeType && <CaretDown size={10} />}
       </button>
       <button
         onClick={onAddClick}

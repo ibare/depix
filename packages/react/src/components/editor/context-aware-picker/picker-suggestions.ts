@@ -86,12 +86,17 @@ const BLOCK_ACTIONS: ActionItem[] = [
   { action: 'delete', label: 'Delete', variant: 'danger' },
 ];
 
+const CONTENT_BLOCK_ACTIONS: ActionItem[] = [
+  { action: 'add-child', label: 'Add child' },
+  { action: 'delete', label: 'Delete', variant: 'danger' },
+];
+
 const ELEMENT_ACTIONS: Record<string, ActionItem[]> = {
   heading: TEXT_ACTIONS,
-  bullet: TEXT_ACTIONS,
+  bullet: CONTENT_BLOCK_ACTIONS,
   stat: TEXT_ACTIONS,
   quote: TEXT_ACTIONS,
-  list: TEXT_ACTIONS,
+  list: CONTENT_BLOCK_ACTIONS,
   image: [{ action: 'delete', label: 'Delete', variant: 'danger' }],
   divider: [{ action: 'delete', label: 'Delete', variant: 'danger' }],
   node: NODE_ACTIONS,
@@ -105,4 +110,26 @@ const ELEMENT_ACTIONS: Record<string, ActionItem[]> = {
 
 export function getActionsForElement(elementType: string): ActionItem[] {
   return ELEMENT_ACTIONS[elementType] ?? TEXT_ACTIONS;
+}
+
+// ---------------------------------------------------------------------------
+// Block child suggestions (per block type)
+// ---------------------------------------------------------------------------
+
+const BLOCK_CHILD_ITEMS: SuggestionItem[] = [
+  { type: 'item', label: 'Item', category: 'element' },
+];
+
+const CONTENT_BLOCK_CHILDREN: Record<string, SuggestionItem[]> = {
+  bullet: BLOCK_CHILD_ITEMS,
+  list: BLOCK_CHILD_ITEMS,
+};
+
+/**
+ * Get valid child suggestions for a specific block container type.
+ * Content blocks (bullet, list) only accept their specific children.
+ * Layout blocks accept all elements and blocks.
+ */
+export function getSuggestionsForBlock(blockType: string): SuggestionItem[] {
+  return CONTENT_BLOCK_CHILDREN[blockType] ?? [...ALL_ELEMENTS, ...ALL_BLOCKS];
 }
