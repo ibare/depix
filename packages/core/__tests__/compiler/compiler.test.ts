@@ -1,7 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../../src/compiler/compiler.js';
 import { lightTheme, darkTheme } from '../../src/theme/builtin-themes.js';
-import type { IRContainer, IRShape, IRText, IREdge as IREdgeType } from '../../src/ir/types.js';
+import type { IRContainer, IRElement, IRScene, IRShape, IRText, IREdge as IREdgeType } from '../../src/ir/types.js';
+
+// ---------------------------------------------------------------------------
+// Helpers — navigate the scene-wrapped IR structure
+// ---------------------------------------------------------------------------
+
+/** scene-background를 제외한 콘텐츠 elements를 반환 */
+function contentElements(scene: IRScene): IRElement[] {
+  return scene.elements.filter(el => el.type !== 'shape' || !('origin' in el) || (el as IRShape & { origin?: { sourceType: string } }).origin?.sourceType !== 'scene-background');
+}
+
+/** scene-slot 컨테이너 내부의 다이어그램 컨텐츠를 반환 (첫 번째 scene-slot의 children) */
+function diagramContent(scene: IRScene): IRElement[] {
+  const slotContainer = scene.elements.find(
+    el => el.type === 'container' && (el as IRContainer & { origin?: { sourceType: string } }).origin?.sourceType === 'scene-slot'
+  ) as IRContainer | undefined;
+  return slotContainer?.children ?? [];
+}
 
 // ---------------------------------------------------------------------------
 // Basic pipeline
@@ -62,10 +79,16 @@ describe('compile — directives', () => {
 describe('compile — single node', () => {
   it('compiles a single node element', () => {
     const result = compile('node "Hello" #n1');
-    const elements = result.ir.scenes[0].elements;
+    const scene = result.ir.scenes[0];
 
-    expect(elements.length).toBeGreaterThanOrEqual(1);
-    const node = elements.find(e => e.id === 'n1');
+    // The scene now wraps content in a scene-slot container
+    const content = diagramContent(scene);
+    expect(content.length).toBeGreaterThanOrEqual(1);
+
+    // The diagram container holds the actual node elements
+    const diagramContainer = content.find(e => e.type === 'container') as IRContainer | undefined;
+    const allElements = diagramContainer?.children ?? content;
+    const node = allElements.find(e => e.id === 'n1');
     expect(node).toBeDefined();
 
     if (node && node.type === 'shape') {
@@ -89,11 +112,13 @@ stack direction:col gap:3 {
     const result = compile(dsl);
     const scene = result.ir.scenes[0];
 
-    const container = scene.elements.find(e => e.type === 'container') as IRContainer;
-    expect(container).toBeDefined();
-    expect(container.origin?.sourceType).toBe('stack');
+    // emitScene merges diagram container with scene-slot, so children are directly inside
+    const slotContainer = scene.elements.find(
+      el => el.type === 'container' && (el as IRContainer & { origin?: { sourceType: string } }).origin?.sourceType === 'scene-slot'
+    ) as IRContainer | undefined;
+    expect(slotContainer).toBeDefined();
 
-    const shapes = container.children.filter(c => c.type === 'shape');
+    const shapes = slotContainer!.children.filter(c => c.type === 'shape');
     expect(shapes).toHaveLength(2);
   });
 });
@@ -114,11 +139,13 @@ grid cols:2 gap:2 {
     const result = compile(dsl);
     const scene = result.ir.scenes[0];
 
-    const container = scene.elements.find(e => e.type === 'container') as IRContainer;
-    expect(container).toBeDefined();
-    expect(container.origin?.sourceType).toBe('grid');
+    // emitScene merges diagram container with scene-slot, so children are directly inside
+    const slotContainer = scene.elements.find(
+      el => el.type === 'container' && (el as IRContainer & { origin?: { sourceType: string } }).origin?.sourceType === 'scene-slot'
+    ) as IRContainer | undefined;
+    expect(slotContainer).toBeDefined();
 
-    const shapes = container.children.filter(c => c.type === 'shape');
+    const shapes = slotContainer!.children.filter(c => c.type === 'shape');
     expect(shapes).toHaveLength(4);
   });
 });
@@ -138,11 +165,13 @@ flow direction:right gap:5 {
     const result = compile(dsl);
     const scene = result.ir.scenes[0];
 
-    const container = scene.elements.find(e => e.type === 'container') as IRContainer;
-    expect(container).toBeDefined();
-    expect(container.origin?.sourceType).toBe('flow');
+    // emitScene merges diagram container with scene-slot, so children are directly inside
+    const slotContainer = scene.elements.find(
+      el => el.type === 'container' && (el as IRContainer & { origin?: { sourceType: string } }).origin?.sourceType === 'scene-slot'
+    ) as IRContainer | undefined;
+    expect(slotContainer).toBeDefined();
 
-    const edges = container.children.filter(c => c.type === 'edge') as IREdgeType[];
+    const edges = slotContainer!.children.filter(c => c.type === 'edge') as IREdgeType[];
     expect(edges).toHaveLength(1);
     expect(edges[0].fromId).toBe('start');
     expect(edges[0].toId).toBe('end');
@@ -157,8 +186,13 @@ describe('compile — theme resolution', () => {
   it('resolves semantic colors through the pipeline', () => {
     const dsl = 'node "Test" #n1 {\n  background: primary\n}';
     const result = compile(dsl);
+    const scene = result.ir.scenes[0];
 
-    const node = result.ir.scenes[0].elements.find(e => e.id === 'n1');
+    // Node is now nested inside scene-slot → diagram container
+    const content = diagramContent(scene);
+    const diagramContainer = content.find(e => e.type === 'container') as IRContainer | undefined;
+    const allElements = diagramContainer?.children ?? content;
+    const node = allElements.find(e => e.id === 'n1');
     expect(node).toBeDefined();
     // After theme resolution, 'primary' should be resolved to a HEX color
     if (node?.style.fill) {
@@ -231,7 +265,13 @@ describe('compile — edge cases', () => {
 scene "Empty" {
 }`;
     const result = compile(dsl);
-    expect(result.ir.scenes[0].elements).toHaveLength(0);
+    // Empty scene still has structural elements (scene-background, etc.)
+    // but no user content beyond the scene scaffolding
+    const content = contentElements(result.ir.scenes[0]);
+    const userContent = content.filter(
+      el => el.type !== 'container' || !(el as IRContainer & { origin?: { sourceType: string } }).origin?.sourceType?.startsWith('scene-'),
+    );
+    expect(userContent).toHaveLength(0);
   });
 
   it('generates valid IR structure', () => {

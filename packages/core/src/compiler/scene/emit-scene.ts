@@ -50,16 +50,14 @@ import { getChartColor } from '../layout/chart-colors.js';
 /**
  * Compile an AST document into DepixIR using the unified scene pipeline.
  *
- * Each top-level block becomes an IRScene:
- * - scene {} blocks are processed via slot-based scene layout.
- * - Diagram blocks (flow, stack, etc.) are injected as pre-resolved IRScenes
- *   via the `diagramScenes` map (pre-processed by the compiler orchestrator).
+ * All top-level blocks are expected to be slotted scene blocks
+ * (normalized by `normalizeScenes` in the compiler orchestrator).
+ * Each block goes through planScene → emitScene.
  */
 export function emitSceneIR(
   ast: ASTDocument,
   theme: DepixTheme,
   sceneTheme: SceneTheme,
-  diagramScenes?: ReadonlyMap<number, IRScene>,
 ): DepixIR {
   const meta = buildSceneMeta(ast.directives, theme, sceneTheme);
   const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
@@ -67,15 +65,6 @@ export function emitSceneIR(
 
   for (let sceneIndex = 0; sceneIndex < ast.scenes.length; sceneIndex++) {
     const sceneBlock = ast.scenes[sceneIndex];
-
-    // Diagram blocks are pre-processed by the compiler orchestrator
-    const preResolved = diagramScenes?.get(sceneIndex);
-    if (preResolved) {
-      scenes.push(preResolved);
-      continue;
-    }
-
-    // scene {} blocks: slot-based layout pipeline
     const plan = planScene(sceneBlock, canvasBounds, sceneTheme);
     const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
     scenes.push(irScene);

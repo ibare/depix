@@ -59,29 +59,32 @@ function findById<T extends { id: string; type: string; children?: unknown[] }>(
 // ---------------------------------------------------------------------------
 
 describe('DSL→IR — node content', () => {
-  it('node label appears as innerText', () => {
+  it('node label appears as text content', () => {
     const { scene } = compileIR('node "Hello World" #n1');
-    const node = findById(scene.elements, 'n1') as IRShape;
+    // Standalone nodes go through the scene pipeline and become IRText
+    const node = findById(scene.elements, 'n1') as IRText;
 
     expect(node).toBeDefined();
-    expect(node.type).toBe('shape');
-    expect(node.innerText).toBeDefined();
-    expect(node.innerText!.content).toBe('Hello World');
+    expect(node.type).toBe('text');
+    expect(node.content).toBe('Hello World');
   });
 
-  it('node bold flag propagates to innerText', () => {
-    const { scene } = compileIR('node "Bold" #n1 { bold }');
+  it('node inside flow retains shape with innerText', () => {
+    const { scene } = compileIR('flow { node "Bold" #n1 { bold } }');
+    // Nodes inside diagram blocks go through emitInlineBlock → IRShape
     const node = findById(scene.elements, 'n1') as IRShape;
 
+    expect(node.type).toBe('shape');
     expect(node.innerText!.fontWeight).toBe('bold');
   });
 
-  it('badge renders as pill shape with label', () => {
+  it('badge label appears as text content', () => {
     const { scene } = compileIR('badge "NEW" #b1');
-    const badge = findById(scene.elements, 'b1') as IRShape;
+    // Standalone badges go through the scene pipeline and become IRText
+    const badge = findById(scene.elements, 'b1') as IRText;
 
-    expect(badge.shape).toBe('pill');
-    expect(badge.innerText!.content).toBe('NEW');
+    expect(badge.type).toBe('text');
+    expect(badge.content).toBe('NEW');
   });
 });
 
@@ -90,25 +93,26 @@ describe('DSL→IR — node content', () => {
 // ---------------------------------------------------------------------------
 
 describe('DSL→IR — box content', () => {
-  it('box label becomes title text child', () => {
+  it('standalone box label appears as text content', () => {
     const { scene } = compileIR('box "My Title" #box1');
-    const box = findById(scene.elements, 'box1') as IRContainer;
+    // Standalone boxes go through scene pipeline → IRText
+    const box = findById(scene.elements, 'box1') as IRText;
 
     expect(box).toBeDefined();
-    expect(box.type).toBe('container');
-
-    const texts = collectByType<IRText>(box.children, 'text');
-    const title = texts.find(t => t.content === 'My Title');
-    expect(title).toBeDefined();
-    expect(title!.fontWeight).toBe('bold');
+    expect(box.type).toBe('text');
+    expect(box.content).toBe('My Title');
   });
 
-  it('box subtitle becomes text child', () => {
-    const dsl = `box "Card" #box1 {
-  subtitle: "Description here"
+  it('box inside flow becomes container with title text child', () => {
+    const dsl = `flow {
+  box "Card" #box1 {
+    subtitle: "Description here"
+  }
 }`;
     const { scene } = compileIR(dsl);
+    // Inside a diagram block, boxes go through emitInlineBlock → IRContainer
     const box = findById(scene.elements, 'box1') as IRContainer;
+    expect(box.type).toBe('container');
     const texts = collectByType<IRText>(box.children, 'text');
 
     const title = texts.find(t => t.content === 'Card');
@@ -119,10 +123,12 @@ describe('DSL→IR — box content', () => {
     expect(subtitle!.fontSize).toBeLessThanOrEqual(title!.fontSize);
   });
 
-  it('box with label + subtitle + list preserves all content', () => {
-    const dsl = `box "Features" #box1 {
-  subtitle: "What we offer"
-  list ["Fast", "Safe", "Easy"]
+  it('box inside stack with label + subtitle + list preserves all content', () => {
+    const dsl = `stack {
+  box "Features" #box1 {
+    subtitle: "What we offer"
+    list ["Fast", "Safe", "Easy"]
+  }
 }`;
     const { scene } = compileIR(dsl);
     const box = findById(scene.elements, 'box1') as IRContainer;
@@ -139,9 +145,11 @@ describe('DSL→IR — box content', () => {
     expect(listTexts.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('box without label produces no title text', () => {
-    const dsl = `box #box1 {
-  subtitle: "Only subtitle"
+  it('box inside flow without label produces no title text', () => {
+    const dsl = `flow {
+  box #box1 {
+    subtitle: "Only subtitle"
+  }
 }`;
     const { scene } = compileIR(dsl);
     const box = findById(scene.elements, 'box1') as IRContainer;
@@ -165,8 +173,12 @@ describe('DSL→IR — other elements', () => {
     expect(allTexts.some(t => t.content === 'Important Note')).toBe(true);
   });
 
-  it('list items appear as text children', () => {
-    const dsl = 'list ["Alpha", "Beta", "Gamma"]';
+  it('list items appear as text children inside diagram block', () => {
+    // Standalone list goes through scene pipeline (emitLabel).
+    // Inside a diagram block, list items go through emitInlineBlock → IRContainer with text children.
+    const dsl = `stack {
+  list ["Alpha", "Beta", "Gamma"]
+}`;
     const { scene } = compileIR(dsl);
     const containers = collectByType<IRContainer>(scene.elements, 'container');
 
@@ -199,8 +211,11 @@ describe('DSL→IR — style propagation', () => {
     expect(node.style.stroke).toBe(lightTheme.colors.danger);
   });
 
-  it('shadow: md resolves to IRShadow on node', () => {
-    const dsl = 'node "Shadowed" #n1 { shadow: md }';
+  it('shadow: md resolves to IRShadow on node inside diagram block', () => {
+    // Nodes inside diagram blocks go through emitInlineBlock and retain shadow styles
+    const dsl = `flow {
+  node "Shadowed" #n1 { shadow: md }
+}`;
     const { scene } = compileIR(dsl);
     const node = findById(scene.elements, 'n1') as IRShape;
 
@@ -277,12 +292,12 @@ stack direction:col {
   node "Third" #n3
 }`;
     const { scene } = compileIR(dsl);
-    const container = scene.elements.find(e => e.type === 'container') as IRContainer;
+    // The outermost container is now a scene-slot wrapper; the stack container is inside it
+    const slotContainer = scene.elements.find(e => e.type === 'container') as IRContainer;
+    expect(slotContainer).toBeDefined();
+    expect(slotContainer.origin?.sourceType).toBe('scene-slot');
 
-    expect(container).toBeDefined();
-    expect(container.origin?.sourceType).toBe('stack');
-
-    const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
+    const shapes = slotContainer.children.filter(c => c.type === 'shape') as IRShape[];
     expect(shapes).toHaveLength(3);
     expect(shapes[0].innerText?.content).toBe('First');
     expect(shapes[1].innerText?.content).toBe('Second');
@@ -316,9 +331,10 @@ grid cols:2 {
   node "D" #d
 }`;
     const { scene } = compileIR(dsl);
+    // The outermost container is now a scene-slot wrapper; grid content is inside it
     const container = scene.elements.find(e => e.type === 'container') as IRContainer;
+    expect(container.origin?.sourceType).toBe('scene-slot');
 
-    expect(container.origin?.sourceType).toBe('grid');
     const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
     expect(shapes).toHaveLength(4);
 
@@ -356,10 +372,13 @@ stack direction:col {
     expect(bodyTexts.some(t => t.content === 'Details')).toBe(true);
   });
 
-  it('box with nested list preserves list items', () => {
+  it('box with nested list preserves list items inside diagram block', () => {
+    // Box with nested list inside a diagram block goes through emitInlineBlock
     const dsl = `
-box "Menu" #menu {
-  list ["Home", "About", "Contact"]
+stack {
+  box "Menu" #menu {
+    list ["Home", "About", "Contact"]
+  }
 }`;
     const { scene } = compileIR(dsl);
     const menu = findById(scene.elements, 'menu') as IRContainer;
@@ -377,22 +396,21 @@ box "Menu" #menu {
 
 describe('DSL→IR — composite scenarios', () => {
   it('card with color + subtitle + content', () => {
+    // Standalone box goes through scene pipeline → IRText with palette fill
     const dsl = `
 box "Hello Depix" #card {
   color: primary
   subtitle: "Your first diagram"
 }`;
     const { scene } = compileIR(dsl);
-    const card = findById(scene.elements, 'card') as IRContainer;
+    const card = findById(scene.elements, 'card') as IRText;
 
-    // Structure
+    // Structure — standalone box becomes IRText in scene pipeline
     expect(card).toBeDefined();
-    expect(card.type).toBe('container');
+    expect(card.type).toBe('text');
 
-    // Content: title and subtitle
-    const texts = collectByType<IRText>(card.children, 'text');
-    expect(texts.some(t => t.content === 'Hello Depix')).toBe(true);
-    expect(texts.some(t => t.content === 'Your first diagram')).toBe(true);
+    // Content: label is preserved as content
+    expect(card.content).toBe('Hello Depix');
 
     // Style: palette-derived background (not default white)
     expect(card.style.fill).toBeDefined();
@@ -438,10 +456,11 @@ scene "Main" {
 
     expect(ir.scenes).toHaveLength(2);
 
-    const w = findById(ir.scenes[0].elements, 'w') as IRShape;
-    const c = findById(ir.scenes[1].elements, 'c') as IRShape;
+    // Standalone nodes inside scenes go through scene pipeline → IRText
+    const w = findById(ir.scenes[0].elements, 'w') as IRText;
+    const c = findById(ir.scenes[1].elements, 'c') as IRText;
 
-    expect(w.innerText?.content).toBe('Welcome');
-    expect(c.innerText?.content).toBe('Content');
+    expect(w.content).toBe('Welcome');
+    expect(c.content).toBe('Content');
   });
 });

@@ -11,10 +11,11 @@ last_verified: 2026-03-07
 
 ## MUST
 
-- 컴파일러 최상위 파이프라인 순서: `parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → [emitIR per diagram block] → emitSceneIR → applyOverridesToIR`
+- 컴파일러 최상위 파이프라인 순서: `parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → normalizeScenes → emitSceneIR → applyOverridesToIR`
   각 패스는 이전 패스의 출력만을 입력으로 받는다. 순서를 바꾸거나 패스를 건너뛰지 않는다.
   `flattenHierarchy`는 connection 계열 레이아웃(tree, flow)의 nested element를 flat children + implicit edges로 정규화하는 AST 변환 패스이다.
-  `emitSceneIR`이 최종 통합 단계이다: scene 블록은 슬롯 기반 파이프라인(`planScene → emitScene`)으로, 다이어그램 블록은 `emitIR`(다이어그램 파이프라인)으로 사전 처리 후 주입된다.
+  `normalizeScenes`는 모든 top-level 블록을 슬롯 기반 scene block으로 정규화하는 AST 변환 패스이다. 비-scene 블록(flow, stack 등)은 `scene { layout: full; body: <block> }`으로 래핑된다.
+  `emitSceneIR`이 최종 통합 단계이다: 모든 블록은 `normalizeScenes`에 의해 슬롯 기반 scene으로 정규화된 후, `planScene → emitScene` 경로를 탄다. 다이어그램 블록은 scene 내에서 `emitInlineBlock`으로 처리된다.
 
 - 다이어그램 블록의 내부 파이프라인 순서: `planLayout → createScaleContext → computeConstraints → allocateBudgets → measure → allocateBounds → layout → routeEdges → emitIR`
   `computeConstraints`는 plan 트리를 bottom-up(후위순회)으로 순회하며 각 노드의 최소/최대 크기 제약을 수집하는 패스이다.

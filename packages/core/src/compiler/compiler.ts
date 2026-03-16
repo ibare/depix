@@ -4,23 +4,21 @@
  * Orchestrates the full DSL → DepixIR pipeline:
  *   1. Parse (tokenize + parse → AST)
  *   2. Resolve data, flatten hierarchy, resolve theme
- *   3. Emit IR — all blocks go through the unified scene pipeline:
- *      - scene {} blocks → emitSceneIR (slot-based layout)
- *      - diagram blocks  → emitIR (diagram pipeline), pre-processed and injected
+ *   3. Normalize scenes (all blocks → slotted scene AST)
+ *   4. Emit IR via unified scene pipeline (planScene → emitScene)
  *
  * @presentation directive is a no-op and no longer gates compilation mode.
  */
 
-import type { DepixIR, IRScene } from '../ir/types.js';
+import type { DepixIR } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
 import type { SceneTheme } from '../theme/scene-theme.js';
 import { defaultSceneTheme } from '../theme/scene-theme.js';
-import type { ASTBlock, ASTDocument, ParseError } from './ast.js';
+import type { ASTBlock, ASTDocument, ASTNode, ParseError } from './ast.js';
 import { parse } from './parser.js';
 import { resolveData } from './data/resolve-data.js';
 import { flattenHierarchy } from './passes/flatten-hierarchy.js';
 import { resolveTheme } from './passes/resolve-theme.js';
-import { emitIR } from './passes/emit-ir.js';
 import { emitSceneIR } from './scene/emit-scene.js';
 import { lightTheme } from '../theme/builtin-themes.js';
 import { extractOverrides, applyOverridesToIR } from './passes/apply-overrides.js';
@@ -57,11 +55,11 @@ export interface CompileResult {
  * Compile a DSL source string into a DepixIR document.
  *
  * This is the main entry point for the Depix compiler. It runs the full
- * pipeline: parse → theme resolution → layout → edge routing → IR emission.
+ * pipeline: parse → resolve → normalizeScenes → emitSceneIR.
  *
- * All DSL compiles through the unified scene pipeline. Diagram blocks
- * (flow, stack, grid, etc.) are pre-processed via the diagram pipeline
- * and injected into emitSceneIR as pre-resolved IRScene objects.
+ * All DSL compiles through the unified scene pipeline. Non-scene blocks
+ * (flow, stack, etc.) are normalized to `scene { layout: full; body: <block> }`
+ * at the AST level before emission.
  *
  * @param dsl     - The DSL source string.
  * @param options - Optional compiler configuration.
@@ -86,29 +84,11 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 5. Extract @overrides from AST (applied after IR emission)
   const overrides = extractOverrides(resolvedAST);
 
-  // 6. Pre-process diagram blocks and slot-less scene blocks through the diagram
-  //    pipeline. Results are injected into emitSceneIR at the correct indices.
-  //
-  //    Two cases route through emitIR:
-  //    a) Non-scene blockTypes (flow, stack, etc.) — explicit diagram blocks.
-  //    b) Scene blocks with NO slotted children — the parser wraps standalone
-  //       elements (node, badge, box, etc.) in an implicit blockType:'scene',
-  //       but planScene requires slot assignments to allocate bounds; without
-  //       them every element is dropped. Route these through emitIR instead.
-  const diagramScenes = new Map<number, IRScene>();
-  for (let i = 0; i < resolvedAST.scenes.length; i++) {
-    const block = resolvedAST.scenes[i];
-    if (block.blockType !== 'scene' || !hasSlottedContent(block)) {
-      const singleDoc: ASTDocument = { directives: resolvedAST.directives, scenes: [block] };
-      const diagramIR = emitIR(singleDoc, theme);
-      if (diagramIR.scenes[0]) {
-        diagramScenes.set(i, { ...diagramIR.scenes[0], layout: { type: 'full' } });
-      }
-    }
-  }
+  // 6. Normalize scenes — all blocks become slotted scene blocks
+  const normalizedAST = normalizeScenes(resolvedAST);
 
-  // 7. Unified scene pipeline — handles both scene blocks and injected diagram scenes
-  let ir = emitSceneIR(resolvedAST, theme, sceneTheme, diagramScenes);
+  // 7. Unified scene pipeline — all blocks go through planScene → emitScene
+  let ir = emitSceneIR(normalizedAST, theme, sceneTheme);
 
   // 8. Post-processing: apply @overrides to IR bounds
   if (overrides.size > 0) {
@@ -123,11 +103,70 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true if the scene block has at least one child with a slot assignment.
- * Scene blocks without slotted children are "implicit scenes" (parser-created
- * wrappers around standalone diagram content) and should be routed through
- * the diagram pipeline (emitIR) rather than the slot-based scene pipeline.
+ * Normalize all top-level blocks into slotted scene blocks.
+ *
+ * Three cases:
+ * - Already slotted scene → no change
+ * - Non-scene block (flow, stack, etc.) → wrap in scene { layout: full; body: <block> }
+ * - Scene without slots → assign children to body slot
  */
+function normalizeScenes(ast: ASTDocument): ASTDocument {
+  return { ...ast, scenes: ast.scenes.map(normalizeScene) };
+}
+
+function normalizeScene(block: ASTBlock): ASTBlock {
+  // Case A: already a properly slotted scene → pass through
+  if (block.blockType === 'scene' && hasSlottedContent(block)) {
+    return block;
+  }
+
+  // Case B: non-scene block (flow, stack, grid, tree, group, layers, canvas, table, chart)
+  //         → wrap in scene { layout: full; body: <block> }
+  if (block.blockType !== 'scene') {
+    const wrappedChild: ASTBlock = { ...block, slot: 'body' };
+    return {
+      kind: 'block',
+      blockType: 'scene',
+      props: { layout: 'full' },
+      children: [wrappedChild],
+      label: block.label,
+      id: block.id,
+      style: {},
+      loc: block.loc,
+    };
+  }
+
+  // Case C: scene block without slot assignments
+  const nonEdge = block.children.filter((c) => c.kind !== 'edge');
+  const edges = block.children.filter((c) => c.kind === 'edge');
+
+  if (nonEdge.length <= 1 && nonEdge.length > 0) {
+    // Single child → assign directly to body slot
+    const child = { ...nonEdge[0], slot: 'body' } as ASTNode;
+    return {
+      ...block,
+      props: { ...block.props, layout: block.props.layout ?? 'full' },
+      children: [child, ...edges],
+    };
+  }
+
+  // Multiple children → wrap in group block, assign group to body
+  const groupBlock: ASTBlock = {
+    kind: 'block',
+    blockType: 'group',
+    props: {},
+    children: [...nonEdge, ...edges],
+    style: {},
+    slot: 'body',
+    loc: block.loc,
+  };
+  return {
+    ...block,
+    props: { ...block.props, layout: block.props.layout ?? 'full' },
+    children: [groupBlock],
+  };
+}
+
 function hasSlottedContent(block: ASTBlock): boolean {
   return block.children.some(
     c => (c.kind === 'element' || c.kind === 'block') && c.slot !== undefined,

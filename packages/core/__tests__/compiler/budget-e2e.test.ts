@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../../src/compiler/compiler.js';
 import { lightTheme } from '../../src/theme/builtin-themes.js';
-import type { IRShape } from '../../src/ir/types.js';
+import type { IRShape, IROrigin } from '../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,13 +23,18 @@ function compileScene(dsl: string) {
   return ir.scenes[0];
 }
 
-/** Recursively collect all shape elements from scene elements. */
-function collectShapes(elements: { type: string; children?: unknown[] }[]): IRShape[] {
+/**
+ * Recursively collect all shape elements from scene elements,
+ * excluding scene-infrastructure shapes (scene-background).
+ */
+function collectShapes(elements: { type: string; origin?: IROrigin; children?: unknown[] }[]): IRShape[] {
   const result: IRShape[] = [];
   for (const el of elements) {
-    if (el.type === 'shape') result.push(el as IRShape);
+    if (el.type === 'shape' && el.origin?.sourceType !== 'scene-background') {
+      result.push(el as IRShape);
+    }
     if ('children' in el && Array.isArray(el.children)) {
-      result.push(...collectShapes(el.children as { type: string; children?: unknown[] }[]));
+      result.push(...collectShapes(el.children as { type: string; origin?: IROrigin; children?: unknown[] }[]));
     }
   }
   return result;
