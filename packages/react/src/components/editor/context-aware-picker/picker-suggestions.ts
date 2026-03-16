@@ -53,24 +53,12 @@ function pick(types: string[], source: SuggestionItem[]): SuggestionItem[] {
 }
 
 const SLOT_SUGGESTIONS: Record<string, SuggestionItem[]> = {
-  header: pick(['heading', 'stat', 'quote'], ALL_ELEMENTS),
-  body: [
-    ...pick(['heading', 'bullet', 'list'], ALL_ELEMENTS),
-    ...pick(['flow', 'tree', 'grid', 'stack'], ALL_BLOCKS),
-  ],
-  main: [
-    ...pick(['heading', 'bullet', 'list'], ALL_ELEMENTS),
-    ...pick(['flow', 'tree', 'grid', 'stack'], ALL_BLOCKS),
-  ],
-  side: [
-    ...pick(['list', 'bullet', 'stat'], ALL_ELEMENTS),
-    ...pick(['stack'], ALL_BLOCKS),
-  ],
-  cell: pick(['stat', 'node', 'image'], ALL_ELEMENTS),
-  focus: [
-    ...pick(['heading', 'image', 'quote'], ALL_ELEMENTS),
-    ...pick(['flow'], ALL_BLOCKS),
-  ],
+  header: [...ALL_ELEMENTS],
+  body: [...ALL_ELEMENTS, ...ALL_BLOCKS],
+  main: [...ALL_ELEMENTS, ...ALL_BLOCKS],
+  side: [...ALL_ELEMENTS, ...pick(['stack'], ALL_BLOCKS)],
+  cell: [...ALL_ELEMENTS],
+  focus: [...ALL_ELEMENTS, ...pick(['flow'], ALL_BLOCKS)],
 };
 
 export function getSuggestionsForSlot(slotName: string): SuggestionItem[] {

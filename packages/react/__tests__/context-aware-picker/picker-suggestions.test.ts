@@ -9,13 +9,14 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('getSuggestionsForSlot', () => {
-  it('returns heading, stat, quote for header slot', () => {
+  it('returns all elements for header slot', () => {
     const suggestions = getSuggestionsForSlot('header');
     const types = suggestions.map((s) => s.type);
     expect(types).toContain('heading');
     expect(types).toContain('stat');
     expect(types).toContain('quote');
-    expect(types).toHaveLength(3);
+    expect(types).toHaveLength(8);
+    expect(suggestions.every((s) => s.category === 'element')).toBe(true);
   });
 
   it('returns elements and blocks for body slot', () => {
