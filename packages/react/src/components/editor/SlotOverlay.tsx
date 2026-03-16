@@ -22,10 +22,13 @@ export interface CoordinateTransform {
 export interface SlotOverlayProps {
   slots: SlotOverlaySlot[];
   transform: CoordinateTransform;
+  /** Callback when an empty slot is clicked (open content picker). */
   onSlotClick?: (slotName: string, bounds: { x: number; y: number; w: number; h: number }) => void;
+  /** Callback when a filled slot is clicked (select the slot container). */
+  onSelectSlot?: (slotName: string) => void;
 }
 
-export function SlotOverlay({ slots, transform, onSlotClick }: SlotOverlayProps) {
+export function SlotOverlay({ slots, transform, onSlotClick, onSelectSlot }: SlotOverlayProps) {
   return (
     <div
       style={{
@@ -52,20 +55,18 @@ export function SlotOverlay({ slots, transform, onSlotClick }: SlotOverlayProps)
               top: py,
               width: pw,
               height: ph,
-              border: slot.isEmpty
-                ? `1px dashed ${EDITOR_COLORS.textDim}`
-                : `1px solid transparent`,
+              border: `1px dashed ${EDITOR_COLORS.textDim}${slot.isEmpty ? '' : '40'}`,
               borderRadius: 4,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: slot.isEmpty ? 'center' : 'flex-start',
+              justifyContent: slot.isEmpty ? 'center' : 'flex-start',
               pointerEvents: slot.isEmpty ? 'auto' : 'none',
               cursor: slot.isEmpty ? 'pointer' : 'default',
             }}
             onClick={slot.isEmpty ? () => onSlotClick?.(slot.name, slot.bounds) : undefined}
           >
-            {slot.isEmpty && (
+            {slot.isEmpty ? (
               <>
                 <span
                   style={{
@@ -92,6 +93,20 @@ export function SlotOverlay({ slots, transform, onSlotClick }: SlotOverlayProps)
                   +
                 </span>
               </>
+            ) : (
+              <span
+                style={{
+                  fontSize: 9,
+                  color: `${EDITOR_COLORS.textDim}80`,
+                  padding: '2px 4px',
+                  fontFamily: 'monospace',
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                }}
+                onClick={() => onSelectSlot?.(slot.name)}
+              >
+                {slot.name}
+              </span>
             )}
           </div>
         );

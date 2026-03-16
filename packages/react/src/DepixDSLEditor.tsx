@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import type { DepixIR, DepixTheme } from '@depix/core';
+import type { DepixIR, DepixTheme, IRContainer } from '@depix/core';
 import { addSlotContent as addSlotContentMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
@@ -106,6 +106,23 @@ export function DepixDSLEditor({
     [dsl, onDSLChange, storeApi],
   );
 
+  const handleSelectSlot = useCallback(
+    (slotName: string) => {
+      const scene = ir?.scenes[activeSceneIndex];
+      if (!scene) return;
+      const container = scene.elements.find(
+        (el): el is IRContainer =>
+          el.type === 'container' &&
+          (el as IRContainer).origin?.sourceType === 'scene-slot' &&
+          (el as IRContainer).origin?.slotName === slotName,
+      );
+      if (container) {
+        storeApi.getState().setSelectedIds([container.id]);
+      }
+    },
+    [ir, activeSceneIndex, storeApi],
+  );
+
   const handleSelectElement = useCallback(
     (id: string | null) => {
       storeApi.getState().setSelectedIds(id ? [id] : []);
@@ -164,6 +181,7 @@ export function DepixDSLEditor({
           slots={currentSceneSlots}
           transform={transform}
           onSlotClick={handleSlotClick}
+          onSelectSlot={handleSelectSlot}
         />
       </div>
 

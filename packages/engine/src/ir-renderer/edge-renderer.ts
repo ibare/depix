@@ -19,9 +19,14 @@ export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.
   const absFrom = transform.toAbsolutePoint(edge.fromAnchor);
   const absTo = transform.toAbsolutePoint(edge.toAnchor);
 
+  // Edge lines are thin (1–2px stroke) making them nearly impossible to click.
+  // hitStrokeWidth expands the clickable area along the path without changing visuals.
+  const hitStrokeWidth = 12;
+
   if (edge.path.type === 'straight') {
     const line = new Konva.Line({
       points: [absFrom.x, absFrom.y, absTo.x, absTo.y],
+      hitStrokeWidth,
       ...styleAttrs,
     });
     group.add(line);
@@ -36,6 +41,7 @@ export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.
 
     const line = new Konva.Line({
       points,
+      hitStrokeWidth,
       ...styleAttrs,
     });
     group.add(line);
@@ -51,6 +57,7 @@ export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.
 
     const pathNode = new Konva.Path({
       data: d,
+      hitStrokeWidth,
       ...styleAttrs,
       fill: undefined, // bezier path should not be filled (only stroked)
     });
