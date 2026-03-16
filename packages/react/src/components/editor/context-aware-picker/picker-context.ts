@@ -65,11 +65,23 @@ function inferDSLType(element: IRElement): string {
   const meta = (element as IRElement & { metadata?: Record<string, unknown> }).metadata;
   if (meta && typeof meta.dslType === 'string') return meta.dslType;
 
+  if (element.type === 'container') {
+    const origin = element.origin;
+    // scene-slot containers carry the inner block type in sourceProps.blockType
+    if (origin?.sourceProps?.blockType && typeof origin.sourceProps.blockType === 'string') {
+      return origin.sourceProps.blockType;
+    }
+    // Direct layout containers (not scene-slot wrapped)
+    if (origin?.sourceType && BLOCK_TYPES.has(origin.sourceType)) {
+      return origin.sourceType;
+    }
+    return 'flow';
+  }
+
   switch (element.type) {
     case 'text': return 'heading';
     case 'shape': return 'node';
     case 'image': return 'image';
-    case 'container': return 'flow';
     default: return element.type;
   }
 }
@@ -131,10 +143,14 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
 
   const dslType = inferDSLType(element);
   const isBlock = BLOCK_TYPES.has(dslType);
+  const slotName = element.origin?.sourceType === 'scene-slot'
+    ? element.origin.slotName
+    : undefined;
 
   if (isBlock) {
     return {
       kind: 'existing-block',
+      slotName,
       elementId: id,
       elementType: dslType,
       elementBounds: element.bounds,

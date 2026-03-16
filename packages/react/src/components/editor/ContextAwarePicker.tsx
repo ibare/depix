@@ -3,35 +3,20 @@
  *
  * Shows a pill attached above the selected element or slot, with
  * contextual suggestions and actions based on the current selection.
+ *
+ * For block containers, renders a 2-zone pill:
+ *   [ → Flow ▾ ][ + ]
+ * Left zone opens a type-change grid, right zone opens an add-child dropdown.
  */
 
-import React, { useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
 import type { DepixIR } from '@depix/core';
-import {
-  CaretDown,
-  CaretUp,
-  Plus,
-  TextHOne,
-  ListBullets,
-  Hash,
-  Quotes,
-  List,
-  Image,
-  Square,
-  Minus,
-  ArrowRight,
-  TreeStructure,
-  GridFour,
-  Stack,
-  Table,
-  ChartBar,
-  PencilSimple,
-  Trash,
-  Palette,
-  Swap,
-} from '@phosphor-icons/react';
+import { CaretDown, Plus } from '@phosphor-icons/react';
 import { useEditorStore, useEditorStoreApi } from '../../store/editor-store-context.js';
 import { resolvePickerContext, type PickerContext, type SuggestionItem, type ActionItem } from './context-aware-picker/picker-context.js';
+import { getSuggestionsForSlot } from './context-aware-picker/picker-suggestions.js';
+import { PickerPill, PickerDropdown, TYPE_ICONS } from './context-aware-picker/PickerUI.js';
+import { TypeGridDropdown } from './context-aware-picker/TypeGridDropdown.js';
 import { EDITOR_COLORS } from './editor-colors.js';
 
 // ---------------------------------------------------------------------------
@@ -47,36 +32,7 @@ export interface ContextAwarePickerProps {
   onAction: (action: string, payload?: unknown) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Icon map
-// ---------------------------------------------------------------------------
-
-const ICON_SIZE = 14;
-
-const TYPE_ICONS: Record<string, React.ReactNode> = {
-  heading: <TextHOne size={ICON_SIZE} />,
-  bullet: <ListBullets size={ICON_SIZE} />,
-  stat: <Hash size={ICON_SIZE} />,
-  quote: <Quotes size={ICON_SIZE} />,
-  list: <List size={ICON_SIZE} />,
-  image: <Image size={ICON_SIZE} />,
-  node: <Square size={ICON_SIZE} />,
-  divider: <Minus size={ICON_SIZE} />,
-  flow: <ArrowRight size={ICON_SIZE} />,
-  tree: <TreeStructure size={ICON_SIZE} />,
-  grid: <GridFour size={ICON_SIZE} />,
-  stack: <Stack size={ICON_SIZE} />,
-  table: <Table size={ICON_SIZE} />,
-  chart: <ChartBar size={ICON_SIZE} />,
-};
-
-const ACTION_ICONS: Record<string, React.ReactNode> = {
-  'edit-text': <PencilSimple size={ICON_SIZE} />,
-  'delete': <Trash size={ICON_SIZE} />,
-  'style': <Palette size={ICON_SIZE} />,
-  'add-child': <Plus size={ICON_SIZE} />,
-  'change-type': <Swap size={ICON_SIZE} />,
-};
+type DropdownMode = 'suggestions' | 'type-grid' | 'add-child' | null;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -92,34 +48,44 @@ export function ContextAwarePicker({
 }: ContextAwarePickerProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const pickerSlot = useEditorStore((s) => s.pickerSlot);
-  const pickerExpanded = useEditorStore((s) => s.pickerExpanded);
   const storeApi = useEditorStoreApi();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownMode, setDropdownMode] = useState<DropdownMode>(null);
 
   const ctx = useMemo<PickerContext>(
     () => resolvePickerContext({ selectedIds, pickerSlot, ir, activeSceneIndex }),
     [selectedIds, pickerSlot, ir, activeSceneIndex],
   );
 
+  // Reset dropdown mode when selection changes
+  useEffect(() => setDropdownMode(null), [selectedIds, pickerSlot]);
+
+  // Auto-open suggestions for empty-slot (triggered by slot click)
+  useEffect(() => {
+    if (ctx.kind === 'empty-slot') setDropdownMode('suggestions');
+  }, [ctx.kind]);
+
   // Close on outside click
   useEffect(() => {
-    if (!pickerExpanded) return;
+    if (dropdownMode === null) return;
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        storeApi.getState().setPickerExpanded(false);
+        setDropdownMode(null);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [pickerExpanded, storeApi]);
+  }, [dropdownMode]);
 
+  // --- Non-block pill toggle ---
   const toggleExpanded = useCallback(() => {
-    storeApi.getState().setPickerExpanded(!pickerExpanded);
-  }, [pickerExpanded, storeApi]);
+    setDropdownMode((prev) => (prev === 'suggestions' ? null : 'suggestions'));
+  }, []);
 
   const handleSuggestionClick = useCallback(
     (item: SuggestionItem) => {
       onAction('add-content', { type: item.type, category: item.category });
+      setDropdownMode(null);
       storeApi.getState().setPickerExpanded(false);
     },
     [onAction, storeApi],
@@ -127,17 +93,55 @@ export function ContextAwarePicker({
 
   const handleActionClick = useCallback(
     (item: ActionItem) => {
-      onAction(item.action, { elementId: ctx.elementId, elementType: ctx.elementType });
-      storeApi.getState().setPickerExpanded(false);
+      onAction(item.action, {
+        elementId: ctx.elementId,
+        elementType: ctx.elementType,
+        slotName: ctx.slotName,
+      });
+      setDropdownMode(null);
     },
-    [onAction, ctx.elementId, ctx.elementType, storeApi],
+    [onAction, ctx.elementId, ctx.elementType, ctx.slotName],
+  );
+
+  // --- Two-zone pill handlers (existing-block) ---
+  const handleTypeZoneClick = useCallback(() => {
+    setDropdownMode((prev) => (prev === 'type-grid' ? null : 'type-grid'));
+  }, []);
+
+  const handleAddZoneClick = useCallback(() => {
+    setDropdownMode((prev) => (prev === 'add-child' ? null : 'add-child'));
+  }, []);
+
+  const handleTypeSelect = useCallback(
+    (newType: string) => {
+      onAction('change-type', { elementId: ctx.elementId, slotName: ctx.slotName, newType });
+      setDropdownMode(null);
+    },
+    [onAction, ctx.elementId, ctx.slotName],
+  );
+
+  const handleAddChildSuggestion = useCallback(
+    (item: SuggestionItem) => {
+      onAction('add-child', { slotName: ctx.slotName, type: item.type, category: item.category });
+      setDropdownMode(null);
+    },
+    [onAction, ctx.slotName],
   );
 
   // Don't render for 'none' or 'empty-canvas'
   if (ctx.kind === 'none' || ctx.kind === 'empty-canvas') return null;
 
-  // Position: above the target bounds or at pickerSlot position
   const pos = computePosition(ctx, pickerSlot, width, height);
+  const isBlock = ctx.kind === 'existing-block';
+
+  // For add-child dropdown: show slot suggestions + delete action only
+  const addChildCtx: PickerContext | null = isBlock
+    ? {
+        ...ctx,
+        suggestions: getSuggestionsForSlot(ctx.slotName ?? 'body'),
+        actions: ctx.actions.filter((a) => a.action !== 'add-child' && a.action !== 'change-type'),
+      }
+    : null;
 
   return (
     <div
@@ -152,15 +156,33 @@ export function ContextAwarePicker({
       }}
     >
       {/* Pill */}
-      <PickerPill
-        label={ctx.label}
-        kind={ctx.kind}
-        expanded={pickerExpanded}
-        onToggle={toggleExpanded}
-      />
+      {isBlock ? (
+        <TwoZonePill
+          currentType={ctx.elementType!}
+          onTypeClick={handleTypeZoneClick}
+          onAddClick={handleAddZoneClick}
+        />
+      ) : (
+        <PickerPill
+          label={ctx.label}
+          kind={ctx.kind}
+          expanded={dropdownMode === 'suggestions'}
+          onToggle={toggleExpanded}
+        />
+      )}
 
-      {/* Dropdown */}
-      {pickerExpanded && (
+      {/* Dropdowns */}
+      {dropdownMode === 'type-grid' && (
+        <TypeGridDropdown currentType={ctx.elementType!} onSelect={handleTypeSelect} />
+      )}
+      {dropdownMode === 'add-child' && addChildCtx && (
+        <PickerDropdown
+          ctx={addChildCtx}
+          onSuggestionClick={handleAddChildSuggestion}
+          onActionClick={handleActionClick}
+        />
+      )}
+      {dropdownMode === 'suggestions' && (
         <PickerDropdown
           ctx={ctx}
           onSuggestionClick={handleSuggestionClick}
@@ -172,188 +194,63 @@ export function ContextAwarePicker({
 }
 
 // ---------------------------------------------------------------------------
-// PickerPill
+// TwoZonePill
 // ---------------------------------------------------------------------------
 
-function PickerPill({
-  label,
-  kind,
-  expanded,
-  onToggle,
+function TwoZonePill({
+  currentType,
+  onTypeClick,
+  onAddClick,
 }: {
-  label: string;
-  kind: string;
-  expanded: boolean;
-  onToggle: () => void;
+  currentType: string;
+  onTypeClick: () => void;
+  onAddClick: () => void;
 }) {
-  const isSlot = kind === 'empty-slot';
-
   return (
-    <button
-      onClick={onToggle}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 12px',
-        background: EDITOR_COLORS.bg,
-        border: `1px solid ${EDITOR_COLORS.border}`,
-        borderRadius: 16,
-        color: EDITOR_COLORS.text,
-        fontSize: 11,
-        fontWeight: 500,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-      }}
-    >
-      {isSlot && <Plus size={12} weight="bold" />}
-      <span>{label}</span>
-      {expanded ? <CaretUp size={10} /> : <CaretDown size={10} />}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// PickerDropdown
-// ---------------------------------------------------------------------------
-
-function PickerDropdown({
-  ctx,
-  onSuggestionClick,
-  onActionClick,
-}: {
-  ctx: PickerContext;
-  onSuggestionClick: (item: SuggestionItem) => void;
-  onActionClick: (item: ActionItem) => void;
-}) {
-  const elements = ctx.suggestions.filter((s) => s.category === 'element');
-  const blocks = ctx.suggestions.filter((s) => s.category === 'block');
-  const hasSuggestions = ctx.suggestions.length > 0;
-  const hasActions = ctx.actions.length > 0;
-
-  return (
-    <div
-      style={{
-        marginTop: 4,
-        background: EDITOR_COLORS.bg,
-        border: `1px solid ${EDITOR_COLORS.border}`,
-        borderRadius: 8,
-        padding: 8,
-        minWidth: 180,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-      }}
-    >
-      {/* Suggestions */}
-      {hasSuggestions && (
-        <>
-          {elements.length > 0 && (
-            <>
-              <SectionLabel text="Elements" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                {elements.map((item) => (
-                  <SuggestionButton key={item.type} item={item} onClick={() => onSuggestionClick(item)} />
-                ))}
-              </div>
-            </>
-          )}
-          {blocks.length > 0 && (
-            <>
-              <SectionLabel text="Blocks" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                {blocks.map((item) => (
-                  <SuggestionButton key={item.type} item={item} onClick={() => onSuggestionClick(item)} />
-                ))}
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      {/* Divider between suggestions and actions */}
-      {hasSuggestions && hasActions && (
-        <div style={{ borderTop: `1px solid ${EDITOR_COLORS.border}`, margin: '6px 0' }} />
-      )}
-
-      {/* Actions */}
-      {hasActions && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {ctx.actions.map((item) => (
-            <ActionButton key={item.action} item={item} onClick={() => onActionClick(item)} />
-          ))}
-        </div>
-      )}
+    <div style={{ display: 'flex', gap: 0, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}>
+      <button
+        onClick={onTypeClick}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '4px 10px',
+          background: EDITOR_COLORS.bg,
+          border: `1px solid ${EDITOR_COLORS.border}`,
+          borderRadius: '16px 0 0 16px',
+          borderRight: 'none',
+          color: EDITOR_COLORS.text,
+          fontSize: 11,
+          fontWeight: 500,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center' }}>{TYPE_ICONS[currentType] ?? null}</span>
+        <span>{capitalize(currentType)}</span>
+        <CaretDown size={10} />
+      </button>
+      <button
+        onClick={onAddClick}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '4px 8px',
+          background: EDITOR_COLORS.bg,
+          border: `1px solid ${EDITOR_COLORS.border}`,
+          borderRadius: '0 16px 16px 0',
+          color: EDITOR_COLORS.text,
+          cursor: 'pointer',
+        }}
+      >
+        <Plus size={12} weight="bold" />
+      </button>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function SectionLabel({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        fontSize: 9,
-        color: EDITOR_COLORS.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        padding: '4px 4px 2px',
-      }}
-    >
-      {text}
-    </div>
-  );
-}
-
-function SuggestionButton({ item, onClick }: { item: SuggestionItem; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 6px',
-        background: EDITOR_COLORS.bgLight,
-        border: `1px solid ${EDITOR_COLORS.border}`,
-        borderRadius: 4,
-        color: EDITOR_COLORS.text,
-        fontSize: 10,
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{ display: 'flex', alignItems: 'center' }}>{TYPE_ICONS[item.type] ?? <Square size={ICON_SIZE} />}</span>
-      <span>{item.label}</span>
-    </button>
-  );
-}
-
-function ActionButton({ item, onClick }: { item: ActionItem; onClick: () => void }) {
-  const isDanger = item.variant === 'danger';
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 8px',
-        background: 'transparent',
-        border: 'none',
-        borderRadius: 4,
-        color: isDanger ? EDITOR_COLORS.danger : EDITOR_COLORS.text,
-        fontSize: 11,
-        cursor: 'pointer',
-        width: '100%',
-        textAlign: 'left',
-      }}
-    >
-      <span style={{ display: 'flex', alignItems: 'center' }}>{ACTION_ICONS[item.action] ?? null}</span>
-      <span>{item.label}</span>
-    </button>
-  );
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -366,19 +263,14 @@ function computePosition(
   width: number,
   height: number,
 ): { x: number; y: number } {
-  // For slot picker, use the slot's stored position
   if (ctx.kind === 'empty-slot' && pickerSlot) {
     return { x: pickerSlot.position.x, y: pickerSlot.position.y - 20 };
   }
-
-  // For element/block with bounds, position above the element
   if (ctx.elementBounds) {
     const b = ctx.elementBounds;
     const cx = ((b.x + b.w / 2) / 100) * width;
     const ty = (b.y / 100) * height - 8;
     return { x: cx, y: Math.max(0, ty) };
   }
-
-  // Fallback: center of canvas
   return { x: width / 2, y: 40 };
 }

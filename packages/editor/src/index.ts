@@ -64,6 +64,7 @@ export {
   reorderScenes,
   changeLayout,
   addSlotContent,
+  changeSlotBlockType,
   changeElementLabel,
   removeElement as removeElementDSL,
   changeElementStyle,

@@ -35,7 +35,7 @@ const ALL_ELEMENTS: SuggestionItem[] = [
   { type: 'divider', label: 'Divider', category: 'element' },
 ];
 
-const ALL_BLOCKS: SuggestionItem[] = [
+export const ALL_BLOCKS: SuggestionItem[] = [
   { type: 'flow', label: 'Flow', category: 'block' },
   { type: 'tree', label: 'Tree', category: 'block' },
   { type: 'grid', label: 'Grid', category: 'block' },

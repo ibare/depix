@@ -108,15 +108,25 @@ function emitScene(
 
     // Wrap all slot content in a named IRContainer so the Layers panel can display
     // the slot name (header, main, left, etc.) instead of generic "Container (N)".
+    // When inner is a container (e.g. from emitInlineBlock), preserve its original
+    // sourceType (flow, tree, etc.) in sourceProps.blockType for the picker UI.
+    const innerBlockType = inner.type === 'container'
+      ? (inner as IRContainer).origin?.sourceType
+      : undefined;
+    const slotOrigin: IRContainer['origin'] = {
+      sourceType: 'scene-slot',
+      slotName,
+      ...(innerBlockType ? { sourceProps: { blockType: innerBlockType } } : {}),
+    };
     const el: IRContainer = inner.type === 'container'
-      ? { ...(inner as IRContainer), origin: { sourceType: 'scene-slot', slotName } }
+      ? { ...(inner as IRContainer), origin: slotOrigin }
       : {
           id: `${childId}-slot`,
           type: 'container',
           bounds,
           style: {},
           children: [inner],
-          origin: { sourceType: 'scene-slot', slotName },
+          origin: slotOrigin,
         };
     elements.push(el);
   }

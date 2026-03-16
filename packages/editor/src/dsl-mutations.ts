@@ -113,6 +113,30 @@ export function addSlotContent(dsl: string, sceneIndex: number, slotName: string
   return serialize(ast);
 }
 
+/**
+ * Change the block type of a slotted block container.
+ * Finds the block child assigned to the given slot and changes its blockType.
+ * Children are preserved; only the container type keyword changes.
+ */
+export function changeSlotBlockType(
+  dsl: string,
+  sceneIndex: number,
+  slotName: string,
+  newBlockType: string,
+): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+
+  const target = scene.children.find(
+    (c) => c.kind === 'block' && (c as ASTBlock).slot === slotName,
+  ) as ASTBlock | undefined;
+
+  if (!target) return dsl;
+  target.blockType = newBlockType;
+  return serialize(ast);
+}
+
 // ---------------------------------------------------------------------------
 // Element mutations
 // ---------------------------------------------------------------------------

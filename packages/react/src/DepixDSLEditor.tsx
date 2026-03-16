@@ -12,7 +12,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import type { DepixIR, DepixTheme, IRContainer } from '@depix/core';
-import { addSlotContent as addSlotContentMutation } from '@depix/editor';
+import { addSlotContent as addSlotContentMutation, changeSlotBlockType as changeSlotBlockTypeMutation } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
 import { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
@@ -100,6 +100,24 @@ export function DepixDSLEditor({
         const newDsl = addSlotContentMutation(dsl, idx, slot.name, content);
         onDSLChange(newDsl);
         storeApi.getState().setPickerSlot(null);
+      }
+      if (action === 'change-type' && p) {
+        const slotName = p.slotName as string;
+        const newType = p.newType as string;
+        if (!slotName || !newType) return;
+        const idx = storeApi.getState().activeSceneIndex;
+        const newDsl = changeSlotBlockTypeMutation(dsl, idx, slotName, newType);
+        onDSLChange(newDsl);
+      }
+
+      if (action === 'add-child' && p) {
+        const slotName = p.slotName as string;
+        const type = p.type as string;
+        if (!slotName || !type) return;
+        const content = `${type} "New ${type}"`;
+        const idx = storeApi.getState().activeSceneIndex;
+        const newDsl = addSlotContentMutation(dsl, idx, slotName, content);
+        onDSLChange(newDsl);
       }
       // Other actions (edit-text, delete, style, etc.) can be handled here
     },
