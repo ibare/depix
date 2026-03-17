@@ -24,6 +24,8 @@ export interface LayersTabProps {
   lockedIds?: Set<string>;
   /** Callback when an element is clicked for selection. */
   onSelectElement?: (id: string, append?: boolean) => void;
+  /** Callback when an element is double-clicked (opens property panel). */
+  onDoubleClickElement?: (id: string) => void;
   /** Callback when an element's lock state is toggled. */
   onToggleLock?: (id: string) => void;
   /** Callback when element order changes. */
@@ -163,6 +165,7 @@ function LayerItem({
   selectedIds,
   lockedIds,
   onSelectElement,
+  onDoubleClickElement,
   onToggleLock,
 }: {
   element: IRElement;
@@ -170,6 +173,7 @@ function LayerItem({
   selectedIds: string[];
   lockedIds: Set<string>;
   onSelectElement?: (id: string, append?: boolean) => void;
+  onDoubleClickElement?: (id: string) => void;
   onToggleLock?: (id: string) => void;
 }) {
   const isSelected = selectedIds.includes(element.id);
@@ -184,6 +188,7 @@ function LayerItem({
           paddingLeft: `${8 + depth * 16}px`,
         }}
         onClick={(e) => onSelectElement?.(element.id, e.shiftKey)}
+        onDoubleClick={() => onDoubleClickElement?.(element.id)}
       >
         <TypeIcon type={element.type} />
         <span style={labelStyle}>{getElementLabel(element)}</span>
@@ -212,6 +217,7 @@ function LayerItem({
             selectedIds={selectedIds}
             lockedIds={lockedIds}
             onSelectElement={onSelectElement}
+            onDoubleClickElement={onDoubleClickElement}
             onToggleLock={onToggleLock}
           />
         ))}
@@ -224,6 +230,7 @@ export const LayersTab: React.FC<LayersTabProps> = ({
   selectedIds,
   lockedIds = new Set(),
   onSelectElement,
+  onDoubleClickElement,
   onToggleLock,
 }) => {
   if (elements.length === 0) {
@@ -245,6 +252,7 @@ export const LayersTab: React.FC<LayersTabProps> = ({
           selectedIds={selectedIds}
           lockedIds={lockedIds}
           onSelectElement={onSelectElement}
+          onDoubleClickElement={onDoubleClickElement}
           onToggleLock={onToggleLock}
         />
       ))}

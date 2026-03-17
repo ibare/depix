@@ -163,12 +163,12 @@ describe('InspectorPanel — object card', () => {
     expect(card.style.transform).toBe('translateX(0)');
   });
 
-  it('object card slides out when element is selected', () => {
+  it('object card stays hidden even when element is selected (explicit action required)', () => {
     const { getByTestId } = renderPanel(
       defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' }),
     );
     const card = getByTestId('object-card');
-    expect(card.style.transform).toContain('translateX(-');
+    expect(card.style.transform).toBe('translateX(0)');
   });
 
   it('object card stays hidden on Canvas tab even with selection', () => {
@@ -199,13 +199,15 @@ describe('InspectorPanel — edge handle', () => {
     expect(queryByTestId('object-edge-handle')).toBeNull();
   });
 
-  it('edge handle click with selection calls onSelectElement(null)', () => {
-    const onSelectElement = vi.fn();
+  it('edge handle click toggles object card open regardless of selection', () => {
     const { getByTestId } = renderPanel(
-      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1', onSelectElement }),
+      defaultProps({ ir: irWithElement as any, selectedElementId: 'el-1' }),
     );
+    // Initially hidden
+    expect(getByTestId('object-card').style.transform).toBe('translateX(0)');
+    // Click edge handle to open
     fireEvent.click(getByTestId('object-edge-handle'));
-    expect(onSelectElement).toHaveBeenCalledWith(null);
+    expect(getByTestId('object-card').style.transform).toContain('translateX(-');
   });
 
   it('edge handle click without selection toggles object card open', () => {
@@ -223,8 +225,7 @@ describe('InspectorPanel — edge handle', () => {
     );
     const card = getByTestId('object-card');
     const handle = getByTestId('object-edge-handle');
-    // Card slides and handle is a child of card
-    expect(card.style.transform).toContain('translateX(-');
+    // Edge handle is always a child of the object card (DOM structure)
     expect(card.contains(handle)).toBe(true);
   });
 });

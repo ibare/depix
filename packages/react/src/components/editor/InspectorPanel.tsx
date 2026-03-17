@@ -148,20 +148,17 @@ export function InspectorPanel({
     { id: 'scenes', label: 'Scenes', badge: sceneCount },
   ];
 
-  // Object card opens when element selected on Layers tab, or manually toggled
+  // Object card opens only via explicit action: edge handle click or layer item double-click
   const isOnLayersTab = activeTab === 'layers';
-  const objectVisible = isOnLayersTab && (objectOpen || !!selectedElementId);
+  const objectVisible = isOnLayersTab && objectOpen;
 
   const handleEdgeHandleClick = useCallback(() => {
-    if (selectedElementId) {
-      // Deselect to close
-      onSelectElement(null);
-      storeApi.getState().setObjectPanelOpen(false);
-    } else {
-      // Toggle manually
-      storeApi.getState().setObjectPanelOpen(!storeApi.getState().objectPanelOpen);
-    }
-  }, [selectedElementId, onSelectElement, storeApi]);
+    storeApi.getState().setObjectPanelOpen(!storeApi.getState().objectPanelOpen);
+  }, [storeApi]);
+
+  const handleDoubleClickElement = useCallback(() => {
+    storeApi.getState().setObjectPanelOpen(true);
+  }, [storeApi]);
 
   return (
     <div
@@ -278,6 +275,7 @@ export function InspectorPanel({
               elements={callbacks.sceneElements}
               selectedIds={selectedElementId ? [selectedElementId] : []}
               onSelectElement={(id) => onSelectElement(id)}
+              onDoubleClickElement={handleDoubleClickElement}
             />
           )}
 
