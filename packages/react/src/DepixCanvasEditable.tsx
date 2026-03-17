@@ -212,7 +212,6 @@ const DepixCanvasEditableInner = forwardRef<
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DepixEngine | null>(null);
   const irRef = useRef(ir);
-  irRef.current = ir;
 
   // ---- Store access -------------------------------------------------------
 
@@ -256,6 +255,7 @@ const DepixCanvasEditableInner = forwardRef<
 
   /** IR to render: internal editingIR during DSL editing, otherwise parent's ir prop. */
   const renderIR = (isEditing && isDSLMode && editingIR) ? editingIR : ir;
+  irRef.current = renderIR;
 
   // ---- Fullscreen editing dimensions ------------------------------------
 
