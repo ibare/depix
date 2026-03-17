@@ -11,13 +11,13 @@
 
 import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
 import type { DepixIR } from '@depix/core';
-import { CaretDown, Plus } from '@phosphor-icons/react';
 import { useEditorStore, useEditorStoreApi } from '../../store/editor-store-context.js';
 import { resolvePickerContext, type PickerContext, type SuggestionItem, type ActionItem } from './context-aware-picker/picker-context.js';
 import { getSuggestionsForBlock } from './context-aware-picker/picker-suggestions.js';
-import { PickerPill, PickerDropdown, TYPE_ICONS } from './context-aware-picker/PickerUI.js';
+import { PickerPill, PickerDropdown, computePosition } from './context-aware-picker/PickerUI.js';
+import { TwoZonePill, ElementTwoZonePill } from './context-aware-picker/pill-components.js';
 import { TypeGridDropdown } from './context-aware-picker/TypeGridDropdown.js';
-import { EDITOR_COLORS } from './editor-colors.js';
+import { ElementTypeDropdown } from './context-aware-picker/ElementTypeDropdown.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,7 +32,7 @@ export interface ContextAwarePickerProps {
   onAction: (action: string, payload?: unknown) => void;
 }
 
-type DropdownMode = 'suggestions' | 'type-grid' | 'add-child' | null;
+type DropdownMode = 'suggestions' | 'type-grid' | 'add-child' | 'element-type' | null;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -103,6 +103,35 @@ export function ContextAwarePicker({
     [onAction, ctx.elementId, ctx.elementType, ctx.slotName],
   );
 
+  // --- Two-zone pill handlers (existing-element) ---
+  const handleElementZoneClick = useCallback(() => {
+    setDropdownMode((prev) => (prev === 'element-type' ? null : 'element-type'));
+  }, []);
+
+  const handleElementShapeZoneClick = useCallback(() => {
+    setDropdownMode((prev) => (prev === 'type-grid' ? null : 'type-grid'));
+  }, []);
+
+  const handleElementTypeSelect = useCallback(
+    (newType: string) => {
+      onAction('change-element-type', { elementId: ctx.elementId, newType });
+      setDropdownMode(null);
+    },
+    [onAction, ctx.elementId],
+  );
+
+  const handleParentShapeSelect = useCallback(
+    (newType: string) => {
+      if (ctx.parentIsSlot) {
+        onAction('wrap-in-block', { slotName: ctx.slotName, blockType: newType });
+      } else {
+        onAction('change-type', { elementId: ctx.elementId, slotName: ctx.slotName, newType });
+      }
+      setDropdownMode(null);
+    },
+    [onAction, ctx.parentIsSlot, ctx.elementId, ctx.slotName],
+  );
+
   // --- Two-zone pill handlers (existing-block) ---
   const handleTypeZoneClick = useCallback(() => {
     setDropdownMode((prev) => (prev === 'type-grid' ? null : 'type-grid'));
@@ -133,6 +162,7 @@ export function ContextAwarePicker({
 
   const pos = computePosition(ctx, pickerSlot, width, height);
   const isBlock = ctx.kind === 'existing-block';
+  const isElement = ctx.kind === 'existing-element';
 
   // For add-child dropdown: show block-type-specific children + delete action only
   const addChildCtx: PickerContext | null = isBlock
@@ -156,7 +186,14 @@ export function ContextAwarePicker({
       }}
     >
       {/* Pill */}
-      {isBlock ? (
+      {isElement ? (
+        <ElementTwoZonePill
+          elementType={ctx.elementType!}
+          parentContainerType={ctx.parentContainerType}
+          onElementClick={handleElementZoneClick}
+          onShapeClick={handleElementShapeZoneClick}
+        />
+      ) : isBlock ? (
         <TwoZonePill
           currentType={ctx.elementType!}
           canChangeType={ctx.containerCategory === 'layout'}
@@ -173,7 +210,16 @@ export function ContextAwarePicker({
       )}
 
       {/* Dropdowns */}
-      {dropdownMode === 'type-grid' && (
+      {dropdownMode === 'element-type' && isElement && (
+        <ElementTypeDropdown currentType={ctx.elementType!} onSelect={handleElementTypeSelect} />
+      )}
+      {dropdownMode === 'type-grid' && isElement && (
+        <TypeGridDropdown
+          currentType={ctx.parentContainerType ?? 'flow'}
+          onSelect={handleParentShapeSelect}
+        />
+      )}
+      {dropdownMode === 'type-grid' && isBlock && (
         <TypeGridDropdown currentType={ctx.elementType!} onSelect={handleTypeSelect} />
       )}
       {dropdownMode === 'add-child' && addChildCtx && (
@@ -192,88 +238,4 @@ export function ContextAwarePicker({
       )}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// TwoZonePill
-// ---------------------------------------------------------------------------
-
-function TwoZonePill({
-  currentType,
-  canChangeType,
-  onTypeClick,
-  onAddClick,
-}: {
-  currentType: string;
-  canChangeType: boolean;
-  onTypeClick: () => void;
-  onAddClick: () => void;
-}) {
-  return (
-    <div style={{ display: 'flex', gap: 0, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}>
-      <button
-        onClick={canChangeType ? onTypeClick : undefined}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 5,
-          padding: '4px 10px',
-          background: EDITOR_COLORS.bg,
-          border: `1px solid ${EDITOR_COLORS.border}`,
-          borderRadius: '16px 0 0 16px',
-          borderRight: 'none',
-          color: EDITOR_COLORS.text,
-          fontSize: 11,
-          fontWeight: 500,
-          cursor: canChangeType ? 'pointer' : 'default',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center' }}>{TYPE_ICONS[currentType] ?? null}</span>
-        <span>{capitalize(currentType)}</span>
-        {canChangeType && <CaretDown size={10} />}
-      </button>
-      <button
-        onClick={onAddClick}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 8px',
-          background: EDITOR_COLORS.bg,
-          border: `1px solid ${EDITOR_COLORS.border}`,
-          borderRadius: '0 16px 16px 0',
-          color: EDITOR_COLORS.text,
-          cursor: 'pointer',
-        }}
-      >
-        <Plus size={12} weight="bold" />
-      </button>
-    </div>
-  );
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// ---------------------------------------------------------------------------
-// Position computation
-// ---------------------------------------------------------------------------
-
-function computePosition(
-  ctx: PickerContext,
-  pickerSlot: { name: string; position: { x: number; y: number } } | null,
-  width: number,
-  height: number,
-): { x: number; y: number } {
-  if (ctx.kind === 'empty-slot' && pickerSlot) {
-    return { x: pickerSlot.position.x, y: pickerSlot.position.y - 20 };
-  }
-  if (ctx.elementBounds) {
-    const b = ctx.elementBounds;
-    const cx = ((b.x + b.w / 2) / 100) * width;
-    const ty = (b.y / 100) * height - 8;
-    return { x: cx, y: Math.max(0, ty) };
-  }
-  return { x: width / 2, y: 40 };
 }

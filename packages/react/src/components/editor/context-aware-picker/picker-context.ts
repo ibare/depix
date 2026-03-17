@@ -5,8 +5,8 @@
  * describing what the picker should show.
  */
 
-import type { DepixIR, IRElement, IRBounds } from '@depix/core';
-import { findElement, PICKER_BLOCK_TYPES, LAYOUT_TYPES } from '@depix/core';
+import type { DepixIR, IRElement, IRBounds, IRContainer } from '@depix/core';
+import { findElement, getElementParent, PICKER_BLOCK_TYPES, LAYOUT_TYPES } from '@depix/core';
 import { getSuggestionsForSlot, getActionsForElement, type SuggestionItem, type ActionItem } from './picker-suggestions.js';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +28,10 @@ export interface PickerContext {
   elementType?: string;
   elementBounds?: IRBounds;
   containerCategory?: 'layout' | 'content';
+  /** Parent container layout type for existing-element ('flow','grid',...). Undefined = defaults to flow. */
+  parentContainerType?: string;
+  /** True when element is a direct scene-slot child with no block wrapper. */
+  parentIsSlot?: boolean;
   suggestions: SuggestionItem[];
   actions: ActionItem[];
   label: string;
@@ -160,11 +164,36 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
     };
   }
 
+  // Detect parent container to surface element type change and parent layout change
+  let parentContainerType: string | undefined;
+  let parentIsSlot = false;
+  let elementSlotName: string | undefined;
+
+  if (scene) {
+    const parent = getElementParent(scene, id);
+    if (parent && !('elements' in parent)) {
+      // parent is IRContainer (IRScene has 'elements', IRContainer has 'children')
+      const pc = parent as IRContainer;
+      if (pc.origin?.sourceType === 'scene-slot') {
+        const blockType = pc.origin.sourceProps?.blockType;
+        if (typeof blockType === 'string' && PICKER_BLOCK_TYPES.has(blockType)) {
+          parentContainerType = blockType;
+        } else {
+          parentIsSlot = true;
+        }
+        elementSlotName = pc.origin.slotName;
+      }
+    }
+  }
+
   return {
     kind: 'existing-element',
     elementId: id,
     elementType: dslType,
     elementBounds: element.bounds,
+    slotName: elementSlotName,
+    parentContainerType,
+    parentIsSlot,
     suggestions: [],
     actions: getActionsForElement(dslType),
     label: capitalize(dslType),

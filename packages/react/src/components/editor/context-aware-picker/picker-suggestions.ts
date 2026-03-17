@@ -24,7 +24,7 @@ export interface ActionItem {
 // All available options
 // ---------------------------------------------------------------------------
 
-const ALL_ELEMENTS: SuggestionItem[] = [
+export const ALL_ELEMENTS: SuggestionItem[] = [
   { type: 'heading', label: 'Heading', category: 'element' },
   { type: 'bullet', label: 'Bullet', category: 'element' },
   { type: 'stat', label: 'Stat', category: 'element' },
@@ -132,4 +132,8 @@ const CONTENT_BLOCK_CHILDREN: Record<string, SuggestionItem[]> = {
  */
 export function getSuggestionsForBlock(blockType: string): SuggestionItem[] {
   return CONTENT_BLOCK_CHILDREN[blockType] ?? [...ALL_ELEMENTS, ...ALL_BLOCKS];
+}
+
+export function getSuggestionsForElementSwitch(currentType: string): SuggestionItem[] {
+  return ALL_ELEMENTS.filter((s) => s.type !== currentType);
 }

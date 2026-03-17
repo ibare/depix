@@ -2,7 +2,7 @@
  * PickerUI — Shared UI primitives for the context-aware picker.
  *
  * Extracted from ContextAwarePicker to satisfy the 300-line limit (C1).
- * Contains icon maps, atomic UI components, and compound dropdown.
+ * Contains icon maps, atomic UI components, compound dropdown, and position helper.
  */
 
 import React from 'react';
@@ -181,6 +181,28 @@ export function PickerPill({
       {expanded ? <CaretUp size={10} /> : <CaretDown size={10} />}
     </button>
   );
+}
+
+// ---------------------------------------------------------------------------
+// computePosition
+// ---------------------------------------------------------------------------
+
+export function computePosition(
+  ctx: PickerContext,
+  pickerSlot: { name: string; position: { x: number; y: number } } | null,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  if (ctx.kind === 'empty-slot' && pickerSlot) {
+    return { x: pickerSlot.position.x, y: pickerSlot.position.y - 20 };
+  }
+  if (ctx.elementBounds) {
+    const b = ctx.elementBounds;
+    const cx = ((b.x + b.w / 2) / 100) * width;
+    const ty = (b.y / 100) * height - 8;
+    return { x: cx, y: Math.max(0, ty) };
+  }
+  return { x: width / 2, y: 40 };
 }
 
 // ---------------------------------------------------------------------------

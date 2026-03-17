@@ -11,8 +11,15 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import type { DepixIR, DepixTheme, IRContainer } from '@depix/core';
-import { addSlotContent as addSlotContentMutation, changeSlotBlockType as changeSlotBlockTypeMutation, addBlockChild as addBlockChildMutation } from '@depix/editor';
+import type { DepixIR, DepixTheme, IRContainer, IRElement } from '@depix/core';
+import { parse } from '@depix/core';
+import {
+  addSlotContent as addSlotContentMutation,
+  changeSlotBlockType as changeSlotBlockTypeMutation,
+  addBlockChild as addBlockChildMutation,
+  changeElementType as changeElementTypeMutation,
+  wrapSlotInBlock as wrapSlotInBlockMutation,
+} from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
 import { ContextAwarePicker } from './components/editor/ContextAwarePicker.js';
@@ -47,6 +54,56 @@ export interface DepixDSLEditorProps {
   onConfirm: () => void;
   /** Cancel edit */
   onCancel: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+interface ASTNode { kind: string; id?: string; children?: ASTNode[] }
+
+function collectASTElements(nodes: ASTNode[]): ASTNode[] {
+  const result: ASTNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === 'element') result.push(node);
+    else if (node.kind === 'block' && node.children) result.push(...collectASTElements(node.children));
+  }
+  return result;
+}
+
+function flattenIRElements(elements: IRElement[]): IRElement[] {
+  const result: IRElement[] = [];
+  for (const el of elements) {
+    if (el.type === 'container' && 'children' in el) {
+      result.push(...flattenIRElements((el as IRElement & { children: IRElement[] }).children));
+    } else {
+      result.push(el);
+    }
+  }
+  return result;
+}
+
+function resolveElementIndex(
+  dsl: string,
+  ir: DepixIR | null,
+  sceneIndex: number,
+  elementId: string,
+): number | undefined {
+  if (!ir) return undefined;
+  try {
+    const { ast } = parse(dsl);
+    const scene = ast.scenes[sceneIndex];
+    if (!scene) return undefined;
+    const astElements = collectASTElements(scene.children as ASTNode[]);
+    const irScene = ir.scenes[sceneIndex];
+    if (!irScene) return undefined;
+    const irElements = flattenIRElements(irScene.elements);
+    const irIdx = irElements.findIndex((el) => el.id === elementId);
+    if (irIdx >= 0 && irIdx < astElements.length) return irIdx;
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,9 +176,27 @@ export function DepixDSLEditor({
         const newDsl = addBlockChildMutation(dsl, idx, slotName, content);
         onDSLChange(newDsl);
       }
+      if (action === 'change-element-type' && p) {
+        const elementId = p.elementId as string;
+        const newType = p.newType as string;
+        if (!elementId || !newType) return;
+        const idx = resolveElementIndex(dsl, ir, storeApi.getState().activeSceneIndex, elementId);
+        if (idx === undefined) return;
+        const newDsl = changeElementTypeMutation(dsl, storeApi.getState().activeSceneIndex, idx, newType);
+        onDSLChange(newDsl);
+      }
+
+      if (action === 'wrap-in-block' && p) {
+        const slotName = p.slotName as string;
+        const blockType = p.blockType as string;
+        if (!slotName || !blockType) return;
+        const idx = storeApi.getState().activeSceneIndex;
+        const newDsl = wrapSlotInBlockMutation(dsl, idx, slotName, blockType);
+        onDSLChange(newDsl);
+      }
       // Other actions (edit-text, delete, style, etc.) can be handled here
     },
-    [dsl, onDSLChange, storeApi],
+    [dsl, ir, onDSLChange, storeApi],
   );
 
   const handleSelectSlot = useCallback(

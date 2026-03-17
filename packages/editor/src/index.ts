@@ -67,7 +67,9 @@ export {
   changeSlotBlockType,
   addBlockChild,
   changeElementLabel,
+  changeElementType,
   removeElement as removeElementDSL,
   changeElementStyle,
   upsertOverride,
+  wrapSlotInBlock,
 } from './dsl-mutations.js';

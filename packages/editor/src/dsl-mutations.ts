@@ -213,6 +213,62 @@ export function changeElementStyle(dsl: string, sceneIndex: number, elementIndex
 }
 
 // ---------------------------------------------------------------------------
+// Element type mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Change an element's DSL type (e.g. heading → stat).
+ * The element's label and other properties are preserved.
+ */
+export function changeElementType(dsl: string, sceneIndex: number, elementIndex: number, newType: string): string {
+  const { ast } = parse(dsl);
+  const el = findElementByIndex(ast, sceneIndex, elementIndex);
+  if (!el) return dsl;
+  el.elementType = newType;
+  return serialize(ast);
+}
+
+/**
+ * Wrap a slot's direct children in a new block container.
+ * e.g. `header: heading "A"` → `header: flow { heading "A" }`
+ */
+export function wrapSlotInBlock(dsl: string, sceneIndex: number, slotName: string, blockType: string): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+
+  const slotChildren = scene.children.filter((c) => {
+    if (c.kind === 'element') return (c as ASTElement).slot === slotName;
+    if (c.kind === 'block') return (c as ASTBlock).slot === slotName;
+    return false;
+  });
+  if (slotChildren.length === 0) return dsl;
+
+  // Remove slot assignment from children (moves to the wrapper block)
+  for (const child of slotChildren) {
+    if (child.kind === 'element') delete (child as ASTElement).slot;
+    else if (child.kind === 'block') delete (child as ASTBlock).slot;
+  }
+
+  // Remove slot children from scene
+  scene.children = scene.children.filter((c) => !slotChildren.includes(c));
+
+  // Wrap in new block
+  const newBlock: ASTBlock = {
+    kind: 'block',
+    blockType,
+    slot: slotName,
+    props: {},
+    children: slotChildren as ASTNode[],
+    label: undefined,
+    style: {},
+    loc: { line: 0, column: 0 },
+  };
+  scene.children.push(newBlock);
+  return serialize(ast);
+}
+
+// ---------------------------------------------------------------------------
 // Override mutations
 // ---------------------------------------------------------------------------
 
