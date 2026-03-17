@@ -27,6 +27,8 @@ export interface ScenePlan {
   sceneBounds: IRBounds;
   /** Ordered child node IDs matching their AST order. */
   childIds: string[];
+  /** All slot bounds from layout computation (including empty slots). */
+  slotBounds: Map<string, IRBounds[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,5 +105,5 @@ export function planScene(
     }
   }
 
-  return { layoutType, boundsMap, sceneBounds: canvasBounds, childIds };
+  return { layoutType, boundsMap, sceneBounds: canvasBounds, childIds, slotBounds: result.slotBounds };
 }

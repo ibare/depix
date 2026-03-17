@@ -92,6 +92,8 @@ function emitScene(
   elements.push(emitSceneBackground(plan.sceneBounds, sceneTheme));
 
   // Emit each content node using pre-computed bounds
+  const emittedSlots = new Set<string>();
+  let emittedCellCount = 0;
   let childIdx = 0;
   for (const child of sceneBlock.children) {
     if (child.kind === 'edge') continue;
@@ -103,6 +105,11 @@ function emitScene(
     if (!bounds) continue;
 
     const slotName = 'slot' in child ? (child as { slot?: string }).slot : undefined;
+    if (slotName) {
+      if (slotName === 'cell') emittedCellCount++;
+      else emittedSlots.add(slotName);
+    }
+
     const inner = emitSceneContent(child, childId, bounds, theme, sceneTheme, baseFontSize);
     if (!inner) continue;
 
@@ -129,6 +136,36 @@ function emitScene(
           origin: slotOrigin,
         };
     elements.push(el);
+  }
+
+  // Emit placeholder containers for empty slots
+  const placeholderStyle: IRStyle = {
+    stroke: sceneTheme.colors.textMuted,
+    strokeWidth: 0.15,
+    dashPattern: [0.5, 0.5],
+  };
+  for (const [slotName, boundsArr] of plan.slotBounds) {
+    if (slotName === 'cell') {
+      for (let i = emittedCellCount; i < boundsArr.length; i++) {
+        elements.push({
+          id: generateId(),
+          type: 'container',
+          bounds: boundsArr[i],
+          style: placeholderStyle,
+          children: [],
+          origin: { sourceType: 'scene-slot', slotName: 'cell', placeholder: true },
+        } as IRContainer);
+      }
+    } else if (!emittedSlots.has(slotName)) {
+      elements.push({
+        id: generateId(),
+        type: 'container',
+        bounds: boundsArr[0],
+        style: placeholderStyle,
+        children: [],
+        origin: { sourceType: 'scene-slot', slotName, placeholder: true },
+      } as IRContainer);
+    }
   }
 
   return {

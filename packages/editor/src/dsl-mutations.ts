@@ -6,8 +6,8 @@
  * This guarantees the output is always valid DSL.
  */
 
-import { parse, serialize } from '@depix/core';
-import type { ASTDocument, ASTBlock, ASTElement, ASTNode } from '@depix/core';
+import { parse, serialize, getLayoutDef, findSlotByRole, findRoleForSlot, resolveTargetSlot, PROMOTE_RULES } from '@depix/core';
+import type { ASTDocument, ASTBlock, ASTElement, ASTNode, LayoutDef } from '@depix/core';
 
 // ---------------------------------------------------------------------------
 // Scene mutations
@@ -73,14 +73,114 @@ export function reorderScenes(dsl: string, fromIndex: number, toIndex: number): 
 // ---------------------------------------------------------------------------
 
 /**
- * Change the layout property of a scene.
+ * Change the layout property of a scene and redistribute children across new slots.
+ *
+ * Uses role-based mapping from layout-slots.ts:
+ * 1. Group children by current slot
+ * 2. Map each old slot's role → best matching slot in new layout
+ * 3. Promote heading/stat to header when header role is newly introduced
  */
 export function changeLayout(dsl: string, sceneIndex: number, newLayout: string): string {
   const { ast } = parse(dsl);
   const scene = ast.scenes[sceneIndex];
   if (!scene) return dsl;
+
+  const oldLayout = typeof scene.props.layout === 'string' ? scene.props.layout : 'full';
+  distributeSlots(scene, oldLayout, newLayout);
   scene.props.layout = newLayout;
+
   return serialize(ast);
+}
+
+// ---------------------------------------------------------------------------
+// Slot distribution helpers
+// ---------------------------------------------------------------------------
+
+function setSlot(node: ASTNode, slotName: string): void {
+  if (node.kind === 'element') (node as ASTElement).slot = slotName;
+  else if (node.kind === 'block') (node as ASTBlock).slot = slotName;
+}
+
+function groupBySlot(scene: ASTBlock): Map<string, ASTNode[]> {
+  const groups = new Map<string, ASTNode[]>();
+  for (const child of scene.children) {
+    if (child.kind === 'edge') continue;
+    const slot = (child as { slot?: string }).slot ?? '__unslotted__';
+    if (!groups.has(slot)) groups.set(slot, []);
+    groups.get(slot)!.push(child);
+  }
+  return groups;
+}
+
+function mergeInto(map: Map<string, ASTNode[]>, key: string, nodes: ASTNode[]): void {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key)!.push(...nodes);
+}
+
+function promoteToHeader(
+  assignments: Map<string, ASTNode[]>,
+  newDef: LayoutDef,
+  headerSlotName: string,
+): void {
+  const promoteTypes = PROMOTE_RULES['header'];
+  if (!promoteTypes) return;
+
+  // Find the primary content slot to promote from
+  const primarySlot = newDef.slots.find(s => s.role !== 'header');
+  if (!primarySlot) return;
+
+  const fromChildren = assignments.get(primarySlot.name);
+  if (!fromChildren || fromChildren.length === 0) return;
+
+  const promoteIdx = fromChildren.findIndex(
+    c => c.kind === 'element' && promoteTypes.includes((c as ASTElement).elementType),
+  );
+  if (promoteIdx < 0) return;
+
+  const [promoted] = fromChildren.splice(promoteIdx, 1);
+  mergeInto(assignments, headerSlotName, [promoted]);
+}
+
+function distributeSlots(scene: ASTBlock, oldLayout: string, newLayout: string): void {
+  const oldDef = getLayoutDef(oldLayout);
+  const newDef = getLayoutDef(newLayout);
+
+  if (!newDef) {
+    // Unknown new layout → assign all to body
+    for (const child of scene.children) {
+      if (child.kind !== 'edge') setSlot(child, 'body');
+    }
+    return;
+  }
+
+  // 1. Group children by current slot
+  const slotGroups = groupBySlot(scene);
+
+  // 2. Role-based mapping: old slot → new slot
+  const assignments = new Map<string, ASTNode[]>();
+  for (const [oldSlotName, children] of slotGroups) {
+    const effectiveSlotName = oldSlotName === '__unslotted__' ? undefined : oldSlotName;
+    const oldRole = (effectiveSlotName && oldDef)
+      ? (findRoleForSlot(oldDef, effectiveSlotName) ?? 'primary')
+      : 'primary';
+    const targetSlot = resolveTargetSlot(oldRole, newDef);
+    const target = targetSlot ?? newDef.slots[0]?.name ?? 'body';
+    mergeInto(assignments, target, children);
+  }
+
+  // 3. Promote heading/stat to header if header role is newly introduced
+  const oldHasHeader = oldDef?.slots.some(s => s.role === 'header') ?? false;
+  const newHeaderSlot = findSlotByRole(newDef, 'header');
+  if (!oldHasHeader && newHeaderSlot) {
+    promoteToHeader(assignments, newDef, newHeaderSlot.name);
+  }
+
+  // 4. Apply slot assignments to AST nodes
+  for (const [slotName, children] of assignments) {
+    for (const child of children) {
+      setSlot(child, slotName);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

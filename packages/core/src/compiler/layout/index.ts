@@ -9,6 +9,12 @@ export { layoutChart } from './chart-layout.js';
 export { getChartColor, CHART_PALETTE_KEYS } from './chart-colors.js';
 export { layoutScene, type SceneLayoutType } from './scene-layout.js';
 
+export {
+  SLOT_ROLES, LAYOUT_DEFS, PROMOTE_RULES,
+  getLayoutDef, findSlotByRole, findRoleForSlot, resolveTargetSlot,
+} from './layout-slots.js';
+export type { SlotRole, SlotDef, LayoutDef } from './layout-slots.js';
+
 export type {
   LayoutChild,
   LayoutResult,

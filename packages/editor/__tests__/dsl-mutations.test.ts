@@ -118,6 +118,107 @@ describe('changeLayout', () => {
   });
 });
 
+describe('changeLayout — slot distribution', () => {
+  function getSlots(dsl: string): { slot?: string; kind: string; type?: string }[] {
+    const scenes = parse(dsl).ast.scenes;
+    return scenes[0].children
+      .filter(c => c.kind !== 'edge')
+      .map(c => ({
+        slot: (c as ASTElement).slot,
+        kind: c.kind,
+        type: c.kind === 'element' ? (c as ASTElement).elementType : (c as ASTBlock).blockType,
+      }));
+  }
+
+  it('full → header (no heading): text stays in body', () => {
+    const dsl = 'scene { layout: full; body: text "Test" }';
+    const result = changeLayout(dsl, 0, 'header');
+    const slots = getSlots(result);
+    expect(slots).toHaveLength(1);
+    expect(slots[0].slot).toBe('body');
+    expect(slots[0].type).toBe('text');
+  });
+
+  it('full → header (heading first): heading promoted to header', () => {
+    const dsl = 'scene { layout: full; body: heading "Title"; body: text "Desc" }';
+    const result = changeLayout(dsl, 0, 'header');
+    const slots = getSlots(result);
+    const headerEl = slots.find(s => s.slot === 'header');
+    const bodyEl = slots.find(s => s.slot === 'body');
+    expect(headerEl).toBeDefined();
+    expect(headerEl!.type).toBe('heading');
+    expect(bodyEl).toBeDefined();
+    expect(bodyEl!.type).toBe('text');
+  });
+
+  it('header → split: both merge into left', () => {
+    const dsl = 'scene { layout: header; header: heading "H"; body: text "B" }';
+    const result = changeLayout(dsl, 0, 'split');
+    const slots = getSlots(result);
+    expect(slots.every(s => s.slot === 'left')).toBe(true);
+  });
+
+  it('header → full: both merge into body', () => {
+    const dsl = 'scene { layout: header; header: heading "H"; body: text "B" }';
+    const result = changeLayout(dsl, 0, 'full');
+    const slots = getSlots(result);
+    expect(slots.every(s => s.slot === 'body')).toBe(true);
+  });
+
+  it('split → full: left and right merge into body', () => {
+    const dsl = 'scene { layout: split; left: heading "L"; right: text "R" }';
+    const result = changeLayout(dsl, 0, 'full');
+    const slots = getSlots(result);
+    expect(slots.every(s => s.slot === 'body')).toBe(true);
+    expect(slots).toHaveLength(2);
+  });
+
+  it('sidebar → split: main → left, side → right', () => {
+    const dsl = 'scene { layout: sidebar; main: heading "M"; side: text "S" }';
+    const result = changeLayout(dsl, 0, 'split');
+    const slots = getSlots(result);
+    const left = slots.find(s => s.slot === 'left');
+    const right = slots.find(s => s.slot === 'right');
+    expect(left).toBeDefined();
+    expect(left!.type).toBe('heading');
+    expect(right).toBeDefined();
+    expect(right!.type).toBe('text');
+  });
+
+  it('full → header (stat promotes)', () => {
+    const dsl = 'scene { layout: full; body: stat "42" }';
+    const result = changeLayout(dsl, 0, 'header');
+    const slots = getSlots(result);
+    expect(slots[0].slot).toBe('header');
+    expect(slots[0].type).toBe('stat');
+  });
+
+  it('header → header-split: header stays, body → left', () => {
+    const dsl = 'scene { layout: header; header: heading "H"; body: text "B" }';
+    const result = changeLayout(dsl, 0, 'header-split');
+    const slots = getSlots(result);
+    const headerEl = slots.find(s => s.slot === 'header');
+    const leftEl = slots.find(s => s.slot === 'left');
+    expect(headerEl).toBeDefined();
+    expect(headerEl!.type).toBe('heading');
+    expect(leftEl).toBeDefined();
+    expect(leftEl!.type).toBe('text');
+  });
+
+  it('invalid scene index returns original DSL', () => {
+    const dsl = 'scene { layout: full; body: text "X" }';
+    expect(changeLayout(dsl, 99, 'header')).toBe(dsl);
+    expect(changeLayout(dsl, -1, 'header')).toBe(dsl);
+  });
+
+  it('scene with no content children: layout changes without error', () => {
+    const dsl = 'scene { layout: full }';
+    const result = changeLayout(dsl, 0, 'header');
+    const scenes = parse(result).ast.scenes;
+    expect(scenes[0].props.layout).toBe('header');
+  });
+});
+
 // ===========================================================================
 // Slot mutations
 // ===========================================================================

@@ -119,6 +119,8 @@ export interface IROrigin {
   slotName?: string;
   /** Original DSL properties preserved for re-compilation. */
   sourceProps?: Record<string, unknown>;
+  /** True when this container represents an empty slot (no DSL content). */
+  placeholder?: boolean;
 }
 
 // ---------------------------------------------------------------------------
