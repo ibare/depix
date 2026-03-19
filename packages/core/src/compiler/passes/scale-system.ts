@@ -65,12 +65,6 @@ const TEXT_ROLE_RATIO: Record<TextRole, number> = {
 // 폰트 크기 하한 (0–100 상대 좌표 기준). 0.6 미만 ≈ ~3px 이하 → 렌더링 불가
 const FONT_SIZE_MIN = 0.6;
 
-const FONT_SIZE_MAX_BY_ROLE: Record<TextRole, number> = {
-  innerLabel: 4.0,       // ~22px at 1000×560 viewport
-  standaloneText: 3.5,   // ~20px
-  listItem: 2.5,         // ~14px
-  edgeLabel: 2.0,        // ~11px
-};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -117,15 +111,14 @@ export function computeGap(baseUnit: number, gapType: GapType): number {
 /**
  * Compute font size based on container short side and text role.
  *
- * fontSize = clamp(containerShortSide * TEXT_ROLE_RATIO[role], min, max)
+ * fontSize = max(containerShortSide * TEXT_ROLE_RATIO[role], FONT_SIZE_MIN)
  */
 export function computeFontSize(
   containerShortSide: number,
   textRole: TextRole,
 ): number {
   const ratio = TEXT_ROLE_RATIO[textRole];
-  const max = FONT_SIZE_MAX_BY_ROLE[textRole];
-  return clamp(containerShortSide * ratio, FONT_SIZE_MIN, max);
+  return Math.max(containerShortSide * ratio, FONT_SIZE_MIN);
 }
 
 /**

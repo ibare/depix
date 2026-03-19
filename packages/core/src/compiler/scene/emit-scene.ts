@@ -35,6 +35,8 @@ import type {
 import { generateId } from '../../ir/utils.js';
 import { planScene, type ScenePlan } from './plan-scene.js';
 import { emitInlineBlock } from '../passes/emit-ir.js';
+import { createScaleContext } from '../passes/scale-system.js';
+import { planNode } from '../passes/plan-layout.js';
 import {
   extractChartData,
   computeChartPositions,
@@ -86,7 +88,7 @@ function emitScene(
   sceneTheme: SceneTheme,
 ): IRScene {
   const elements: IRElement[] = [];
-  const baseFontSize = plan.sceneBounds.h * 0.04;
+  const baseFontSize = plan.sceneBounds.h * 0.07;
 
   // Background rect
   elements.push(emitSceneBackground(plan.sceneBounds, sceneTheme));
@@ -233,9 +235,15 @@ function emitSceneContent(
     if (node.blockType === 'chart') {
       return emitSceneChart(node, id, bounds, theme, sceneTheme, baseFontSize);
     }
+    // Box/layer: visual container — render children with scene emitters
+    if (node.blockType === 'box' || node.blockType === 'layer') {
+      return emitBoxBlock(node, id, bounds, theme, sceneTheme, baseFontSize);
+    }
     // Diagram-like blocks (flow, tree, layers, grid, stack, group, canvas):
     // delegate to the diagram pipeline for layout + rendering within scene bounds
-    return emitInlineBlock(node, bounds, theme, new Map());
+    const inlinePlan = { children: [planNode(node, theme)], totalWeight: 1 };
+    const inlineScaleCtx = createScaleContext(inlinePlan, bounds);
+    return emitInlineBlock(node, bounds, theme, new Map(), inlineScaleCtx);
   }
 
   return null;
@@ -476,6 +484,55 @@ function emitColumn(
     style: {},
     children,
     origin,
+  };
+}
+
+function emitBoxBlock(
+  block: ASTBlock,
+  id: string,
+  bounds: IRBounds,
+  theme: DepixTheme,
+  sceneTheme: SceneTheme,
+  baseFontSize: number,
+): IRContainer {
+  const children: IRElement[] = [];
+  const contentNodes = block.children.filter(c => c.kind !== 'edge');
+  const padding = bounds.h * 0.05;
+  const gap = sceneTheme.layout.itemGap;
+  const inner: IRBounds = {
+    x: bounds.x + padding,
+    y: bounds.y + padding,
+    w: Math.max(bounds.w - padding * 2, 1),
+    h: Math.max(bounds.h - padding * 2, 1),
+  };
+
+  const itemH = contentNodes.length > 0
+    ? (inner.h - gap * Math.max(contentNodes.length - 1, 0)) / contentNodes.length
+    : inner.h;
+
+  let curY = inner.y;
+  for (let i = 0; i < contentNodes.length; i++) {
+    const child = contentNodes[i];
+    const childId = `${id}-child-${i}`;
+    const childBounds: IRBounds = { x: inner.x, y: curY, w: inner.w, h: Math.max(itemH, 2) };
+    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
+    if (el) children.push(el);
+    curY += itemH + gap;
+  }
+
+  const containerStyle = resolveElementStyle(block as unknown as ASTElement);
+  if (!containerStyle.stroke && !containerStyle.fill) {
+    containerStyle.stroke = sceneTheme.colors.textMuted;
+    containerStyle.strokeWidth = 0.3;
+  }
+
+  return {
+    id,
+    type: 'container',
+    bounds,
+    style: containerStyle,
+    children,
+    origin: { sourceType: 'box' as IROrigin['sourceType'], dslType: block.blockType },
   };
 }
 
