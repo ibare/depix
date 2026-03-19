@@ -13,6 +13,7 @@ import type { NodeConstraint, ConstraintMap } from './budget-types.js';
 import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
+import { getElementConfig } from '../element-type-registry.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
@@ -104,38 +105,9 @@ function computeLeafConstraint(node: LayoutPlanNode): NodeConstraint {
   let minH: number;
 
   if (astNode.kind === 'element') {
-    switch (astNode.elementType) {
-      case 'node':
-      case 'cell':
-      case 'rect':
-      case 'circle':
-      case 'badge':
-      case 'icon':
-        minW = 4;
-        minH = 3;
-        break;
-      case 'text':
-      case 'label':
-        minW = 2;
-        minH = 1;
-        break;
-      case 'list':
-        minW = 3;
-        minH = 2;
-        break;
-      case 'divider':
-      case 'line':
-        minW = 1;
-        minH = 0.5;
-        break;
-      case 'image':
-        minW = 4;
-        minH = 3;
-        break;
-      default:
-        minW = 4;
-        minH = 3;
-    }
+    const config = getElementConfig(astNode.elementType);
+    minW = config.constraint.minW;
+    minH = config.constraint.minH;
   } else {
     minW = 4;
     minH = 3;

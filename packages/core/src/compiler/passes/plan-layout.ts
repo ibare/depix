@@ -15,6 +15,7 @@ import type {
   ASTElement,
   ASTNode,
 } from '../ast.js';
+import { getElementConfig } from '../element-type-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -172,35 +173,7 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
     }
   }
 
-  switch (node.elementType) {
-    case 'node':
-    case 'cell':
-    case 'rect':
-    case 'circle':
-    case 'badge':
-    case 'icon':
-      return 'element-shape';
-    case 'label':
-    case 'text':
-    case 'heading':
-    case 'item':
-      return 'element-text';
-    case 'list':
-    case 'bullet':
-      return 'element-list';
-    case 'divider':
-    case 'line':
-      return 'element-divider';
-    case 'image':
-      return 'element-image';
-    case 'stat':
-    case 'quote':
-    case 'step':
-    case 'row':
-      return 'element-text';
-    default:
-      return 'element-shape';
-  }
+  return getElementConfig(node.elementType).classify;
 }
 
 export function computeMetrics(children: LayoutPlanNode[]): PlanMetrics {
@@ -248,37 +221,15 @@ export function computeIntrinsicSize(
   const w = typeof node.props.width === 'number' ? node.props.width : undefined;
   const h = typeof node.props.height === 'number' ? node.props.height : undefined;
 
-  switch (node.elementType) {
-    case 'node':
-    case 'cell':
-    case 'rect':
-      return {
-        width: w ?? theme.node.minWidth,
-        height: h ?? theme.node.minHeight,
-      };
-    case 'circle':
-    case 'icon':
-      return {
-        width: w ?? theme.node.minHeight,
-        height: h ?? theme.node.minHeight,
-      };
-    case 'badge':
-      return { width: w ?? 10, height: h ?? 4 };
-    case 'label':
-    case 'text':
-      return { width: w ?? 20, height: h ?? 4 };
-    case 'divider':
-    case 'line':
-      return { width: w ?? 90, height: h ?? 1 };
-    case 'image':
-      return { width: w ?? 20, height: h ?? 15 };
-    case 'list': {
-      const itemCount = node.items?.length ?? 0;
-      return { width: w ?? 20, height: h ?? Math.max(itemCount * 4, 8) };
-    }
-    default:
-      return { width: w ?? theme.node.minWidth, height: h ?? theme.node.minHeight };
+  const config = getElementConfig(node.elementType);
+
+  // list: dynamic height based on item count
+  if (node.elementType === 'list') {
+    const itemCount = node.items?.length ?? 0;
+    return { width: w ?? config.intrinsicSize.width, height: h ?? Math.max(itemCount * 4, 8) };
   }
+
+  return { width: w ?? config.intrinsicSize.width, height: h ?? config.intrinsicSize.height };
 }
 
 // ---------------------------------------------------------------------------

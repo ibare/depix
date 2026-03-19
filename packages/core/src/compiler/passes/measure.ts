@@ -14,6 +14,7 @@ import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeFontSize, computePadding, computeGap } from './scale-system.js';
 import type { BudgetMap } from './budget-types.js';
+import { getElementConfig } from '../element-type-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -159,25 +160,19 @@ function measureElement(
   measureMap: MeasureMap,
   budgetMap?: BudgetMap,
 ): MeasureResult {
-  switch (element.elementType) {
+  const config = getElementConfig(element.elementType);
+  switch (config.measure) {
+    case 'text':
+      return measureText(element, plan, theme, scaleCtx, budgetMap, config.fontScale);
+    case 'shape':
+      return measureShape(element, plan, theme, scaleCtx, budgetMap);
     case 'list':
       return measureList(element, plan, theme, scaleCtx, budgetMap);
-    case 'label':
-    case 'text':
-      return measureText(element, plan, theme, scaleCtx, budgetMap);
-    case 'node':
-    case 'cell':
-    case 'rect':
-    case 'circle':
-    case 'badge':
-    case 'icon':
-      return measureShape(element, plan, theme, scaleCtx, budgetMap);
     case 'divider':
-    case 'line':
       return measureDivider();
     case 'image':
       return measureImage(element);
-    default:
+    case 'row':
       return measureShape(element, plan, theme, scaleCtx, budgetMap);
   }
 }
@@ -192,8 +187,10 @@ function measureText(
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   budgetMap?: BudgetMap,
+  fontScale = 1,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'standaloneText', budgetMap);
+  const baseFontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'standaloneText', budgetMap);
+  const fontSize = baseFontSize * fontScale;
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const textHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
 

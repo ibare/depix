@@ -48,6 +48,7 @@ import { measureDiagram } from './measure.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
 import { isOriginSourceType } from '../container-meta.js';
+import { getElementConfig } from '../element-type-registry.js';
 import { allocateBudgets } from './allocate-budgets.js';
 import {
   computeChartPositions,
@@ -304,32 +305,21 @@ function emitElement(
   const id = element.id ?? generateId();
   boundsMap.set(id, bounds);
 
+  const config = getElementConfig(element.elementType);
   let result: IRElement;
-  switch (element.elementType) {
-    case 'node':
-    case 'cell':
-    case 'rect':
-      result = emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
-    case 'circle':
-      result = emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
-    case 'badge':
-      result = emitShapeElement(element, id, bounds, 'pill', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
-    case 'icon':
-      result = emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
-    case 'label':
+  switch (config.emit) {
     case 'text':
-      result = emitTextElement(element, id, bounds, theme, scaleCtx, measured); break;
+      result = emitTextElement(element, id, bounds, theme, scaleCtx, measured, config.fontScale); break;
+    case 'shape':
+      result = emitShapeElement(element, id, bounds, config.emitShape ?? 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
     case 'list':
       result = emitListElement(element, id, bounds, theme, scaleCtx, measured); break;
     case 'divider':
-    case 'line':
       result = emitDividerElement(element, id, bounds); break;
     case 'image':
       result = emitImageElement(element, id, bounds); break;
     case 'row':
       result = emitRowElement(element, id, bounds, theme, scaleCtx, measured); break;
-    default:
-      result = emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
   }
 
   result.origin = { ...result.origin, dslType: element.elementType };
@@ -528,7 +518,7 @@ export function emitInlineBlock(
 }
 
 // ---------------------------------------------------------------------------
-// Text element (label, text)
+// Text element (label, text, heading)
 // ---------------------------------------------------------------------------
 
 function emitTextElement(
@@ -538,13 +528,15 @@ function emitTextElement(
   theme: DepixTheme,
   scaleCtx?: ScaleContext,
   measured?: MeasureResult,
+  fontScale = 1,
 ): IRText {
   const style = buildStyle(element.style);
-  const fontSize = measured
+  const baseFontSize = measured
     ? measured.fontSize
     : (typeof element.style['font-size'] === 'number'
       ? element.style['font-size']
       : scaleCtx ? computeFontSize(Math.min(bounds.w, bounds.h), 'standaloneText') : theme.fontSize.md);
+  const fontSize = baseFontSize * fontScale;
   const color = typeof element.style.color === 'string'
     ? element.style.color
     : theme.foreground;
@@ -559,6 +551,7 @@ function emitTextElement(
     color,
   };
 
+  if (fontScale > 1) text.fontWeight = 'bold';
   if (element.flags.includes('bold')) text.fontWeight = 'bold';
   if (element.flags.includes('italic')) text.fontStyle = 'italic';
   if (element.style.align) text.align = element.style.align as IRText['align'];
