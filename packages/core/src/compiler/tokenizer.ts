@@ -70,11 +70,12 @@ export const BLOCK_TYPES = new Set([
   'column',
   'table',
   'chart',
+  'box',
+  'layer',
 ]);
 
 export const ELEMENT_TYPES = new Set([
   'node',
-  'box',
   'label',
   'list',
   'badge',
@@ -82,7 +83,6 @@ export const ELEMENT_TYPES = new Set([
   'divider',
   'image',
   'cell',
-  'layer',
   'rect',
   'circle',
   'line',

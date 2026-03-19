@@ -66,6 +66,10 @@ scene "scene-id" {
 
 ### 2.4 콘텐츠 노드
 
+콘텐츠 노드는 두 종류로 나뉜다:
+- **순수 리프** (`heading`, `label`): 단일 텍스트 렌더링. IR에서 IRText로 컴파일.
+- **원자 복합** (`bullet`, `stat`, `quote`, `step`): 내부적으로 여러 IR 요소를 생성하지만, 에디터에서는 하나의 단위로 취급 (내부 선택 불가). `ATOMIC_COMPOUND_TYPES`로 정의.
+
 #### heading
 
 ```depix

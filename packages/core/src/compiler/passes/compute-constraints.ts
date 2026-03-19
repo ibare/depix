@@ -78,7 +78,7 @@ function computeSingleConstraint(
     return computeLeafConstraint(node);
   }
 
-  // Element with children (box/layer with nested elements)
+  // Element with children (e.g. shape with nested elements)
   if (astNode.kind === 'element' && node.children.length > 0) {
     return computeBoxConstraint(node, scaleCtx, constraints);
   }
@@ -118,11 +118,6 @@ function computeLeafConstraint(node: LayoutPlanNode): NodeConstraint {
       case 'label':
         minW = 2;
         minH = 1;
-        break;
-      case 'box':
-      case 'layer':
-        minW = 4;
-        minH = 3;
         break;
       case 'list':
         minW = 3;
@@ -228,6 +223,9 @@ function computeBlockConstraint(
       return computeTreeConstraint(node, gap, scaleCtx, constraints);
     case 'flow':
       return computeFlowConstraint(node, gap, scaleCtx, constraints);
+    case 'box':
+    case 'layer':
+      return computeStackColConstraint(node, gap, constraints);
     default:
       return computeStackColConstraint(node, gap, constraints);
   }

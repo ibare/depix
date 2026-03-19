@@ -12,7 +12,7 @@
 
 import { useEffect } from 'react';
 import type { DepixIR, IRElement, IRContainer } from '@depix/core';
-import { findElement } from '@depix/core';
+import { findElement, ATOMIC_COMPOUND_TYPES } from '@depix/core';
 import type { DepixEngine } from '@depix/engine';
 import type { SelectionManager } from '@depix/editor';
 import type { ToolType } from '../types.js';
@@ -33,6 +33,7 @@ function findIRElementAtPoint(elements: IRElement[], irX: number, irY: number): 
     const { x, y, w, h } = el.bounds;
     if (irX >= x && irX <= x + w && irY >= y && irY <= y + h) {
       if (el.type === 'container') {
+        if ((ATOMIC_COMPOUND_TYPES as Set<string>).has(el.origin?.dslType ?? '')) return el;
         const child = findIRElementAtPoint((el as IRContainer).children, irX, irY);
         if (child) return child;
       }

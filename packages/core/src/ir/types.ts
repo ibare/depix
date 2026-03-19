@@ -99,8 +99,8 @@ export interface IRTransform {
  * layout, switching to free-form editing.
  */
 export interface IROrigin {
-  /** The DSL primitive type that produced this element. */
-  sourceType:
+  /** The DSL block/container type that produced this element. */
+  sourceType?:
     | 'flow'
     | 'stack'
     | 'grid'
@@ -115,6 +115,8 @@ export interface IROrigin {
     | 'list'
     | 'scene-background'
     | 'scene-slot';
+  /** Original DSL element type (e.g. 'heading', 'box', 'stat', 'quote', 'node'). */
+  dslType?: string;
   /** DSL slot name for scene-slot containers (e.g. 'header', 'main', 'left'). */
   slotName?: string;
   /** Original DSL properties preserved for re-compilation. */

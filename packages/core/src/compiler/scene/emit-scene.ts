@@ -204,18 +204,23 @@ function emitSceneContent(
       }
       return emitInlineBlock(blockChild, bounds, theme, new Map());
     }
+    let elResult: IRElement | null;
     switch (node.elementType) {
-      case 'heading': return emitHeading(node, id, bounds, sceneTheme, baseFontSize);
+      case 'heading': elResult = emitHeading(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'label':
-      case 'text': return emitLabel(node, id, bounds, sceneTheme, baseFontSize);
-      case 'bullet': return emitBullet(node, id, bounds, sceneTheme, baseFontSize);
-      case 'stat': return emitStat(node, id, bounds, sceneTheme, baseFontSize);
-      case 'quote': return emitQuote(node, id, bounds, sceneTheme, baseFontSize);
-      case 'image': return emitImage(node, id, bounds, sceneTheme, baseFontSize);
-      case 'icon': return emitIcon(node, id, bounds, sceneTheme, baseFontSize);
-      case 'step': return emitStep(node, id, bounds, sceneTheme, baseFontSize);
-      default: return emitLabel(node, id, bounds, sceneTheme, baseFontSize);
+      case 'text': elResult = emitLabel(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'bullet': elResult = emitBullet(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'stat': elResult = emitStat(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'quote': elResult = emitQuote(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'image': elResult = emitImage(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'icon': elResult = emitIcon(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'step': elResult = emitStep(node, id, bounds, sceneTheme, baseFontSize); break;
+      default: elResult = emitLabel(node, id, bounds, sceneTheme, baseFontSize); break;
     }
+    if (elResult) {
+      elResult.origin = { ...elResult.origin, dslType: node.elementType };
+    }
+    return elResult;
   }
 
   if (node.kind === 'block') {

@@ -179,13 +179,20 @@ interface IRTransform {
  * 에디터에서 자유 편집으로 전환하면 origin을 제거 → 순수 IR이 됨
  */
 interface IROrigin {
-  /** 원래 DSL 프리미티브 타입 */
-  sourceType:
+  /** 원래 DSL 블록/컨테이너 타입 (optional — 요소에는 없을 수 있음) */
+  sourceType?:
     | 'flow' | 'stack' | 'grid' | 'tree' | 'group' | 'layers' | 'canvas'
-    | 'scene' | 'table' | 'chart'
-    | 'scene-background';  // 씬 배경 사각형 (에디터 레이어 패널에서 숨김)
+    | 'scene' | 'table' | 'chart' | 'bullet' | 'list'
+    | 'scene-background'  // 씬 배경 사각형 (에디터에서 숨김)
+    | 'scene-slot';       // 씬 레이아웃 슬롯 컨테이너
+  /** 원래 DSL 요소 타입 (heading, box, stat, quote, node 등) */
+  dslType?: string;
+  /** 씬 슬롯 이름 (header, body, left, right 등) */
+  slotName?: string;
   /** 원래 DSL에서의 속성들 (재컴파일 시 활용) */
   sourceProps?: Record<string, unknown>;
+  /** 빈 슬롯 플레이스홀더 여부 */
+  placeholder?: boolean;
 }
 ```
 

@@ -117,24 +117,27 @@ layers {
     dsl: `@page 16:9
 
 stack direction:row gap:lg {
-  box "Plan" {
-    color: primary
+  box {
+    background: primary
+    heading "Plan"
     list [
       "Requirements"
       "Design"
       "Prototype"
     ]
   }
-  box "Build" {
-    color: info
+  box {
+    background: info
+    heading "Build"
     list [
       "Develop"
       "Test"
       "Review"
     ]
   }
-  box "Ship" {
-    color: success
+  box {
+    background: success
+    heading "Ship"
     list [
       "Deploy"
       "Monitor"
@@ -212,19 +215,22 @@ flow direction:down {
     dsl: `@page 16:9
 
 layers {
-  box "Client Tier" {
-    color: primary
+  box {
+    background: primary
+    heading "Client Tier"
     node "Browser"
     node "Mobile App"
   }
-  box "Application Tier" {
-    color: info
+  box {
+    background: info
+    heading "Application Tier"
     node "Load Balancer"
     node "Web Server"
     node "API Server"
   }
-  box "Data Tier" {
-    color: success
+  box {
+    background: success
+    heading "Data Tier"
     node "PostgreSQL"
     node "Redis Cache"
     node "Object Storage"
@@ -290,8 +296,9 @@ layers {
   layer "Add & Norm" { color: warning }
   layer "Feed Forward FFN" { color: info }
   layer "Add & Norm" { color: warning }
-  box "MoE" {
-    color: danger
+  box {
+    background: danger
+    heading "MoE"
     node "FFN₁"
     label "..."
     node "FFNₑ"

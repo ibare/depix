@@ -369,78 +369,49 @@ describe('emitIR — other element types', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Box / container elements
+// Box / layer blocks (pure containers — no implicit title/subtitle)
 // ---------------------------------------------------------------------------
 
-describe('emitIR — box element', () => {
-  it('emits box as IRContainer', () => {
-    const box = makeElement('box', {
-      id: 'box1',
-      children: [makeElement('label', { id: 'l1', label: 'Inside' })],
-    });
+describe('emitIR — box block', () => {
+  it('emits box block as IRContainer with no implicit children', () => {
+    const box = makeBlock('box', [], { id: 'box1' });
     const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
 
     const el = ir.scenes[0].elements[0] as IRContainer;
     expect(el.type).toBe('container');
     expect(el.id).toBe('box1');
-    expect(el.children.length).toBeGreaterThanOrEqual(1);
+    expect(el.children).toHaveLength(0);
   });
 
-  it('emits title text from box label (P1)', () => {
-    const box = makeElement('box', {
-      id: 'box1',
-      label: 'Hello Depix',
-    });
+  it('emits box block with children as container with those children', () => {
+    const box = makeBlock('box', [
+      makeElement('label', { id: 'l1', label: 'Inside' }),
+    ], { id: 'box2' });
     const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
 
     const el = ir.scenes[0].elements[0] as IRContainer;
     expect(el.type).toBe('container');
-    const titleChild = el.children.find(c => c.type === 'text' && (c as IRText).content === 'Hello Depix') as IRText;
-    expect(titleChild).toBeDefined();
-    expect(titleChild.fontWeight).toBe('bold');
-    expect(titleChild.fontSize).toBeGreaterThan(0);
+    expect(el.id).toBe('box2');
+    expect(el.children).toHaveLength(1);
+    expect(el.children[0].type).toBe('text');
   });
 
-  it('emits subtitle text from box props.subtitle (P2)', () => {
-    const box = makeElement('box', {
-      id: 'box2',
-      label: 'Title',
-      props: { subtitle: 'A subtitle' },
-    });
+  it('applies default border when no explicit styling', () => {
+    const box = makeBlock('box', [], { id: 'box3' });
     const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
 
     const el = ir.scenes[0].elements[0] as IRContainer;
-    const texts = el.children.filter(c => c.type === 'text') as IRText[];
-    expect(texts.length).toBeGreaterThanOrEqual(2);
-    expect(texts[0].content).toBe('Title');
-    expect(texts[1].content).toBe('A subtitle');
-    expect(texts[1].fontSize).toBeLessThanOrEqual(texts[0].fontSize);
+    expect(el.style.stroke).toBe(lightTheme.border);
+    expect(el.style.strokeWidth).toBe(0.3);
   });
 
-  it('emits box with only subtitle (no label)', () => {
-    const box = makeElement('box', {
-      id: 'box3',
-      props: { subtitle: 'Just subtitle' },
-    });
+  it('does not override explicit styling with default border', () => {
+    const box = makeBlock('box', [], { id: 'box4', style: { background: '#ff0000' } });
     const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
 
     const el = ir.scenes[0].elements[0] as IRContainer;
-    const texts = el.children.filter(c => c.type === 'text') as IRText[];
-    expect(texts).toHaveLength(1);
-    expect(texts[0].content).toBe('Just subtitle');
-  });
-
-  it('emits title before other children', () => {
-    const box = makeElement('box', {
-      id: 'box4',
-      label: 'Box Title',
-      children: [makeElement('label', { id: 'l1', label: 'Child' })],
-    });
-    const ir = emitIR(makeDoc([makeScene([box])]), lightTheme);
-
-    const el = ir.scenes[0].elements[0] as IRContainer;
-    expect(el.children.length).toBeGreaterThanOrEqual(2);
-    expect((el.children[0] as IRText).content).toBe('Box Title');
+    expect(el.style.fill).toBe('#ff0000');
+    expect(el.style.stroke).toBeUndefined();
   });
 });
 

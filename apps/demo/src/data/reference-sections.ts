@@ -33,13 +33,13 @@ export const REFERENCE_CATEGORIES: ReferenceCategory[] = [
             label: '16:9 (기본)',
             dsl: `@page 16:9
 
-box "16:9 Widescreen" { color: primary }`,
+node "16:9 Widescreen" { color: primary }`,
           },
           {
             label: '1:1 정사각형',
             dsl: `@page 1:1
 
-box "Square Canvas" { color: accent }`,
+node "Square Canvas" { color: accent }`,
           },
         ],
       },
@@ -55,9 +55,9 @@ box "Square Canvas" { color: accent }`,
             dsl: `@page 16:9
 
 stack direction:row gap:md {
-  box "Primary" { color: primary }
-  box "Success" { color: success }
-  box "Danger" { color: danger }
+  node "Primary" { color: primary }
+  node "Success" { color: success }
+  node "Danger" { color: danger }
 }`,
           },
           {
@@ -66,9 +66,9 @@ stack direction:row gap:md {
             dsl: `@page 16:9
 
 stack direction:row gap:md {
-  box "Primary" { color: primary }
-  box "Success" { color: success }
-  box "Danger" { color: danger }
+  node "Primary" { color: primary }
+  node "Success" { color: success }
+  node "Danger" { color: danger }
 }`,
           },
         ],
@@ -84,13 +84,13 @@ stack direction:row gap:md {
             dsl: `@page 16:9
 
 scene "Intro" {
-  box "Welcome" { color: primary, font-size: xl }
+  node "Welcome" { color: primary, font-size: xl }
 }
 
 scene "Content" {
   stack direction:row gap:lg {
-    box "Point A" { color: info }
-    box "Point B" { color: success }
+    node "Point A" { color: info }
+    node "Point B" { color: success }
   }
 }`,
           },
@@ -223,9 +223,9 @@ flow direction:right {
             dsl: `@page 16:9
 
 stack direction:row gap:md {
-  box "A" { color: primary }
-  box "B" { color: info }
-  box "C" { color: success }
+  node "A" { color: primary }
+  node "B" { color: info }
+  node "C" { color: success }
 }`,
           },
           {
@@ -233,9 +233,9 @@ stack direction:row gap:md {
             dsl: `@page 16:9
 
 stack direction:col gap:sm {
-  box "Top" { color: primary }
-  box "Middle" { color: info }
-  box "Bottom" { color: success }
+  node "Top" { color: primary }
+  node "Middle" { color: info }
+  node "Bottom" { color: success }
 }`,
           },
         ],
@@ -422,16 +422,17 @@ canvas {
       {
         id: 'box',
         title: 'box',
-        description: '기본 컨테이너. 제목, 부제목, 리스트를 포함할 수 있다.',
-        syntax: 'box "Title" { subtitle: "...", color: ..., list [...] }',
+        description: '순수 컨테이너. 자체적으로 텍스트를 렌더링하지 않으며, heading/label/list 등 자식 요소로 내용을 구성한다.',
+        syntax: 'box { background: ..., heading "...", label "...", list [...] }',
         examples: [
           {
             label: 'box with list',
             dsl: `@page 16:9
 
-box "Features" {
-  color: primary
-  subtitle: "Feature Overview"
+box {
+  background: primary
+  heading "Features"
+  label "Feature Overview"
   list [
     "New DSL syntax"
     "Visual editor"
@@ -517,8 +518,9 @@ stack direction:row gap:sm {
             dsl: `@page 16:9
 
 stack direction:row gap:lg {
-  box "Unordered" {
-    color: primary
+  box {
+    background: primary
+    heading "Unordered"
     list [
       "Alpha"
       "Beta"
@@ -531,8 +533,9 @@ stack direction:row gap:lg {
             label: 'Ordered list',
             dsl: `@page 16:9
 
-box "Steps" {
-  color: info
+box {
+  background: info
+  heading "Steps"
   list ordered [
     "First"
     "Second"
@@ -657,17 +660,19 @@ flow direction:right {
             dsl: `@page 16:9
 
 stack direction:row gap:md {
-  box "Custom" {
+  box {
     background: #dbeafe
     border: #3b82f6
     shadow: lg
     radius: lg
+    heading "Custom"
   }
-  box "Gradient feel" {
+  box {
     background: #fef3c7
     border: #f59e0b
     shadow: md
     radius: md
+    heading "Gradient feel"
   }
 }`,
           },

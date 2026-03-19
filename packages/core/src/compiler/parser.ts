@@ -229,11 +229,11 @@ class Parser {
       } else {
         children = []; // reference mode: table "sales" (no brace block)
       }
-    } else if (blockType === 'scene') {
+    } else if (blockType === 'scene' || blockType === 'box' || blockType === 'layer') {
       children = [];
       if (this.check('BRACE_OPEN')) {
         this.parsePropBlock(props, style, [], children);
-      } else {
+      } else if (blockType === 'scene') {
         this.error('Expected {', this.current());
       }
     } else {

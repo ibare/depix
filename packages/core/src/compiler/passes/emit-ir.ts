@@ -256,6 +256,12 @@ function emitBlockFromPlan(
     containerStyle.strokeWidth = 0.3;
   }
 
+  // Box/layer blocks: default border when no explicit styling
+  if ((block.blockType === 'box' || block.blockType === 'layer') && !containerStyle.stroke && !containerStyle.fill) {
+    containerStyle.stroke = theme.border;
+    containerStyle.strokeWidth = 0.3;
+  }
+
   const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
     ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
     : undefined;
@@ -268,7 +274,11 @@ function emitBlockFromPlan(
     children: irChildren,
   };
 
-  if (origin) container.origin = origin;
+  if (origin) {
+    container.origin = { ...origin, dslType: block.blockType };
+  } else {
+    container.origin = { dslType: block.blockType };
+  }
   boundsMap.set(containerId, containerBounds);
   return container;
 }
@@ -294,35 +304,36 @@ function emitElement(
   const id = element.id ?? generateId();
   boundsMap.set(id, bounds);
 
+  let result: IRElement;
   switch (element.elementType) {
     case 'node':
     case 'cell':
     case 'rect':
-      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
     case 'circle':
-      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
     case 'badge':
-      return emitShapeElement(element, id, bounds, 'pill', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitShapeElement(element, id, bounds, 'pill', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
     case 'icon':
-      return emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitShapeElement(element, id, bounds, 'circle', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
     case 'label':
     case 'text':
-      return emitTextElement(element, id, bounds, theme, scaleCtx, measured);
-    case 'box':
-    case 'layer':
-      return emitBoxElement(element, id, bounds, theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitTextElement(element, id, bounds, theme, scaleCtx, measured); break;
     case 'list':
-      return emitListElement(element, id, bounds, theme, scaleCtx, measured);
+      result = emitListElement(element, id, bounds, theme, scaleCtx, measured); break;
     case 'divider':
     case 'line':
-      return emitDividerElement(element, id, bounds);
+      result = emitDividerElement(element, id, bounds); break;
     case 'image':
-      return emitImageElement(element, id, bounds);
+      result = emitImageElement(element, id, bounds); break;
     case 'row':
-      return emitRowElement(element, id, bounds, theme, scaleCtx, measured);
+      result = emitRowElement(element, id, bounds, theme, scaleCtx, measured); break;
     default:
-      return emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap);
+      result = emitShapeElement(element, id, bounds, 'rect', theme, boundsMap, scaleCtx, measured, planChildren, measureMap); break;
   }
+
+  result.origin = { ...result.origin, dslType: element.elementType };
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -553,100 +564,6 @@ function emitTextElement(
   if (element.style.align) text.align = element.style.align as IRText['align'];
 
   return text;
-}
-
-// ---------------------------------------------------------------------------
-// Box / layer element (container)
-// ---------------------------------------------------------------------------
-
-function emitBoxElement(
-  element: ASTElement,
-  id: string,
-  bounds: IRBounds,
-  theme: DepixTheme,
-  boundsMap: Map<string, IRBounds>,
-  scaleCtx?: ScaleContext,
-  measured?: MeasureResult,
-  planChildren?: LayoutPlanNode[],
-  measureMap?: MeasureMap,
-): IRContainer {
-  const style = buildStyle(element.style);
-  const children: IRElement[] = [];
-
-  const padding = measured ? measured.padding : (scaleCtx ? computePadding(scaleCtx.baseUnit) : 2);
-  const childGap = measured ? measured.childGap : (scaleCtx ? 1 : 1);
-  const innerBounds: IRBounds = {
-    x: bounds.x + padding,
-    y: bounds.y + padding,
-    w: Math.max(bounds.w - padding * 2, 1),
-    h: Math.max(bounds.h - padding * 2, 1),
-  };
-
-  const textColor = typeof element.style.color === 'string'
-    ? element.style.color
-    : theme.foreground;
-
-  let childY = innerBounds.y;
-
-  // P1: Emit title text from element.label
-  if (element.label) {
-    const titleFontSize = measured?.titleFontSize ?? (typeof element.style['font-size'] === 'number'
-      ? element.style['font-size']
-      : scaleCtx ? computeFontSize(Math.min(bounds.w, bounds.h), 'innerLabel') : theme.fontSize.md);
-    const titleH = measured?.titleHeight ?? (scaleCtx ? titleFontSize * 2.5 : 4);
-    const titleText: IRText = {
-      id: `${id}-title`,
-      type: 'text',
-      bounds: { x: innerBounds.x, y: childY, w: innerBounds.w, h: titleH },
-      style: {},
-      content: element.label,
-      fontSize: titleFontSize,
-      color: textColor,
-      fontWeight: 'bold',
-    };
-    children.push(titleText);
-    childY += titleH + childGap;
-  }
-
-  // P2: Emit subtitle text from element.props.subtitle
-  if (typeof element.props.subtitle === 'string') {
-    const subtitleFontSize = measured?.subtitleFontSize ?? (typeof element.style['font-size'] === 'number'
-      ? element.style['font-size']
-      : scaleCtx ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem') : theme.fontSize.sm);
-    const subtitleH = measured?.subtitleHeight ?? (scaleCtx ? subtitleFontSize * 2 : 3);
-    const subtitleText: IRText = {
-      id: `${id}-subtitle`,
-      type: 'text',
-      bounds: { x: innerBounds.x, y: childY, w: innerBounds.w, h: subtitleH },
-      style: {},
-      content: element.props.subtitle as string,
-      fontSize: subtitleFontSize,
-      color: typeof element.props['subtitle-color'] === 'string'
-        ? element.props['subtitle-color'] as string
-        : theme.colors.muted,
-    };
-    children.push(subtitleText);
-    childY += subtitleH + childGap;
-  }
-
-  let planIdx = 0;
-  for (const child of element.children) {
-    if (child.kind === 'edge') continue;
-    // Use plan node id to look up pre-allocated bounds and measure results
-    const childPlan = planChildren?.[planIdx++];
-    const preallocatedBounds = childPlan ? boundsMap.get(childPlan.id) : undefined;
-    const childBounds: IRBounds = preallocatedBounds ?? {
-      x: innerBounds.x,
-      y: childY,
-      w: innerBounds.w,
-      h: 4,
-    };
-    const childMeasured = childPlan && measureMap ? measureMap.get(childPlan.id) : undefined;
-    children.push(emitChildNode(child as ASTElement | ASTBlock, childBounds, theme, boundsMap, scaleCtx, childPlan, measureMap, childMeasured));
-    childY += childBounds.h + childGap;
-  }
-
-  return { id, type: 'container', bounds, style, children };
 }
 
 // ---------------------------------------------------------------------------

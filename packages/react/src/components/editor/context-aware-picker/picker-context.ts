@@ -67,6 +67,7 @@ const NONE: PickerContext = {
  * Falls back to IR type if metadata is absent.
  */
 function inferDSLType(element: IRElement): string {
+  if (element.origin?.dslType) return element.origin.dslType;
   const meta = (element as IRElement & { metadata?: Record<string, unknown> }).metadata;
   if (meta && typeof meta.dslType === 'string') return meta.dslType;
 
@@ -146,11 +147,12 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
 
   const dslType = inferDSLType(element);
   const isBlock = PICKER_BLOCK_TYPES.has(dslType);
+  const isBoxContainer = dslType === 'box' || dslType === 'layer';
   const slotName = element.origin?.sourceType === 'scene-slot'
     ? element.origin.slotName
     : undefined;
 
-  if (isBlock) {
+  if (isBlock || isBoxContainer) {
     return {
       kind: 'existing-block',
       slotName,

@@ -160,9 +160,6 @@ function measureElement(
   budgetMap?: BudgetMap,
 ): MeasureResult {
   switch (element.elementType) {
-    case 'box':
-    case 'layer':
-      return measureBox(element, plan, theme, scaleCtx, measureMap, budgetMap);
     case 'list':
       return measureList(element, plan, theme, scaleCtx, budgetMap);
     case 'label':
@@ -230,71 +227,6 @@ function measureShape(
     childGap: 0,
     minWidth: minW,
     minHeight: minH,
-  };
-}
-
-function measureBox(
-  element: ASTElement,
-  plan: LayoutPlanNode,
-  theme: DepixTheme,
-  scaleCtx: ScaleContext | undefined,
-  measureMap: MeasureMap,
-  budgetMap?: BudgetMap,
-): MeasureResult {
-  const padding = scaleCtx ? computePadding(scaleCtx.baseUnit) : 2;
-  const childGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1;
-
-  // Title
-  const titleFontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel', budgetMap);
-  const titleHeight = element.label ? titleFontSize * TEXT_BLOCK_MULTIPLIER : 0;
-
-  // Subtitle
-  const hasSubtitle = typeof element.props.subtitle === 'string';
-  const subtitleFontSize = hasSubtitle
-    ? resolveElementFontSize(element, plan, theme, scaleCtx, 'listItem', budgetMap)
-    : 0;
-  const subtitleHeight = hasSubtitle ? subtitleFontSize * TEXT_BLOCK_MULTIPLIER : 0;
-
-  // Children (list items, nested elements)
-  let childrenHeight = 0;
-  for (let i = 0; i < plan.children.length; i++) {
-    const childMeasure = measureMap.get(plan.children[i].id);
-    if (childMeasure) {
-      childrenHeight += childMeasure.minHeight;
-    }
-    if (i < plan.children.length - 1) {
-      childrenHeight += childGap;
-    }
-  }
-
-  // Total content height
-  let contentHeight = 0;
-  if (titleHeight > 0) {
-    contentHeight += titleHeight;
-    if (subtitleHeight > 0 || childrenHeight > 0) contentHeight += childGap;
-  }
-  if (subtitleHeight > 0) {
-    contentHeight += subtitleHeight;
-    if (childrenHeight > 0) contentHeight += childGap;
-  }
-  contentHeight += childrenHeight;
-
-  const minHeight = contentHeight + padding * 2;
-  const minWidth = typeof element.props.width === 'number'
-    ? element.props.width
-    : Math.max(titleFontSize * 4, 10) + padding * 2; // 제목 폰트의 4배 최소 너비, 절댓값 하한 10 (0–100 기준)
-
-  return {
-    fontSize: titleFontSize,
-    lineHeight: DEFAULT_LINE_HEIGHT,
-    padding,
-    childGap,
-    minWidth,
-    minHeight,
-    titleFontSize,
-    titleHeight,
-    subtitleFontSize: hasSubtitle ? subtitleFontSize : undefined,
-    subtitleHeight: hasSubtitle ? subtitleHeight : undefined,
   };
 }
 

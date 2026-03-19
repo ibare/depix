@@ -225,8 +225,8 @@ describe('Stack block', () => {
     noErrors(input);
     const block = firstChild(input) as ASTBlock;
     expect(block.children).toHaveLength(2);
-    const box1 = block.children[0] as ASTElement;
-    expect(box1.elementType).toBe('box');
+    const box1 = block.children[0] as ASTBlock;
+    expect(box1.blockType).toBe('box');
     expect(box1.children).toHaveLength(1);
   });
 });
@@ -369,8 +369,8 @@ describe('Visual elements', () => {
   list ["a", "b"]
 }`;
     noErrors(input);
-    const el = firstChild(input) as ASTElement;
-    expect(el.elementType).toBe('box');
+    const el = firstChild(input) as ASTBlock;
+    expect(el.blockType).toBe('box');
     expect(el.label).toBe('Title');
     expect(el.props.subtitle).toBe('Subtitle');
     expect(el.children).toHaveLength(1); // list element
@@ -577,8 +577,8 @@ describe('Nesting', () => {
 }`;
     noErrors(input);
     const stack = firstChild(input) as ASTBlock;
-    const box = stack.children[0] as ASTElement;
-    expect(box.elementType).toBe('box');
+    const box = stack.children[0] as ASTBlock;
+    expect(box.blockType).toBe('box');
     expect(box.children).toHaveLength(1);
     const list = box.children[0] as ASTElement;
     expect(list.elementType).toBe('list');
@@ -755,10 +755,9 @@ scene "기능 소개" {
     expect(result.ast.scenes[0].label).toBe('인트로');
     expect(result.ast.scenes[1].label).toBe('기능 소개');
 
-    const intro = result.ast.scenes[0].children[0] as ASTElement;
-    expect(intro.elementType).toBe('box');
+    const intro = result.ast.scenes[0].children[0] as ASTBlock;
+    expect(intro.blockType).toBe('box');
     expect(intro.style['font-size']).toBe('2xl');
-    expect(intro.flags).toContain('center');
   });
 });
 

@@ -147,38 +147,31 @@ describe('fontSize resolution priority', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Box measurement with title + subtitle
+// Box measurement (box is now a block type — measured via measureBlock)
 // ---------------------------------------------------------------------------
 
 describe('box measurement', () => {
-  it('includes titleFontSize and titleHeight for labeled box', () => {
+  it('measures box block with padding and childGap', () => {
     const scene = makeScene([
-      makeElement('box', { id: 'b1', label: 'My Box' }),
+      makeBlock('box', [
+        makeElement('label', { id: 'l1', label: 'Inside' }),
+      ], { id: 'b1' }),
     ]);
     const { measureMap, plan } = measureWithDefaults(scene);
     const m = measureMap.get(plan.children[0].id);
     expect(m).toBeDefined();
-    expect(m!.titleFontSize).toBeGreaterThan(0);
-    expect(m!.titleHeight).toBeGreaterThan(0);
     expect(m!.padding).toBeGreaterThan(0);
+    expect(m!.minHeight).toBeGreaterThan(0);
   });
 
-  it('includes subtitleFontSize and subtitleHeight when subtitle is present', () => {
+  it('does not include title/subtitle fields for box block', () => {
     const scene = makeScene([
-      makeElement('box', { id: 'b1', label: 'Title', props: { subtitle: 'Sub' } }),
+      makeBlock('box', [], { id: 'b1', label: 'Title' }),
     ]);
     const { measureMap, plan } = measureWithDefaults(scene);
     const m = measureMap.get(plan.children[0].id);
-    expect(m!.subtitleFontSize).toBeGreaterThan(0);
-    expect(m!.subtitleHeight).toBeGreaterThan(0);
-  });
-
-  it('does not include subtitle fields when no subtitle', () => {
-    const scene = makeScene([
-      makeElement('box', { id: 'b1', label: 'Title' }),
-    ]);
-    const { measureMap, plan } = measureWithDefaults(scene);
-    const m = measureMap.get(plan.children[0].id);
+    expect(m!.titleFontSize).toBeUndefined();
+    expect(m!.titleHeight).toBeUndefined();
     expect(m!.subtitleFontSize).toBeUndefined();
     expect(m!.subtitleHeight).toBeUndefined();
   });
@@ -245,19 +238,23 @@ describe('large font-size impact', () => {
     expect(mLarge.minHeight).toBeGreaterThan(mSmall.minHeight);
   });
 
-  it('box with large font-size has larger titleHeight', () => {
+  it('larger font-size produces larger minHeight for label inside box block', () => {
     const sceneSmall = makeScene([
-      makeElement('box', { id: 'b1', label: 'Box', style: { 'font-size': 1.0 } }),
+      makeBlock('box', [
+        makeElement('label', { id: 'l1', label: 'Hi', style: { 'font-size': 1.0 } }),
+      ], { id: 'b1' }),
     ]);
     const sceneLarge = makeScene([
-      makeElement('box', { id: 'b1', label: 'Box', style: { 'font-size': 8.0 } }),
+      makeBlock('box', [
+        makeElement('label', { id: 'l1', label: 'Hi', style: { 'font-size': 8.0 } }),
+      ], { id: 'b1' }),
     ]);
     const { measureMap: mapSmall, plan: planSmall } = measureWithDefaults(sceneSmall);
     const { measureMap: mapLarge, plan: planLarge } = measureWithDefaults(sceneLarge);
 
-    const mSmall = mapSmall.get(planSmall.children[0].id)!;
-    const mLarge = mapLarge.get(planLarge.children[0].id)!;
-    expect(mLarge.titleHeight!).toBeGreaterThan(mSmall.titleHeight!);
-    expect(mLarge.minHeight).toBeGreaterThan(mSmall.minHeight);
+    // Check the label child's measurement
+    const labelSmall = mapSmall.get(planSmall.children[0].children[0].id)!;
+    const labelLarge = mapLarge.get(planLarge.children[0].children[0].id)!;
+    expect(labelLarge.minHeight).toBeGreaterThan(labelSmall.minHeight);
   });
 });

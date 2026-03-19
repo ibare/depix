@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { parse } from '@depix/core';
+import { parse, ATOMIC_COMPOUND_TYPES } from '@depix/core';
 import type { DepixIR, IRElement, IRStyle, IRBounds, IRScene } from '@depix/core';
 import {
   addScene,
@@ -243,8 +243,12 @@ function flattenIRElements(elements: IRElement[]): IRElement[] {
   const result: IRElement[] = [];
   for (const el of elements) {
     if (el.type === 'container' && 'children' in el) {
-      result.push(...flattenIRElements((el as IRElement & { children: IRElement[] }).children));
-    } else {
+      if ((ATOMIC_COMPOUND_TYPES as Set<string>).has(el.origin?.dslType ?? '')) {
+        result.push(el);
+      } else {
+        result.push(...flattenIRElements((el as IRElement & { children: IRElement[] }).children));
+      }
+    } else if (el.origin?.sourceType !== 'scene-background') {
       result.push(el);
     }
   }

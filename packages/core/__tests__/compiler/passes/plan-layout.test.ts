@@ -83,12 +83,15 @@ describe('classifyNode', () => {
     expect(classifyNode(makeElement('cell'))).toBe('element-shape');
     expect(classifyNode(makeElement('label'))).toBe('element-text');
     expect(classifyNode(makeElement('text'))).toBe('element-text');
-    expect(classifyNode(makeElement('box'))).toBe('element-box');
-    expect(classifyNode(makeElement('layer'))).toBe('element-box');
     expect(classifyNode(makeElement('list'))).toBe('element-list');
     expect(classifyNode(makeElement('divider'))).toBe('element-divider');
     expect(classifyNode(makeElement('line'))).toBe('element-divider');
     expect(classifyNode(makeElement('image'))).toBe('element-image');
+  });
+
+  it('classifies box and layer as block-visual', () => {
+    expect(classifyNode(makeBlock('box', []))).toBe('block-visual');
+    expect(classifyNode(makeBlock('layer', []))).toBe('block-visual');
   });
 
   it('classifies unknown element as element-shape', () => {
@@ -242,9 +245,9 @@ describe('computeIntrinsicSize', () => {
     expect(size).toEqual({ width: 20, height: 15 });
   });
 
-  it('uses defaults for box', () => {
-    const size = computeIntrinsicSize(makeElement('box'), lightTheme);
-    expect(size).toEqual({ width: 30, height: 20 });
+  it('returns {0,0} for box block', () => {
+    const size = computeIntrinsicSize(makeBlock('box', []), lightTheme);
+    expect(size).toEqual({ width: 0, height: 0 });
   });
 
   it('computes list size from items count', () => {

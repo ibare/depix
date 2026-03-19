@@ -24,7 +24,8 @@ export type PlanNodeType =
   | 'block-flow' | 'block-stack' | 'block-grid' | 'block-tree'
   | 'block-group' | 'block-layers' | 'block-canvas'
   | 'block-table' | 'block-chart'
-  | 'element-shape' | 'element-text' | 'element-box'
+  | 'block-visual'
+  | 'element-shape' | 'element-text'
   | 'element-list' | 'element-divider' | 'element-image';
 
 export interface PlanMetrics {
@@ -65,9 +66,9 @@ const BASE_WEIGHT: Record<PlanNodeType, number> = {
   'block-canvas': 2.5,
   'block-table': 2.5,
   'block-chart': 3.0,
+  'block-visual': 2.0,
   'element-shape': 1.0,
   'element-text': 0.6,
-  'element-box': 1.5,
   'element-list': 1.2,
   'element-divider': 0.3,
   'element-image': 1.5,
@@ -165,6 +166,8 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
       case 'column': return 'block-stack';
       case 'table': return 'block-table';
       case 'chart': return 'block-chart';
+      case 'box':
+      case 'layer': return 'block-visual';
       default: return 'block-canvas';
     }
   }
@@ -182,9 +185,6 @@ export function classifyNode(node: ASTBlock | ASTElement): PlanNodeType {
     case 'heading':
     case 'item':
       return 'element-text';
-    case 'box':
-    case 'layer':
-      return 'element-box';
     case 'list':
     case 'bullet':
       return 'element-list';
@@ -272,9 +272,6 @@ export function computeIntrinsicSize(
       return { width: w ?? 90, height: h ?? 1 };
     case 'image':
       return { width: w ?? 20, height: h ?? 15 };
-    case 'box':
-    case 'layer':
-      return { width: w ?? 30, height: h ?? 20 };
     case 'list': {
       const itemCount = node.items?.length ?? 0;
       return { width: w ?? 20, height: h ?? Math.max(itemCount * 4, 8) };

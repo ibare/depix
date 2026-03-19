@@ -21,12 +21,13 @@ export const PLAYGROUND_LEVELS: PlaygroundLevel[] = [
       {
         id: 'box',
         title: 'Box',
-        hint: 'box는 가장 기본적인 컨테이너입니다. 제목, 부제목, 리스트를 포함할 수 있습니다.',
+        hint: 'box는 순수 컨테이너입니다. 내부에 heading, label, list 등 자식 요소를 넣어 구성합니다.',
         dsl: `@page 16:9
 
-box "Hello Depix" {
-  color: primary
-  subtitle: "Your first diagram"
+box {
+  background: primary
+  heading "Hello Depix"
+  label "Your first diagram"
 }`,
       },
       {
@@ -63,8 +64,9 @@ stack direction:col gap:md {
         hint: 'list는 항목을 순서대로 나열합니다. box 안에 넣을 수도 있습니다.',
         dsl: `@page 16:9
 
-box "Shopping List" {
-  color: primary
+box {
+  background: primary
+  heading "Shopping List"
   list [
     "Apples"
     "Bananas"
@@ -119,16 +121,19 @@ flow direction:right {
         dsl: `@page 16:9
 
 stack direction:row gap:lg {
-  box "Column 1" {
-    color: primary
+  box {
+    background: primary
+    heading "Column 1"
     list ["Item A", "Item B"]
   }
-  box "Column 2" {
-    color: info
+  box {
+    background: info
+    heading "Column 2"
     list ["Item C", "Item D"]
   }
-  box "Column 3" {
-    color: success
+  box {
+    background: success
+    heading "Column 3"
     list ["Item E", "Item F"]
   }
 }`,
@@ -197,17 +202,18 @@ layers {
         dsl: `@page 16:9
 
 stack direction:col gap:md {
-  box "Dashboard" {
-    color: primary
+  box {
+    background: primary
+    heading "Dashboard"
     stack direction:row gap:sm {
-      box "Users" { color: info }
-      box "Revenue" { color: success }
-      box "Errors" { color: danger }
+      node "Users" { color: info }
+      node "Revenue" { color: success }
+      node "Errors" { color: danger }
     }
   }
   stack direction:row gap:md {
-    box "Chart Area" { color: muted }
-    box "Activity Log" { color: muted }
+    node "Chart Area" { color: muted }
+    node "Activity Log" { color: muted }
   }
 }`,
       },
@@ -235,22 +241,25 @@ flow direction:right {
         dsl: `@page 16:9
 
 stack direction:row gap:xl {
-  box "Primary" {
-    color: primary
+  box {
+    background: primary
     shadow: lg
     radius: lg
+    heading "Primary"
     list ["shadow: lg", "radius: lg"]
   }
-  box "Warning" {
-    color: warning
+  box {
+    background: warning
     shadow: sm
     radius: sm
+    heading "Warning"
     list ["shadow: sm", "radius: sm"]
   }
-  box "Danger" {
-    color: danger
+  box {
+    background: danger
     shadow: md
     radius: md
+    heading "Danger"
     list ["shadow: md", "radius: md"]
   }
 }`,
@@ -264,8 +273,8 @@ stack direction:row gap:xl {
 scene "Problem" {
   stack direction:col gap:md {
     label "The Problem" { bold, font-size: xl }
-    box "Manual processes are slow" { color: danger }
-    box "Error-prone repetition" { color: warning }
+    node "Manual processes are slow" { color: danger }
+    node "Error-prone repetition" { color: warning }
   }
 }
 

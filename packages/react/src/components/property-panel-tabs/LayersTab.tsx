@@ -10,6 +10,7 @@
 import React from 'react';
 import { Lock, LockOpen } from '@phosphor-icons/react';
 import type { IRElement, IRContainer } from '@depix/core';
+import { ATOMIC_COMPOUND_TYPES } from '@depix/core';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -209,6 +210,7 @@ function LayerItem({
         </button>
       </li>
       {element.type === 'container' &&
+        !(ATOMIC_COMPOUND_TYPES as Set<string>).has((element as IRContainer).origin?.dslType ?? '') &&
         (element as IRContainer).children.map((child) => (
           <LayerItem
             key={child.id}

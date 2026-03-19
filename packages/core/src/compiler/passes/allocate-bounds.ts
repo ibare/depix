@@ -523,6 +523,17 @@ export function computeLayoutChildren(
       });
     }
 
+    case 'box':
+    case 'layer': {
+      // Visual containers: compact stacking — each child gets its min height, no surplus redistribution
+      return plan.children.map(c => {
+        const hasExplicitH = c.astNode.kind === 'element' && typeof c.astNode.props.height === 'number';
+        const m = measureMap?.get(c.id);
+        const h = hasExplicitH ? c.intrinsicSize.height : (m ? m.minHeight : c.intrinsicSize.height || 4);
+        return { id: c.id, width: bounds.w, height: h };
+      });
+    }
+
     case 'canvas':
     default: {
       // canvas/default: stack col behaviour
@@ -636,6 +647,16 @@ export function runLayout(
       return layoutChart(children, {
         bounds,
         gap: gap * 0.5,
+      });
+
+    case 'box':
+    case 'layer':
+      return layoutStack(children, {
+        bounds,
+        direction: 'col',
+        gap,
+        align: 'stretch',
+        wrap: false,
       });
 
     case 'canvas':

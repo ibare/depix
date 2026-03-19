@@ -188,12 +188,10 @@ exports[`AST snapshots > stack-row matches snapshot 1`] = `
           "blockType": "stack",
           "children": [
             {
+              "blockType": "box",
               "children": [],
-              "elementType": "box",
-              "flags": [],
               "id": undefined,
-              "items": undefined,
-              "kind": "element",
+              "kind": "block",
               "label": "Card 1",
               "loc": {
                 "column": 3,
@@ -203,12 +201,10 @@ exports[`AST snapshots > stack-row matches snapshot 1`] = `
               "style": {},
             },
             {
+              "blockType": "box",
               "children": [],
-              "elementType": "box",
-              "flags": [],
               "id": undefined,
-              "items": undefined,
-              "kind": "element",
+              "kind": "block",
               "label": "Card 2",
               "loc": {
                 "column": 3,

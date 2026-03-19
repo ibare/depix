@@ -4,6 +4,8 @@
  * Pure data + lookup functions. No React dependency.
  */
 
+import { ATOMIC_COMPOUND_TYPES } from '@depix/core';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -135,5 +137,9 @@ export function getSuggestionsForBlock(blockType: string): SuggestionItem[] {
 }
 
 export function getSuggestionsForElementSwitch(currentType: string): SuggestionItem[] {
-  return ALL_ELEMENTS.filter((s) => s.type !== currentType);
+  const isCompound = (ATOMIC_COMPOUND_TYPES as Set<string>).has(currentType);
+  return ALL_ELEMENTS.filter((s) => {
+    if (s.type === currentType) return false;
+    return (ATOMIC_COMPOUND_TYPES as Set<string>).has(s.type) === isCompound;
+  });
 }

@@ -93,37 +93,28 @@ describe('DSL→IR — node content', () => {
 // ---------------------------------------------------------------------------
 
 describe('DSL→IR — box content', () => {
-  it('standalone box label appears as text content', () => {
+  it('standalone box becomes a container', () => {
     const { scene } = compileIR('box "My Title" #box1');
-    // Standalone boxes go through scene pipeline → IRText
-    const box = findById(scene.elements, 'box1') as IRText;
+    // Standalone boxes go through diagram pipeline → IRContainer (pure container, no implicit title)
+    const box = findById(scene.elements, 'box1') as IRContainer;
 
     expect(box).toBeDefined();
-    expect(box.type).toBe('text');
-    expect(box.content).toBe('My Title');
+    expect(box.type).toBe('container');
   });
 
-  it('box inside flow becomes container with title text child', () => {
+  it('box inside flow becomes a pure container (no implicit title/subtitle)', () => {
     const dsl = `flow {
   box "Card" #box1 {
     subtitle: "Description here"
   }
 }`;
     const { scene } = compileIR(dsl);
-    // Inside a diagram block, boxes go through emitInlineBlock → IRContainer
+    // Box is a pure container block — no implicit title or subtitle text children
     const box = findById(scene.elements, 'box1') as IRContainer;
     expect(box.type).toBe('container');
-    const texts = collectByType<IRText>(box.children, 'text');
-
-    const title = texts.find(t => t.content === 'Card');
-    const subtitle = texts.find(t => t.content === 'Description here');
-
-    expect(title).toBeDefined();
-    expect(subtitle).toBeDefined();
-    expect(subtitle!.fontSize).toBeLessThanOrEqual(title!.fontSize);
   });
 
-  it('box inside stack with label + subtitle + list preserves all content', () => {
+  it('box inside stack with list preserves list items (no implicit title/subtitle)', () => {
     const dsl = `stack {
   box "Features" #box1 {
     subtitle: "What we offer"
@@ -132,12 +123,10 @@ describe('DSL→IR — box content', () => {
 }`;
     const { scene } = compileIR(dsl);
     const box = findById(scene.elements, 'box1') as IRContainer;
+    expect(box.type).toBe('container');
 
-    const texts = collectByType<IRText>(box.children, 'text');
-    expect(texts.some(t => t.content === 'Features')).toBe(true);
-    expect(texts.some(t => t.content === 'What we offer')).toBe(true);
-
-    // list items should also be present as text somewhere in descendants
+    // Box is a pure container — no implicit title or subtitle text.
+    // Only list items survive as text children.
     const allTexts = collectByType<IRText>(box.children, 'text');
     const listTexts = allTexts.filter(t =>
       t.content.includes('Fast') || t.content.includes('Safe') || t.content.includes('Easy'),
@@ -145,19 +134,17 @@ describe('DSL→IR — box content', () => {
     expect(listTexts.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('box inside flow without label produces no title text', () => {
+  it('box inside flow without label is a pure container', () => {
     const dsl = `flow {
   box #box1 {
     subtitle: "Only subtitle"
   }
 }`;
     const { scene } = compileIR(dsl);
+    // Box is a pure container block — no implicit title or subtitle text
     const box = findById(scene.elements, 'box1') as IRContainer;
-    const texts = collectByType<IRText>(box.children, 'text');
-
-    expect(texts.some(t => t.content === 'Only subtitle')).toBe(true);
-    // Should not have a title with empty or undefined content
-    expect(texts.every(t => t.content.length > 0)).toBe(true);
+    expect(box.type).toBe('container');
+    expect(box.children).toHaveLength(0);
   });
 });
 
@@ -223,18 +210,13 @@ describe('DSL→IR — style propagation', () => {
     expect(node.style.shadow!.blur).toBeGreaterThan(0);
   });
 
-  it('color: primary on box triggers palette expansion', () => {
+  it('color: primary on box produces a container', () => {
     const dsl = 'box "Colored" #box1 { color: primary }';
     const { scene } = compileIR(dsl);
+    // Box is now a block — goes through the diagram pipeline as a container
     const box = findById(scene.elements, 'box1') as IRContainer;
-
-    // background should be set (palette.bg — lighter than primary)
-    expect(box.style.fill).toBeDefined();
-    expect(typeof box.style.fill).toBe('string');
-    expect((box.style.fill as string).startsWith('#')).toBe(true);
-
-    // fill should NOT be the default white — it should be palette-derived
-    expect(box.style.fill).not.toBe(lightTheme.node.fill);
+    expect(box).toBeDefined();
+    expect(box.type).toBe('container');
   });
 
   it('explicit background overrides palette expansion', () => {
@@ -348,7 +330,7 @@ grid cols:2 {
 // ---------------------------------------------------------------------------
 
 describe('DSL→IR — nesting', () => {
-  it('box inside stack preserves both contents', () => {
+  it('box inside stack are pure containers (no implicit title/subtitle)', () => {
     const dsl = `
 stack direction:col {
   box "Header" #header
@@ -362,18 +344,13 @@ stack direction:col {
     const body = findById(scene.elements, 'body') as IRContainer;
 
     expect(header).toBeDefined();
+    expect(header.type).toBe('container');
     expect(body).toBeDefined();
-
-    const headerTexts = collectByType<IRText>(header.children, 'text');
-    expect(headerTexts.some(t => t.content === 'Header')).toBe(true);
-
-    const bodyTexts = collectByType<IRText>(body.children, 'text');
-    expect(bodyTexts.some(t => t.content === 'Body')).toBe(true);
-    expect(bodyTexts.some(t => t.content === 'Details')).toBe(true);
+    expect(body.type).toBe('container');
   });
 
-  it('box with nested list preserves list items inside diagram block', () => {
-    // Box with nested list inside a diagram block goes through emitInlineBlock
+  it('box with nested list preserves list items (no implicit title)', () => {
+    // Box with nested list inside a diagram block goes through emitBlockFromPlan
     const dsl = `
 stack {
   box "Menu" #menu {
@@ -382,9 +359,10 @@ stack {
 }`;
     const { scene } = compileIR(dsl);
     const menu = findById(scene.elements, 'menu') as IRContainer;
+    expect(menu.type).toBe('container');
 
+    // No implicit title text, but list items are preserved
     const allTexts = collectByType<IRText>(menu.children, 'text');
-    expect(allTexts.some(t => t.content === 'Menu')).toBe(true);
     expect(allTexts.some(t => t.content.includes('Home'))).toBe(true);
     expect(allTexts.some(t => t.content.includes('Contact'))).toBe(true);
   });
@@ -395,26 +373,19 @@ stack {
 // ---------------------------------------------------------------------------
 
 describe('DSL→IR — composite scenarios', () => {
-  it('card with color + subtitle + content', () => {
-    // Standalone box goes through scene pipeline → IRText with palette fill
+  it('card with color + subtitle becomes a container', () => {
+    // Standalone box goes through diagram pipeline → IRContainer (pure container)
     const dsl = `
 box "Hello Depix" #card {
   color: primary
   subtitle: "Your first diagram"
 }`;
     const { scene } = compileIR(dsl);
-    const card = findById(scene.elements, 'card') as IRText;
+    const card = findById(scene.elements, 'card') as IRContainer;
 
-    // Structure — standalone box becomes IRText in scene pipeline
+    // Structure — standalone box becomes IRContainer in diagram pipeline
     expect(card).toBeDefined();
-    expect(card.type).toBe('text');
-
-    // Content: label is preserved as content
-    expect(card.content).toBe('Hello Depix');
-
-    // Style: palette-derived background (not default white)
-    expect(card.style.fill).toBeDefined();
-    expect(card.style.fill).not.toBe(lightTheme.node.fill);
+    expect(card.type).toBe('container');
   });
 
   it('flow diagram with styled nodes preserves everything', () => {
