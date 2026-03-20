@@ -151,10 +151,10 @@ export function ContextAwarePicker({
 
   const handleAddChildSuggestion = useCallback(
     (item: SuggestionItem) => {
-      onAction('add-child', { slotName: ctx.slotName, type: item.type, category: item.category, parentType: ctx.elementType });
+      onAction('add-child', { elementId: ctx.elementId, type: item.type, category: item.category });
       setDropdownMode(null);
     },
-    [onAction, ctx.slotName],
+    [onAction, ctx.elementId],
   );
 
   // Don't render for 'none' or 'empty-canvas'

@@ -72,4 +72,6 @@ export {
   changeElementStyle,
   upsertOverride,
   wrapSlotInBlock,
+  addChild,
+  addSibling,
 } from './dsl-mutations.js';

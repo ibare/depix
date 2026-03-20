@@ -7,7 +7,7 @@
  */
 
 import { parse, serialize, getLayoutDef, findSlotByRole, findRoleForSlot, resolveTargetSlot, PROMOTE_RULES } from '@depix/core';
-import type { ASTDocument, ASTBlock, ASTElement, ASTNode, LayoutDef } from '@depix/core';
+import type { ASTDocument, ASTBlock, ASTElement, ASTNode, LayoutDef, DepixIR, IRScene, IRElement, IRContainer } from '@depix/core';
 
 // ---------------------------------------------------------------------------
 // Scene mutations
@@ -458,4 +458,154 @@ function removeNodeFromParent(children: ASTNode[], target: ASTNode): boolean {
     }
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// IR→AST target resolution (elementId-based)
+// ---------------------------------------------------------------------------
+
+interface ASTTarget {
+  node: ASTNode;
+  parent: ASTBlock;
+  childIndex: number;
+}
+
+/**
+ * Resolve an IR element ID to its corresponding AST node + parent.
+ *
+ * Walks the IR tree and AST tree in parallel using positional matching.
+ * The raw AST (from parse) may not have slot assignments, so we match
+ * IR scene-slot containers to AST children by order, not by slot name.
+ */
+function resolveASTTarget(
+  scene: ASTBlock,
+  irScene: IRScene,
+  elementId: string,
+): ASTTarget | undefined {
+  // IR scene.elements: scene-background (skip) + scene-slot containers
+  // AST scene.children: blocks/elements in order (edges excluded)
+  const astChildren = scene.children.filter(c => c.kind !== 'edge');
+  const irSlots = irScene.elements.filter(
+    e => e.type === 'container' && e.origin?.sourceType === 'scene-slot',
+  ) as IRContainer[];
+
+  // Positional matching: IR slot[i] ↔ AST child[i]
+  const len = Math.min(irSlots.length, astChildren.length);
+  for (let i = 0; i < len; i++) {
+    const irSlot = irSlots[i];
+    const astChild = astChildren[i];
+
+    // Check if the slot container itself matches
+    if (irSlot.id === elementId) {
+      const idx = scene.children.indexOf(astChild);
+      return { node: astChild, parent: scene, childIndex: idx };
+    }
+
+    // Search inside: IR slot children ↔ AST block/element children
+    const astInner = astChild.kind === 'block'
+      ? (astChild as ASTBlock).children.filter(c => c.kind !== 'edge')
+      : [];
+    const result = matchIRToAST(irSlot.children, astInner, elementId, astChild as ASTBlock);
+    if (result) return result;
+  }
+
+  return undefined;
+}
+
+function matchIRToAST(
+  irElements: IRElement[],
+  astNodes: ASTNode[],
+  elementId: string,
+  parent: ASTBlock,
+): ASTTarget | undefined {
+  // Filter IR elements: skip scene-background, edges
+  const irFiltered = irElements.filter(
+    e => e.origin?.sourceType !== 'scene-background' && e.type !== 'edge',
+  );
+
+  let astIdx = 0;
+  for (const irEl of irFiltered) {
+    const astNode = astNodes[astIdx];
+    if (!astNode) break;
+
+    if (irEl.id === elementId) {
+      const childIndex = parent.children.indexOf(astNode);
+      return { node: astNode, parent, childIndex: childIndex >= 0 ? childIndex : astIdx };
+    }
+
+    // Recurse into containers
+    if (irEl.type === 'container' && astNode.kind === 'block') {
+      const irChildren = (irEl as IRContainer).children;
+      const astChildren = (astNode as ASTBlock).children.filter(c => c.kind !== 'edge');
+      const result = matchIRToAST(irChildren, astChildren, elementId, astNode as ASTBlock);
+      if (result) return result;
+    }
+
+    astIdx++;
+  }
+
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// ElementId-based mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Add a child element/block to a container identified by IR element ID.
+ * Works at any depth in the AST tree.
+ */
+export function addChild(
+  dsl: string,
+  sceneIndex: number,
+  parentId: string,
+  content: string,
+  ir: DepixIR,
+): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+
+  const irScene = ir.scenes[sceneIndex];
+  if (!irScene) return dsl;
+
+  const target = resolveASTTarget(scene, irScene, parentId);
+  if (!target) return dsl;
+
+  const parentNode = target.node;
+  if (parentNode.kind !== 'block') return dsl;
+
+  const fragment = parse(`scene { ${content} }`);
+  const nodes = fragment.ast.scenes[0]?.children ?? [];
+  (parentNode as ASTBlock).children.push(...nodes);
+
+  return serialize(ast);
+}
+
+/**
+ * Add a sibling element/block after the element identified by IR element ID.
+ * Works at any depth in the AST tree.
+ */
+export function addSibling(
+  dsl: string,
+  sceneIndex: number,
+  targetId: string,
+  content: string,
+  ir: DepixIR,
+): string {
+  const { ast } = parse(dsl);
+  const scene = ast.scenes[sceneIndex];
+  if (!scene) return dsl;
+
+  const irScene = ir.scenes[sceneIndex];
+  if (!irScene) return dsl;
+
+  const target = resolveASTTarget(scene, irScene, targetId);
+  if (!target) return dsl;
+
+  const fragment = parse(`scene { ${content} }`);
+  const nodes = fragment.ast.scenes[0]?.children ?? [];
+  target.parent.children.splice(target.childIndex + 1, 0, ...nodes);
+
+  return serialize(ast);
 }

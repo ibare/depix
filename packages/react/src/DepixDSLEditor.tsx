@@ -16,9 +16,10 @@ import { parse, ATOMIC_COMPOUND_TYPES } from '@depix/core';
 import {
   addSlotContent as addSlotContentMutation,
   changeSlotBlockType as changeSlotBlockTypeMutation,
-  addBlockChild as addBlockChildMutation,
   changeElementType as changeElementTypeMutation,
   wrapSlotInBlock as wrapSlotInBlockMutation,
+  addChild as addChildMutation,
+  addSibling as addSiblingMutation,
 } from '@depix/editor';
 import { SlotOverlay } from './components/editor/SlotOverlay.js';
 import { LayoutAreaOverlay } from './components/editor/LayoutAreaOverlay.js';
@@ -172,12 +173,21 @@ export function DepixDSLEditor({
       }
 
       if (action === 'add-child' && p) {
-        const slotName = p.slotName as string;
+        const elementId = p.elementId as string;
         const type = p.type as string;
-        if (!slotName || !type) return;
+        if (!elementId || !type || !ir) return;
         const content = `${type} "New ${type}"`;
         const idx = storeApi.getState().activeSceneIndex;
-        const newDsl = addBlockChildMutation(dsl, idx, slotName, content);
+        const newDsl = addChildMutation(dsl, idx, elementId, content, ir);
+        onDSLChange(newDsl);
+      }
+      if (action === 'add-sibling' && p) {
+        const elementId = p.elementId as string;
+        const type = p.type as string;
+        if (!elementId || !type || !ir) return;
+        const content = `${type} "New ${type}"`;
+        const idx = storeApi.getState().activeSceneIndex;
+        const newDsl = addSiblingMutation(dsl, idx, elementId, content, ir);
         onDSLChange(newDsl);
       }
       if (action === 'change-element-type' && p) {
