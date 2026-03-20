@@ -250,6 +250,80 @@ function emitSceneContent(
 }
 
 // ---------------------------------------------------------------------------
+// Content height estimation (for compact vertical stacking)
+// ---------------------------------------------------------------------------
+
+const LINE_HEIGHT_MULTIPLIER = 2.0;
+
+/**
+ * Estimate the content height of a scene element based on its type and font size.
+ * Used by emitColumn/emitBoxBlock for compact vertical stacking instead of
+ * equal-height distribution.
+ */
+function estimateContentHeight(node: ASTNode, baseFontSize: number, sceneTheme: SceneTheme): number {
+  if (node.kind === 'element') {
+    switch (node.elementType) {
+      case 'heading': {
+        const level = typeof node.props.level === 'number' ? node.props.level : 1;
+        const mult = level === 1 ? sceneTheme.typography.headingSize : sceneTheme.typography.headingSize * 0.7;
+        return baseFontSize * mult * LINE_HEIGHT_MULTIPLIER;
+      }
+      case 'stat':
+        return baseFontSize * sceneTheme.typography.statSize * LINE_HEIGHT_MULTIPLIER
+          + baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+      case 'quote':
+        return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER * 2;
+      case 'bullet': {
+        const itemCount = node.children.filter((c): c is ASTElement => c.kind === 'element' && c.elementType === 'item').length;
+        return Math.max(itemCount, 1) * baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+      }
+      case 'divider':
+      case 'line':
+        return 1;
+      case 'image':
+        return baseFontSize * 6;
+      default:
+        // text, label, step, icon, node, etc.
+        return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+    }
+  }
+  if (node.kind === 'block') {
+    // blocks (flow, stack, grid, box, etc.) — use a proportional share, not content height
+    return 0; // 0 means "use remaining space"
+  }
+  return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+}
+
+/**
+ * Compute compact stacking heights for a list of nodes.
+ * Elements get their content height; remaining space is distributed to blocks
+ * or left as bottom padding.
+ */
+function computeCompactHeights(
+  nodes: ASTNode[],
+  availableH: number,
+  gap: number,
+  baseFontSize: number,
+  sceneTheme: SceneTheme,
+): number[] {
+  const n = nodes.length;
+  if (n === 0) return [];
+
+  const totalGap = gap * Math.max(n - 1, 0);
+  const usable = Math.max(availableH - totalGap, 0);
+
+  const contentHeights = nodes.map(node => estimateContentHeight(node, baseFontSize, sceneTheme));
+  const fixedTotal = contentHeights.reduce((s, h) => s + (h > 0 ? h : 0), 0);
+  const flexCount = contentHeights.filter(h => h === 0).length;
+  const remaining = Math.max(usable - fixedTotal, 0);
+
+  return contentHeights.map(h => {
+    if (h > 0) return Math.min(h, usable); // content-sized
+    return flexCount > 0 ? remaining / flexCount : 0; // flex items share remaining
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Element emitters
 // ---------------------------------------------------------------------------
 
@@ -314,14 +388,14 @@ function emitBullet(
   const itemNodes = el.children.filter(
     (c): c is ASTElement => c.kind === 'element' && c.elementType === 'item',
   );
-  const itemCount = itemNodes.length || 1;
   const gap = sceneTheme.layout.itemGap;
-  const itemH = (bounds.h - gap * (itemCount - 1)) / itemCount;
+  const itemFontSize = baseFontSize * sceneTheme.typography.bodySize;
+  const itemContentH = itemFontSize * LINE_HEIGHT_MULTIPLIER;
 
   let curY = bounds.y;
   for (let i = 0; i < itemNodes.length; i++) {
     const item = itemNodes[i];
-    const itemBounds: IRBounds = { x: bounds.x + 2, y: curY, w: bounds.w - 4, h: Math.max(itemH, 2) };
+    const itemBounds: IRBounds = { x: bounds.x + 2, y: curY, w: bounds.w - 4, h: Math.max(itemContentH, 2) };
     children.push({
       id: `${id}-item-${i}`,
       type: 'text',
@@ -333,7 +407,7 @@ function emitBullet(
       align: 'left',
       valign: 'middle',
     } as IRText);
-    curY += itemH + gap;
+    curY += itemContentH + gap;
   }
 
   return {
@@ -461,18 +535,17 @@ function emitColumn(
   const children: IRElement[] = [];
   const contentNodes = block.children.filter(c => c.kind !== 'edge');
   const gap = sceneTheme.layout.itemGap;
-  const itemH = contentNodes.length > 0
-    ? (bounds.h - gap * (contentNodes.length - 1)) / contentNodes.length
-    : bounds.h;
+  const heights = computeCompactHeights(contentNodes, bounds.h, gap, baseFontSize, sceneTheme);
 
   let curY = bounds.y;
   for (let i = 0; i < contentNodes.length; i++) {
     const child = contentNodes[i];
     const childId = `${id}-child-${i}`;
-    const childBounds: IRBounds = { x: bounds.x, y: curY, w: bounds.w, h: Math.max(itemH, 2) };
+    const h = Math.max(heights[i], 2);
+    const childBounds: IRBounds = { x: bounds.x, y: curY, w: bounds.w, h };
     const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
     if (el) children.push(el);
-    curY += itemH + gap;
+    curY += h + gap;
   }
 
   const origin: IROrigin = { sourceType: 'scene', sourceProps: { columnId: id } };
@@ -506,18 +579,17 @@ function emitBoxBlock(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
-  const itemH = contentNodes.length > 0
-    ? (inner.h - gap * Math.max(contentNodes.length - 1, 0)) / contentNodes.length
-    : inner.h;
+  const heights = computeCompactHeights(contentNodes, inner.h, gap, baseFontSize, sceneTheme);
 
   let curY = inner.y;
   for (let i = 0; i < contentNodes.length; i++) {
     const child = contentNodes[i];
     const childId = `${id}-child-${i}`;
-    const childBounds: IRBounds = { x: inner.x, y: curY, w: inner.w, h: Math.max(itemH, 2) };
+    const h = Math.max(heights[i], 2);
+    const childBounds: IRBounds = { x: inner.x, y: curY, w: inner.w, h };
     const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
     if (el) children.push(el);
-    curY += itemH + gap;
+    curY += h + gap;
   }
 
   const containerStyle = resolveElementStyle(block as unknown as ASTElement);
