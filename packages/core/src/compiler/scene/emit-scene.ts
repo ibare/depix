@@ -89,7 +89,7 @@ function emitScene(
   sceneTheme: SceneTheme,
 ): IRScene {
   const elements: IRElement[] = [];
-  const baseFontSize = plan.sceneBounds.h * 0.07;
+  const sceneBaseFontSize = plan.sceneBounds.h * 0.07;
 
   // Background rect
   elements.push(emitSceneBackground(plan.sceneBounds, sceneTheme));
@@ -112,6 +112,10 @@ function emitScene(
       if (slotName === 'cell') emittedCellCount++;
       else emittedSlots.add(slotName);
     }
+
+    // Adapt baseFontSize per slot — shrink if content exceeds available space
+    const slotContentNodes = child.kind === 'block' ? (child as ASTBlock).children.filter(c => c.kind !== 'edge') : [child];
+    const baseFontSize = adaptBaseFontSize(bounds.h, slotContentNodes, sceneBaseFontSize, sceneTheme.layout.itemGap, sceneTheme);
 
     const inner = emitSceneContent(child, childId, bounds, theme, sceneTheme, baseFontSize);
     if (!inner) continue;
@@ -326,6 +330,33 @@ function computeCompactHeights(
   });
 }
 
+/**
+ * Adapt baseFontSize so that all content fits within the available height.
+ * If total estimated content height exceeds availableH, shrinks baseFontSize proportionally.
+ * Minimum: 30% of original baseFontSize.
+ */
+function adaptBaseFontSize(
+  availableH: number,
+  contentNodes: ASTNode[],
+  baseFontSize: number,
+  gap: number,
+  sceneTheme: SceneTheme,
+): number {
+  if (contentNodes.length === 0 || availableH <= 0) return baseFontSize;
+
+  const totalGap = gap * Math.max(contentNodes.length - 1, 0);
+  const totalContentH = contentNodes.reduce(
+    (sum, node) => sum + estimateContentHeight(node, baseFontSize, sceneTheme), 0,
+  ) + totalGap;
+
+  if (totalContentH > availableH && totalContentH > 0) {
+    const scale = availableH / totalContentH;
+    return Math.max(baseFontSize * scale, baseFontSize * 0.3);
+  }
+
+  return baseFontSize;
+}
+
 // ---------------------------------------------------------------------------
 // Element emitters
 // ---------------------------------------------------------------------------
@@ -403,7 +434,13 @@ function emitBullet(
   }
 
   const gap = sceneTheme.layout.itemGap;
-  const itemFontSize = baseFontSize * sceneTheme.typography.bodySize;
+  // Adapt fontSize if items overflow available space
+  const idealItemH = baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+  const totalIdealH = itemLabels.length * idealItemH + gap * Math.max(itemLabels.length - 1, 0);
+  const adaptedBase = totalIdealH > bounds.h && totalIdealH > 0
+    ? Math.max(baseFontSize * (bounds.h / totalIdealH), baseFontSize * 0.3)
+    : baseFontSize;
+  const itemFontSize = adaptedBase * sceneTheme.typography.bodySize;
   const itemContentH = itemFontSize * LINE_HEIGHT_MULTIPLIER;
   const isOrdered = el.flags?.includes('ordered') ?? false;
 
@@ -591,7 +628,8 @@ function emitColumn(
   const children: IRElement[] = [];
   const contentNodes = block.children.filter(c => c.kind !== 'edge');
   const gap = sceneTheme.layout.itemGap;
-  const heights = computeCompactHeights(contentNodes, bounds.h, gap, baseFontSize, sceneTheme);
+  const adaptedFontSize = adaptBaseFontSize(bounds.h, contentNodes, baseFontSize, gap, sceneTheme);
+  const heights = computeCompactHeights(contentNodes, bounds.h, gap, adaptedFontSize, sceneTheme);
 
   let curY = bounds.y;
   for (let i = 0; i < contentNodes.length; i++) {
@@ -599,7 +637,7 @@ function emitColumn(
     const childId = `${id}-child-${i}`;
     const h = Math.max(heights[i], 2);
     const childBounds: IRBounds = { x: bounds.x, y: curY, w: bounds.w, h };
-    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
+    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, adaptedFontSize);
     if (el) children.push(el);
     curY += h + gap;
   }
@@ -635,7 +673,8 @@ function emitBoxBlock(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
-  const heights = computeCompactHeights(contentNodes, inner.h, gap, baseFontSize, sceneTheme);
+  const adaptedFontSize = adaptBaseFontSize(inner.h, contentNodes, baseFontSize, gap, sceneTheme);
+  const heights = computeCompactHeights(contentNodes, inner.h, gap, adaptedFontSize, sceneTheme);
 
   let curY = inner.y;
   for (let i = 0; i < contentNodes.length; i++) {
@@ -643,7 +682,7 @@ function emitBoxBlock(
     const childId = `${id}-child-${i}`;
     const h = Math.max(heights[i], 2);
     const childBounds: IRBounds = { x: inner.x, y: curY, w: inner.w, h };
-    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, baseFontSize);
+    const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, adaptedFontSize);
     if (el) children.push(el);
     curY += h + gap;
   }
