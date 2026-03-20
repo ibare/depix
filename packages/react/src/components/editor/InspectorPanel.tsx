@@ -19,6 +19,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { DepixIR } from '@depix/core';
+import { findElement } from '@depix/core';
 import { DotsSixVertical } from '@phosphor-icons/react';
 import { useDraggable } from '../../hooks/useDraggable.js';
 import { useResizable } from '../../hooks/useResizable.js';
@@ -133,7 +134,7 @@ export function InspectorPanel({
     if (!selectedElementId || !ir) return [];
     const scene = ir.scenes[activeSceneIndex];
     if (!scene) return [];
-    const found = scene.elements.find((el) => el.id === selectedElementId);
+    const found = findElement(ir, selectedElementId);
     return found ? [found] : [];
   }, [ir, activeSceneIndex, selectedElementId]);
 
