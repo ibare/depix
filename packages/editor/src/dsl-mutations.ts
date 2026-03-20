@@ -645,6 +645,35 @@ export function addChild(
   if (!target) return dsl;
 
   const parentNode = target.node;
+
+  // list element: add to items array
+  if (parentNode.kind === 'element' && (parentNode as ASTElement).elementType === 'list') {
+    const el = parentNode as ASTElement;
+    if (!el.items) el.items = [];
+    // Extract label from content (e.g. 'item "New item"' → "New item")
+    const labelMatch = content.match(/"([^"]*)"/);
+    el.items.push(labelMatch ? labelMatch[1] : 'New item');
+    return serialize(ast);
+  }
+
+  // bullet element: add item child
+  if (parentNode.kind === 'element' && (parentNode as ASTElement).elementType === 'bullet') {
+    const el = parentNode as ASTElement;
+    const labelMatch = content.match(/"([^"]*)"/);
+    el.children.push({
+      kind: 'element',
+      elementType: 'item',
+      label: labelMatch ? labelMatch[1] : 'New item',
+      props: {},
+      style: {},
+      flags: [],
+      children: [],
+      loc: el.loc,
+    } as ASTElement);
+    return serialize(ast);
+  }
+
+  // block: add children normally
   if (parentNode.kind !== 'block') return dsl;
 
   const fragment = parse(`scene { ${content} }`);

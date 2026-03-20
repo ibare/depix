@@ -388,24 +388,36 @@ function emitBullet(
   baseFontSize: number,
 ): IRContainer {
   const children: IRElement[] = [];
-  const itemNodes = el.children.filter(
+
+  // Collect item labels from both sources:
+  // - bullet: children with elementType 'item'
+  // - list: items string array
+  const itemLabels: string[] = [];
+  const itemChildren = el.children.filter(
     (c): c is ASTElement => c.kind === 'element' && c.elementType === 'item',
   );
+  if (itemChildren.length > 0) {
+    for (const item of itemChildren) itemLabels.push(item.label ?? '');
+  } else if (el.items && el.items.length > 0) {
+    itemLabels.push(...el.items);
+  }
+
   const gap = sceneTheme.layout.itemGap;
   const itemFontSize = baseFontSize * sceneTheme.typography.bodySize;
   const itemContentH = itemFontSize * LINE_HEIGHT_MULTIPLIER;
+  const isOrdered = el.flags?.includes('ordered') ?? false;
 
   let curY = bounds.y;
-  for (let i = 0; i < itemNodes.length; i++) {
-    const item = itemNodes[i];
+  for (let i = 0; i < itemLabels.length; i++) {
+    const prefix = isOrdered ? `${i + 1}.` : '•';
     const itemBounds: IRBounds = { x: bounds.x + 2, y: curY, w: bounds.w - 4, h: Math.max(itemContentH, 2) };
     children.push({
       id: `${id}-item-${i}`,
       type: 'text',
       bounds: itemBounds,
       style: {},
-      content: `• ${item.label ?? ''}`,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      content: `${prefix} ${itemLabels[i]}`,
+      fontSize: itemFontSize,
       color: sceneTheme.colors.text,
       align: 'left',
       valign: 'middle',
