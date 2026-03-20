@@ -13,6 +13,7 @@ import type { PlanNodeType } from './passes/plan-layout.js';
 
 export type MeasureKind = 'text' | 'shape' | 'list' | 'divider' | 'image' | 'row';
 export type EmitKind = 'shape' | 'text' | 'list' | 'divider' | 'image' | 'row';
+export type SceneEmitKind = 'heading' | 'label' | 'bullet' | 'stat' | 'quote' | 'image' | 'icon' | 'step' | 'list' | 'divider' | 'shape';
 export type ShapeKind = 'rect' | 'circle' | 'pill';
 
 export interface ElementTypeConfig {
@@ -22,10 +23,12 @@ export interface ElementTypeConfig {
   intrinsicSize: { width: number; height: number };
   /** Minimum constraint for leaf elements. */
   constraint: { minW: number; minH: number };
-  /** Which measure function to dispatch to. */
+  /** Which measure function to dispatch to (diagram pipeline). */
   measure: MeasureKind;
-  /** Which emit function to dispatch to. */
+  /** Which emit function to dispatch to (diagram pipeline). */
   emit: EmitKind;
+  /** Which scene emitter to dispatch to (scene pipeline). */
+  sceneEmit: SceneEmitKind;
   /** Shape variant for emit:'shape' (default: 'rect'). */
   emitShape?: ShapeKind;
   /** Font size multiplier (default 1.0). Heading uses 1.5. */
@@ -38,31 +41,31 @@ export interface ElementTypeConfig {
 
 export const ELEMENT_TYPE_REGISTRY: Record<string, ElementTypeConfig> = {
   // --- Shapes ---
-  node:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'rect' },
-  cell:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'rect' },
-  rect:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'rect' },
-  circle:  { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'circle' },
-  badge:   { classify: 'element-shape', intrinsicSize: { width: 10, height: 4 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'pill' },
-  icon:    { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', emitShape: 'circle' },
+  node:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'rect' },
+  cell:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'rect' },
+  rect:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'rect' },
+  circle:  { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'circle' },
+  badge:   { classify: 'element-shape', intrinsicSize: { width: 10, height: 4 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'pill' },
+  icon:    { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'icon', emitShape: 'circle' },
 
   // --- Text ---
-  heading: { classify: 'element-text', intrinsicSize: { width: 20, height: 6 }, constraint: { minW: 2, minH: 1.5 }, measure: 'text', emit: 'text', fontScale: 1.5 },
-  text:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
-  label:   { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
-  item:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
-  stat:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
-  quote:   { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
-  step:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text' },
+  heading: { classify: 'element-text', intrinsicSize: { width: 20, height: 6 }, constraint: { minW: 2, minH: 1.5 }, measure: 'text', emit: 'text', sceneEmit: 'heading', fontScale: 1.5 },
+  text:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'label' },
+  label:   { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'label' },
+  item:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'label' },
+  stat:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'stat' },
+  quote:   { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'quote' },
+  step:    { classify: 'element-text', intrinsicSize: { width: 20, height: 4 }, constraint: { minW: 2, minH: 1 },   measure: 'text', emit: 'text', sceneEmit: 'step' },
 
   // --- List ---
-  list:    { classify: 'element-list', intrinsicSize: { width: 20, height: 8 }, constraint: { minW: 3, minH: 2 }, measure: 'list', emit: 'list' },
-  bullet:  { classify: 'element-list', intrinsicSize: { width: 20, height: 8 }, constraint: { minW: 3, minH: 2 }, measure: 'list', emit: 'list' },
+  list:    { classify: 'element-list', intrinsicSize: { width: 20, height: 8 }, constraint: { minW: 3, minH: 2 }, measure: 'list', emit: 'list', sceneEmit: 'list' },
+  bullet:  { classify: 'element-list', intrinsicSize: { width: 20, height: 8 }, constraint: { minW: 3, minH: 2 }, measure: 'list', emit: 'list', sceneEmit: 'bullet' },
 
   // --- Other ---
-  divider: { classify: 'element-divider', intrinsicSize: { width: 90, height: 1 }, constraint: { minW: 1, minH: 0.5 }, measure: 'divider', emit: 'divider' },
-  line:    { classify: 'element-divider', intrinsicSize: { width: 90, height: 1 }, constraint: { minW: 1, minH: 0.5 }, measure: 'divider', emit: 'divider' },
-  image:   { classify: 'element-image', intrinsicSize: { width: 20, height: 15 }, constraint: { minW: 4, minH: 3 }, measure: 'image', emit: 'image' },
-  row:     { classify: 'element-text', intrinsicSize: { width: 20, height: 4 },  constraint: { minW: 2, minH: 1 },   measure: 'shape', emit: 'row' },
+  divider: { classify: 'element-divider', intrinsicSize: { width: 90, height: 1 }, constraint: { minW: 1, minH: 0.5 }, measure: 'divider', emit: 'divider', sceneEmit: 'divider' },
+  line:    { classify: 'element-divider', intrinsicSize: { width: 90, height: 1 }, constraint: { minW: 1, minH: 0.5 }, measure: 'divider', emit: 'divider', sceneEmit: 'divider' },
+  image:   { classify: 'element-image', intrinsicSize: { width: 20, height: 15 }, constraint: { minW: 4, minH: 3 }, measure: 'image', emit: 'image', sceneEmit: 'image' },
+  row:     { classify: 'element-text', intrinsicSize: { width: 20, height: 4 },  constraint: { minW: 2, minH: 1 },   measure: 'shape', emit: 'row', sceneEmit: 'label' },
 };
 
 // ---------------------------------------------------------------------------

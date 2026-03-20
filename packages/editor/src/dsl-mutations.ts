@@ -318,14 +318,86 @@ export function changeElementStyle(dsl: string, sceneIndex: number, elementIndex
 
 /**
  * Change an element's DSL type (e.g. heading → stat).
- * The element's label and other properties are preserved.
+ * Adapts the element's structure to match the target type requirements.
  */
 export function changeElementType(dsl: string, sceneIndex: number, elementIndex: number, newType: string): string {
   const { ast } = parse(dsl);
   const el = findElementByIndex(ast, sceneIndex, elementIndex);
   if (!el) return dsl;
+
+  const oldType = el.elementType;
   el.elementType = newType;
+
+  // Adapt structure for incompatible type conversions
+  adaptElementStructure(el, oldType, newType);
+
   return serialize(ast);
+}
+
+/**
+ * Adapt element structure when changing types.
+ * Handles conversions between text, list, compound, and shape types.
+ */
+function adaptElementStructure(el: ASTElement, oldType: string, newType: string): void {
+  // → list: convert label to items array
+  if (newType === 'list') {
+    if (!el.items || el.items.length === 0) {
+      el.items = el.label ? [el.label] : ['Item 1'];
+    }
+    return;
+  }
+
+  // → bullet: convert label to item children
+  if (newType === 'bullet') {
+    if (el.children.length === 0 || !el.children.some(c => c.kind === 'element' && (c as ASTElement).elementType === 'item')) {
+      const itemLabel = el.label ?? 'Item 1';
+      el.children = [{
+        kind: 'element' as const,
+        elementType: 'item',
+        label: itemLabel,
+        props: {},
+        style: {},
+        flags: [],
+        children: [],
+        loc: el.loc,
+      }];
+    }
+    return;
+  }
+
+  // → stat: label becomes value, add description prop
+  if (newType === 'stat') {
+    if (!el.props.label) {
+      el.props.label = el.label ?? 'Value';
+      el.label = el.label ?? '0';
+    }
+    return;
+  }
+
+  // → divider/line: remove label (dividers have no text)
+  if (newType === 'divider' || newType === 'line') {
+    el.label = undefined;
+    return;
+  }
+
+  // list → text/label/heading: convert items to label
+  if ((oldType === 'list') && (newType === 'heading' || newType === 'text' || newType === 'label')) {
+    if (el.items && el.items.length > 0 && !el.label) {
+      el.label = el.items[0];
+    }
+    el.items = undefined;
+    return;
+  }
+
+  // bullet → text types: extract first item label
+  if (oldType === 'bullet' && (newType === 'heading' || newType === 'text' || newType === 'label')) {
+    const firstItem = el.children.find(c => c.kind === 'element' && (c as ASTElement).elementType === 'item') as ASTElement | undefined;
+    if (firstItem?.label && !el.label) {
+      el.label = firstItem.label;
+    }
+    el.children = [];
+    return;
+  }
 }
 
 /**

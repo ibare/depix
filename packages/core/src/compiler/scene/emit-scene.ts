@@ -37,6 +37,7 @@ import { planScene, type ScenePlan } from './plan-scene.js';
 import { emitInlineBlock } from '../passes/emit-ir.js';
 import { createScaleContext } from '../passes/scale-system.js';
 import { planNode } from '../passes/plan-layout.js';
+import { getElementConfig } from '../element-type-registry.js';
 import {
   extractChartData,
   computeChartPositions,
@@ -206,18 +207,20 @@ function emitSceneContent(
       }
       return emitInlineBlock(blockChild, bounds, theme, new Map());
     }
+    const config = getElementConfig(node.elementType);
     let elResult: IRElement | null;
-    switch (node.elementType) {
+    switch (config.sceneEmit) {
       case 'heading': elResult = emitHeading(node, id, bounds, sceneTheme, baseFontSize); break;
-      case 'label':
-      case 'text': elResult = emitLabel(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'label': elResult = emitLabel(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'bullet': elResult = emitBullet(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'stat': elResult = emitStat(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'quote': elResult = emitQuote(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'image': elResult = emitImage(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'icon': elResult = emitIcon(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'step': elResult = emitStep(node, id, bounds, sceneTheme, baseFontSize); break;
-      default: elResult = emitLabel(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'list': elResult = emitBullet(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'divider': elResult = emitSceneDivider(node, id, bounds, sceneTheme); break;
+      case 'shape': elResult = emitSceneShape(node, id, bounds, sceneTheme, baseFontSize); break;
     }
     if (elResult) {
       elResult.origin = { ...elResult.origin, dslType: node.elementType };
@@ -522,6 +525,47 @@ function emitQuote(
     style: {},
     children,
   };
+}
+
+function emitSceneDivider(
+  _el: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  sceneTheme: SceneTheme,
+): IRLine {
+  const midY = bounds.y + bounds.h / 2;
+  return {
+    id,
+    type: 'line',
+    bounds,
+    style: { stroke: sceneTheme.colors.textMuted, strokeWidth: 0.2 },
+    from: { x: bounds.x, y: midY },
+    to: { x: bounds.x + bounds.w, y: midY },
+  } as IRLine;
+}
+
+function emitSceneShape(
+  el: ASTElement,
+  id: string,
+  bounds: IRBounds,
+  sceneTheme: SceneTheme,
+  baseFontSize: number,
+): IRShape {
+  const fontSize = baseFontSize * sceneTheme.typography.bodySize;
+  return {
+    id,
+    type: 'shape',
+    bounds,
+    style: { fill: sceneTheme.colors.background, stroke: sceneTheme.colors.textMuted },
+    shape: 'rect',
+    innerText: el.label ? {
+      content: el.label,
+      color: sceneTheme.colors.text,
+      fontSize,
+      align: 'center' as const,
+      valign: 'middle' as const,
+    } : undefined,
+  } as IRShape;
 }
 
 function emitColumn(
