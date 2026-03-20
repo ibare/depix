@@ -15,7 +15,7 @@ describe('getSuggestionsForSlot', () => {
     expect(types).toContain('heading');
     expect(types).toContain('stat');
     expect(types).toContain('quote');
-    expect(types).toHaveLength(8);
+    expect(types).toHaveLength(12);
     expect(suggestions.every((s) => s.category === 'element')).toBe(true);
   });
 
@@ -62,12 +62,12 @@ describe('getSuggestionsForSlot', () => {
 
   it('returns all options for unknown slot', () => {
     const suggestions = getSuggestionsForSlot('unknown-slot');
-    expect(suggestions.length).toBe(14); // 8 elements + 6 blocks
+    expect(suggestions.length).toBe(18); // 12 elements + 6 blocks
   });
 
   it('returns all options for empty string slot', () => {
     const suggestions = getSuggestionsForSlot('');
-    expect(suggestions.length).toBe(14);
+    expect(suggestions.length).toBe(18);
   });
 
   it('all suggestions have type, label, and category', () => {

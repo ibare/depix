@@ -28,10 +28,14 @@ export interface ActionItem {
 
 export const ALL_ELEMENTS: SuggestionItem[] = [
   { type: 'heading', label: 'Heading', category: 'element' },
+  { type: 'text', label: 'Text', category: 'element' },
+  { type: 'label', label: 'Label', category: 'element' },
   { type: 'bullet', label: 'Bullet', category: 'element' },
   { type: 'stat', label: 'Stat', category: 'element' },
   { type: 'quote', label: 'Quote', category: 'element' },
+  { type: 'step', label: 'Step', category: 'element' },
   { type: 'list', label: 'List', category: 'element' },
+  { type: 'icon', label: 'Icon', category: 'element' },
   { type: 'image', label: 'Image', category: 'element' },
   { type: 'node', label: 'Node', category: 'element' },
   { type: 'divider', label: 'Divider', category: 'element' },
