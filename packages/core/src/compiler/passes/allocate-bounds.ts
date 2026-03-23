@@ -31,8 +31,8 @@ import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 import {
-  analyzeFlowRoles, analyzeTreeRoles, roleWeight,
-  computeLevelWeights, distributeByWeights, applyAccentPattern,
+  analyzeFlowRoles, roleWeight,
+  distributeByWeights, applyAccentPattern,
 } from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
@@ -483,13 +483,21 @@ export function computeLayoutChildren(
 
       const nodeIds = plan.children.map(c => c.id);
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
+      const numLevels = Math.max(levelInfo.numLevels, 1);
 
-      // Role-weighted level sizes: root(M) > branch(S) > leaf(S)
-      const roles = analyzeTreeRoles(nodeIds, plan.edges);
-      const levelWeights = computeLevelWeights(levelInfo, plan.children, roles);
+      // Uniform level heights — hierarchy conveyed by position, not size
       const treeLevelGap = levelGap * TREE_LEVEL_GAP_SCALE;
-      const mainUsable = mainAxis - treeLevelGap * Math.max(levelInfo.numLevels - 1, 0);
-      const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
+      const mainUsable = mainAxis - treeLevelGap * Math.max(numLevels - 1, 0);
+      const uniformLevelMain = mainUsable / numLevels;
+
+      // Dense levels auto-shrink to maintain golden ratio with available cross space
+      const levelMainSizes: number[] = [];
+      for (let l = 0; l < numLevels; l++) {
+        const nodesAtLevel = levelInfo.nodesPerLevel[l] ?? 1;
+        const lvlCross = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
+        const maxMainFromCross = isHorizontal ? lvlCross * PHI : lvlCross / PHI;
+        levelMainSizes.push(Math.min(uniformLevelMain, maxMainFromCross));
+      }
 
       // Per-level golden-ratio cross sizing
       return plan.children.map(c => {

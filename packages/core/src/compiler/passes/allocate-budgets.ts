@@ -16,8 +16,8 @@ import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums, TREE_LEVEL_GAP_SCALE } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
 import {
-  analyzeFlowRoles, analyzeTreeRoles, roleWeight,
-  computeLevelWeights, distributeByWeights, applyAccentPattern,
+  analyzeFlowRoles, roleWeight,
+  distributeByWeights, applyAccentPattern,
 } from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
@@ -339,13 +339,12 @@ function allocateTreeFlowBudgets(
 
   if (astNode.blockType === 'tree') {
     const levelInfo = computeTreeLevelInfo(nodeIds, edges);
+    const numLevels = Math.max(levelInfo.numLevels, 1);
 
-    // Role-weighted level sizes: root(M) > branch(S) > leaf(S)
-    const roles = analyzeTreeRoles(nodeIds, edges);
-    const levelWeights = computeLevelWeights(levelInfo, node.children, roles);
+    // Uniform level heights — hierarchy conveyed by position, not size
     const treeLevelGap = gap * TREE_LEVEL_GAP_SCALE;
-    const mainUsable = mainAvail - treeLevelGap * Math.max(levelInfo.numLevels - 1, 0);
-    const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
+    const mainUsable = mainAvail - treeLevelGap * Math.max(numLevels - 1, 0);
+    const uniformLevelMain = mainUsable / numLevels;
 
     // Subtree-span proportional cross-axis allocation (unchanged)
     const spanInfo = computeSubtreeSpans(nodeIds, edges);
@@ -355,7 +354,7 @@ function allocateTreeFlowBudgets(
 
     for (const child of node.children) {
       const level = levelInfo.nodeLevel.get(child.id) ?? 0;
-      const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
+      const nodeMain = uniformLevelMain;
       const span = spanInfo.nodeSpan.get(child.id) ?? 1;
       const nodeCross = crossAvail * (span / rootSpan);
 

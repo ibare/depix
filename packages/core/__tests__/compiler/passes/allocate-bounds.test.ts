@@ -392,7 +392,7 @@ describe('edge-aware sizing in flow/tree', () => {
   });
 
   describe('tree', () => {
-    it('nodes are smaller when edges exist vs no edges', () => {
+    it('edge structure creates distinct level sizes', () => {
       const noEdges = makePlanNode('tree', ['r', 'c1', 'c2'], []);
       const withEdges = makePlanNode('tree', ['r', 'c1', 'c2'], [
         makeEdge('r', 'c1'), makeEdge('r', 'c2'),
@@ -401,7 +401,10 @@ describe('edge-aware sizing in flow/tree', () => {
       const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
       const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
 
-      expect(totalNodeArea(sizesWithEdge)).toBeLessThan(totalNodeArea(sizesNoEdge));
+      // Without edges: all in same level → same height
+      expect(sizesNoEdge[0].height).toBeCloseTo(sizesNoEdge[1].height, 1);
+      // With edges: root gets its own level → different height than children
+      expect(sizesWithEdge[0].height).not.toBeCloseTo(sizesWithEdge[1].height, 0);
     });
 
     it('horizontal tree reduces width axis when edges exist', () => {
