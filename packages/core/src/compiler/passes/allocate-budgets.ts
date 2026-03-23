@@ -13,7 +13,7 @@ import type { NodeBudget, BudgetMap, ConstraintMap } from './budget-types.js';
 import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
-import { redistributeWithMinimums } from './allocate-bounds.js';
+import { redistributeWithMinimums, TREE_LEVEL_GAP_SCALE } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
 import {
   analyzeFlowRoles, analyzeTreeRoles, roleWeight,
@@ -340,10 +340,11 @@ function allocateTreeFlowBudgets(
   if (astNode.blockType === 'tree') {
     const levelInfo = computeTreeLevelInfo(nodeIds, edges);
 
-    // Role-weighted level sizes: root(L) > branch(M) > leaf(S)
+    // Role-weighted level sizes: root(M) > branch(S) > leaf(S)
     const roles = analyzeTreeRoles(nodeIds, edges);
     const levelWeights = computeLevelWeights(levelInfo, node.children, roles);
-    const mainUsable = mainAvail - gap * Math.max(levelInfo.numLevels - 1, 0);
+    const treeLevelGap = gap * TREE_LEVEL_GAP_SCALE;
+    const mainUsable = mainAvail - treeLevelGap * Math.max(levelInfo.numLevels - 1, 0);
     const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
 
     // Subtree-span proportional cross-axis allocation (unchanged)

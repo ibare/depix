@@ -46,6 +46,10 @@ const MAX_SHAPE_ASPECT = 3.0;
  *  수평: idealCross = main / PHI, 수직: idealCross = main * PHI. 단위: 무차원 비율. */
 const PHI = 1.618;
 
+/** Tree 레벨 간격 배율. connectorGap 대비 2배 적용하여 레벨 간 시각적 계층 분리 확보.
+ *  Tree는 flow 대비 레벨 간 시각적 분리가 중요(수직 계층 구조). 단위: 무차원 배율. */
+export const TREE_LEVEL_GAP_SCALE = 2;
+
 /** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback. */
 const SHAPE_PREFERRED_RATIO: Readonly<Record<string, number>> = {
   diamond: 1.6,
@@ -480,10 +484,11 @@ export function computeLayoutChildren(
       const nodeIds = plan.children.map(c => c.id);
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
 
-      // Role-weighted level sizes: root(L) > branch(M) > leaf(S)
+      // Role-weighted level sizes: root(M) > branch(S) > leaf(S)
       const roles = analyzeTreeRoles(nodeIds, plan.edges);
       const levelWeights = computeLevelWeights(levelInfo, plan.children, roles);
-      const mainUsable = mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0);
+      const treeLevelGap = levelGap * TREE_LEVEL_GAP_SCALE;
+      const mainUsable = mainAxis - treeLevelGap * Math.max(levelInfo.numLevels - 1, 0);
       const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
 
       // Per-level golden-ratio cross sizing
@@ -641,10 +646,11 @@ export function runLayout(
       const treeDir = (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down';
       const isTreeHz = treeDir === 'right' || treeDir === 'left';
       const treeMainAvail = isTreeHz ? bounds.w : bounds.h;
-      // When edges exist, ensure level gap is proportional to available space
-      const treeLevelGap = edges.length > 0
-        ? Math.max(baseLevelGap, treeMainAvail / (2 * children.length))
-        : baseLevelGap;
+      // Ensure level gap is large enough for visual hierarchy separation
+      const treeLevelGap = Math.max(
+        baseLevelGap * TREE_LEVEL_GAP_SCALE,
+        edges.length > 0 ? treeMainAvail / (2 * children.length) : 0,
+      );
       return layoutTree(treeNodes, {
         bounds,
         direction: treeDir,

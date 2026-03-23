@@ -52,7 +52,7 @@ export type StructuralRole =
   | 'label-cell'; // grid 레이블 셀
 
 const ROLE_TO_STEP: Record<StructuralRole, SizeStep> = {
-  root: 'L',  branch: 'M',  container: 'M',
+  root: 'M',  branch: 'S',  container: 'M',
   transform: 'M',  junction: 'M',
   entry: 'S',  terminal: 'S',  leaf: 'S',
   cell: 'S',  'header-cell': 'S',  'label-cell': 'S',
