@@ -15,6 +15,10 @@ import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
+import {
+  analyzeFlowRoles, analyzeTreeRoles, roleWeight,
+  computeLevelWeights, distributeByWeights, applyAccentPattern,
+} from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -335,22 +339,29 @@ function allocateTreeFlowBudgets(
 
   if (astNode.blockType === 'tree') {
     const levelInfo = computeTreeLevelInfo(nodeIds, edges);
-    const levelHeight = (mainAvail - gap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
 
-    // Subtree-span proportional cross-axis allocation
+    // Role-weighted level sizes: root(L) > branch(M) > leaf(S)
+    const roles = analyzeTreeRoles(nodeIds, edges);
+    const levelWeights = computeLevelWeights(levelInfo, node.children, roles);
+    const mainUsable = mainAvail - gap * Math.max(levelInfo.numLevels - 1, 0);
+    const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
+
+    // Subtree-span proportional cross-axis allocation (unchanged)
     const spanInfo = computeSubtreeSpans(nodeIds, edges);
     const rootSpan = spanInfo.roots.reduce(
       (max, r) => Math.max(max, spanInfo.nodeSpan.get(r) ?? 1), 1,
     );
 
     for (const child of node.children) {
+      const level = levelInfo.nodeLevel.get(child.id) ?? 0;
+      const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
       const span = spanInfo.nodeSpan.get(child.id) ?? 1;
       const nodeCross = crossAvail * (span / rootSpan);
 
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: levelHeight, height: nodeCross });
+        budgetMap.set(child.id, { width: nodeMain, height: nodeCross });
       } else {
-        budgetMap.set(child.id, { width: nodeCross, height: levelHeight });
+        budgetMap.set(child.id, { width: nodeCross, height: nodeMain });
       }
     }
   } else {
@@ -359,18 +370,16 @@ function allocateTreeFlowBudgets(
     const layerCount = Math.max(layerInfo.layerCount, 1);
     const mainUsable = mainAvail - gap * Math.max(layerCount - 1, 0);
 
-    // Aggregate constraint-based weights per layer
+    // Role-based layer sizing: entry(S) / transform(M) / terminal(S) / junction(M)
+    const roles = analyzeFlowRoles(nodeIds, edges);
+    const rawWeights = node.children.map(c => roleWeight(roles.get(c.id) ?? 'leaf', c));
+    const accentedWeights = applyAccentPattern(rawWeights);
     const layerWeights: number[] = new Array(layerCount).fill(0);
-    for (const child of node.children) {
+    node.children.forEach((child, i) => {
       const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
-      const cc = _constraints.get(child.id);
-      const mainMin = isHorizontal ? (cc?.minWidth ?? 4) : (cc?.minHeight ?? 3);
-      layerWeights[layer] = Math.max(layerWeights[layer], mainMin);
-    }
-    const totalLayerWeight = layerWeights.reduce((s, w) => s + w, 0);
-    const layerMainSizes = totalLayerWeight > 0
-      ? layerWeights.map(w => mainUsable * (w / totalLayerWeight))
-      : layerWeights.map(() => mainUsable / layerCount);
+      layerWeights[layer] = Math.max(layerWeights[layer], accentedWeights[i]);
+    });
+    const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
 
     for (const child of node.children) {
       const layer = layerInfo.nodeLayer.get(child.id) ?? 0;

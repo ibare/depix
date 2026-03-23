@@ -30,6 +30,10 @@ import type { MeasureMap } from './measure.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
+import {
+  analyzeFlowRoles, analyzeTreeRoles, roleWeight,
+  computeLevelWeights, distributeByWeights, applyAccentPattern,
+} from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -429,18 +433,16 @@ export function computeLayoutChildren(
       const layerCount = Math.max(layerInfo.layerCount, 1);
       const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
 
-      // Content-aware layer sizing: aggregate minHeight per layer from measureMap
+      // Role-based layer sizing: entry(S) / transform(M) / terminal(S) / junction(M)
+      const roles = analyzeFlowRoles(nodeIds, plan.edges);
+      const rawWeights = plan.children.map(c => roleWeight(roles.get(c.id) ?? 'leaf', c));
+      const accentedWeights = applyAccentPattern(rawWeights);
       const layerWeights: number[] = new Array(layerCount).fill(0);
-      for (const c of plan.children) {
+      plan.children.forEach((c, i) => {
         const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
-        const m = measureMap?.get(c.id);
-        const mainMin = isHorizontal ? (m?.minWidth ?? 4) : (m?.minHeight ?? 3);
-        layerWeights[layer] = Math.max(layerWeights[layer], mainMin);
-      }
-      const totalLayerWeight = layerWeights.reduce((s, w) => s + w, 0);
-      const layerMainSizes = totalLayerWeight > 0
-        ? layerWeights.map(w => mainUsable * (w / totalLayerWeight))
-        : layerWeights.map(() => mainUsable / layerCount);
+        layerWeights[layer] = Math.max(layerWeights[layer], accentedWeights[i]);
+      });
+      const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
 
       // Uniform cross-axis: use densest layer as reference for all nodes
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
@@ -477,18 +479,25 @@ export function computeLayoutChildren(
 
       const nodeIds = plan.children.map(c => c.id);
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
-      const levelHeight = (mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0)) / Math.max(levelInfo.numLevels, 1);
 
-      // Uniform width based on widest level — all nodes same cross-axis size, capped
+      // Role-weighted level sizes: root(L) > branch(M) > leaf(S)
+      const roles = analyzeTreeRoles(nodeIds, plan.edges);
+      const levelWeights = computeLevelWeights(levelInfo, plan.children, roles);
+      const mainUsable = mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0);
+      const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
+
+      // Uniform width based on widest level — cross-axis unchanged
       const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
       const rawUniformWidth = (crossAxis - siblingGap * Math.max(maxNodesPerLevel - 1, 0)) / Math.max(maxNodesPerLevel, 1);
       const uniformWidth = Math.min(rawUniformWidth, maxCrossSize);
 
       return plan.children.map(c => {
+        const level = levelInfo.nodeLevel.get(c.id) ?? 0;
+        const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(levelHeight, 4), height: Math.max(uniformWidth, 3) };
+          return { id: c.id, width: Math.max(nodeMain, 4), height: Math.max(uniformWidth, 3) };
         }
-        return { id: c.id, width: Math.max(uniformWidth, 4), height: Math.max(levelHeight, 3) };
+        return { id: c.id, width: Math.max(uniformWidth, 4), height: Math.max(nodeMain, 3) };
       });
     }
 
