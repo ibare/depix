@@ -42,11 +42,8 @@ import {
 /** Max width:height ratio for shape elements inside a box (col layout). */
 const MAX_SHAPE_ASPECT = 3.0;
 
-/** Max node size as a fraction of parent short axis (tree). */
-const NODE_SIZE_CAP_RATIO = 0.25;
-
-/** 황금비(golden ratio). flow 노드의 cross-axis 크기를 main-axis 기준으로 산출할 때
- *  cappedCross = maxLayerMain / PHI 형태로 사용. 단위: 무차원 비율. */
+/** 황금비(golden ratio). flow/tree 노드의 cross-axis 크기를 main-axis 기준으로 산출.
+ *  수평: idealCross = main / PHI, 수직: idealCross = main * PHI. 단위: 무차원 비율. */
 const PHI = 1.618;
 
 /** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback. */
@@ -448,10 +445,9 @@ export function computeLayoutChildren(
       });
       const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
 
-      // Cross-axis: cap by golden-ratio of the widest layer (natural proportions)
+      // Cross-axis: per-layer golden-ratio cap (orientation-aware)
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
       const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
-      const maxLayerMain = Math.max(...layerMainSizes, 1);
 
       return plan.children.map(c => {
         const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
@@ -460,8 +456,10 @@ export function computeLayoutChildren(
         // Shape-specific preferred ratio (circle=1:1, diamond=1.6:1); default = PHI
         const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
         const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
-        const goldenCross = maxLayerMain / preferredRatio;
-        const cappedCross = Math.min(referenceCross, goldenCross);
+        const idealCross = isHorizontal
+          ? (layerMain / preferredRatio)
+          : (layerMain * preferredRatio);
+        const cappedCross = Math.min(referenceCross, idealCross);
 
         if (isHorizontal) {
           return { id: c.id, width: Math.max(layerMain, 4), height: Math.max(cappedCross, 3) };
@@ -479,8 +477,6 @@ export function computeLayoutChildren(
       const mainAxis = isHorizontal ? bounds.w : bounds.h;
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
-      const maxCrossSize = Math.min(mainAxis, crossAxis) * NODE_SIZE_CAP_RATIO;
-
       const nodeIds = plan.children.map(c => c.id);
       const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
 
@@ -490,18 +486,22 @@ export function computeLayoutChildren(
       const mainUsable = mainAxis - levelGap * Math.max(levelInfo.numLevels - 1, 0);
       const levelMainSizes = distributeByWeights(levelWeights, mainUsable);
 
-      // Uniform width based on widest level — cross-axis unchanged
-      const maxNodesPerLevel = Math.max(...levelInfo.nodesPerLevel, 1);
-      const rawUniformWidth = (crossAxis - siblingGap * Math.max(maxNodesPerLevel - 1, 0)) / Math.max(maxNodesPerLevel, 1);
-      const uniformWidth = Math.min(rawUniformWidth, maxCrossSize);
-
+      // Per-level golden-ratio cross sizing
       return plan.children.map(c => {
         const level = levelInfo.nodeLevel.get(c.id) ?? 0;
         const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
+        const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
+        const levelCrossAvail = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
+        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
+        const idealCross = isHorizontal
+          ? (nodeMain / preferredRatio)
+          : (nodeMain * preferredRatio);
+        const nodeCross = Math.min(levelCrossAvail, idealCross);
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(nodeMain, 4), height: Math.max(uniformWidth, 3) };
+          return { id: c.id, width: Math.max(nodeMain, 4), height: Math.max(nodeCross, 3) };
         }
-        return { id: c.id, width: Math.max(uniformWidth, 4), height: Math.max(nodeMain, 3) };
+        return { id: c.id, width: Math.max(nodeCross, 4), height: Math.max(nodeMain, 3) };
       });
     }
 
