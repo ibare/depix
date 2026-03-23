@@ -374,7 +374,9 @@ function adaptBaseFontSize(
   ) + totalGap;
 
   if (totalContentH > availableH && totalContentH > 0) {
-    const scale = availableH / totalContentH;
+    const usable = Math.max(availableH - totalGap, 0);
+    const totalEstimates = totalContentH - totalGap;
+    const scale = totalEstimates > 0 ? usable / totalEstimates : 1;
     return Math.max(baseFontSize * scale, baseFontSize * 0.3);
   }
 
