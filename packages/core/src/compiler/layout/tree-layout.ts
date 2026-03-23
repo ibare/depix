@@ -60,8 +60,9 @@ export function layoutTree(
   const mainAvail = isHorizontal ? bounds.w : bounds.h;
   const crossAvail = isHorizontal ? bounds.h : bounds.w;
 
-  const mainScale = totalMainNeeded > 0 ? mainAvail / totalMainNeeded : 1;
-  const crossScale = totalCrossSpan > 0 ? crossAvail / totalCrossSpan : 1;
+  // Scale-down only: preserve computed sizes (golden ratio), leave extra as whitespace
+  const mainScale = totalMainNeeded > mainAvail ? mainAvail / totalMainNeeded : 1;
+  const crossScale = totalCrossSpan > crossAvail ? crossAvail / totalCrossSpan : 1;
 
   // Assign positions recursively
   assignPositions(
