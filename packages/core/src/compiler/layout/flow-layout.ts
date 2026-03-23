@@ -98,7 +98,34 @@ export function layoutFlow(
   const crossAvail = isHorizontal ? bounds.h : bounds.w;
 
   const totalLayerGap = gap * (layerCount - 1);
-  const layerMainSize = (mainAvail - totalLayerGap) / layerCount;
+
+  // Per-layer main sizes: read from pre-allocated children widths/heights.
+  // computeLayoutChildren provides role-based sizes; fall back to uniform if zero.
+  const rawLayerSizes: number[] = new Array(layerCount).fill(0);
+  for (let i = 0; i < children.length; i++) {
+    const l = layers[i];
+    const childMain = isHorizontal ? children[i].width : children[i].height;
+    rawLayerSizes[l] = Math.max(rawLayerSizes[l], childMain);
+  }
+  const fallbackSize = (mainAvail - totalLayerGap) / layerCount;
+  for (let l = 0; l < layerCount; l++) {
+    if (rawLayerSizes[l] <= 0) rawLayerSizes[l] = fallbackSize;
+  }
+  // Scale down proportionally if total exceeds available space
+  const rawTotalMain = rawLayerSizes.reduce((s, v) => s + v, 0);
+  const mainScale = rawTotalMain > 0 && rawTotalMain + totalLayerGap > mainAvail
+    ? (mainAvail - totalLayerGap) / rawTotalMain
+    : 1;
+  const layerMainSizes = mainScale < 1 ? rawLayerSizes.map(v => v * mainScale) : rawLayerSizes;
+
+  // Sizes in position order (reversed direction maps positions to opposite layers)
+  const positionMainSizes = Array.from({ length: layerCount }, (_, l) =>
+    layerMainSizes[isReversed ? layerCount - 1 - l : l],
+  );
+  const positionOffsets: number[] = [0];
+  for (let l = 1; l < layerCount; l++) {
+    positionOffsets.push(positionOffsets[l - 1] + positionMainSizes[l - 1] + gap);
+  }
 
   // Uniform cross-axis size based on densest layer
   const maxNodesInAnyLayer = Math.max(...layerGroups.map(g => g.length), 1);
@@ -113,7 +140,8 @@ export function layoutFlow(
   for (let l = 0; l < layerCount; l++) {
     const layer = isReversed ? layerCount - 1 - l : l;
     const nodes = layerGroups[layer];
-    const mainOffset = l * (layerMainSize + gap);
+    const mainOffset = positionOffsets[l];
+    const nodeMainSize = positionMainSizes[l];
 
     const cappedCross = referenceCross;
     const totalNodeGap = gap * (nodes.length - 1);
@@ -126,7 +154,7 @@ export function layoutFlow(
         childBounds[nodeIdx] = {
           x: bounds.x + mainOffset,
           y: bounds.y + crossCursor,
-          w: layerMainSize,
+          w: nodeMainSize,
           h: cappedCross,
         };
       } else {
@@ -134,7 +162,7 @@ export function layoutFlow(
           x: bounds.x + crossCursor,
           y: bounds.y + mainOffset,
           w: cappedCross,
-          h: layerMainSize,
+          h: nodeMainSize,
         };
       }
       crossCursor += cappedCross + gap;
@@ -142,12 +170,9 @@ export function layoutFlow(
   }
 
   // Compute container bounds
-  const usedW = isHorizontal
-    ? layerCount * layerMainSize + totalLayerGap
-    : bounds.w;
-  const usedH = isHorizontal
-    ? bounds.h
-    : layerCount * layerMainSize + totalLayerGap;
+  const usedMain = layerMainSizes.reduce((s, v) => s + v, 0) + totalLayerGap;
+  const usedW = isHorizontal ? usedMain : bounds.w;
+  const usedH = isHorizontal ? bounds.h : usedMain;
 
   return {
     containerBounds: {
