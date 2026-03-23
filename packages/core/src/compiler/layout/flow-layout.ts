@@ -90,9 +90,6 @@ export function layoutFlow(
   const isHorizontal = direction === 'right' || direction === 'left';
   const isReversed = direction === 'left' || direction === 'up';
 
-  // Max nodes per layer (for cross-axis sizing)
-  const maxNodesInLayer = Math.max(...layerGroups.map((g) => g.length));
-
   // Compute sizes
   const mainAvail = isHorizontal ? bounds.w : bounds.h;
   const crossAvail = isHorizontal ? bounds.h : bounds.w;
@@ -127,14 +124,6 @@ export function layoutFlow(
     positionOffsets.push(positionOffsets[l - 1] + positionMainSizes[l - 1] + gap);
   }
 
-  // Uniform cross-axis size based on densest layer
-  const maxNodesInAnyLayer = Math.max(...layerGroups.map(g => g.length), 1);
-  const referenceCrossGaps = gap * Math.max(maxNodesInAnyLayer - 1, 0);
-  const referenceCross = Math.min(
-    (crossAvail - referenceCrossGaps) / Math.max(maxNodesInAnyLayer, 1),
-    crossAvail * 0.6,
-  );
-
   const childBounds: IRBounds[] = new Array(children.length);
 
   for (let l = 0; l < layerCount; l++) {
@@ -143,29 +132,34 @@ export function layoutFlow(
     const mainOffset = positionOffsets[l];
     const nodeMainSize = positionMainSizes[l];
 
-    const cappedCross = referenceCross;
+    // Use pre-computed cross sizes from children (set by computeLayoutChildren)
+    const nodeCrossSizes = nodes.map(nodeIdx =>
+      Math.max(isHorizontal ? children[nodeIdx].height : children[nodeIdx].width, 3),
+    );
     const totalNodeGap = gap * (nodes.length - 1);
-    const nodesCrossTotal = nodes.length * cappedCross + totalNodeGap;
+    const nodesCrossTotal = nodeCrossSizes.reduce((s, v) => s + v, 0) + totalNodeGap;
     const layerCrossStart = (crossAvail - nodesCrossTotal) / 2;
     let crossCursor = Math.max(0, layerCrossStart);
 
-    for (const nodeIdx of nodes) {
+    for (let ni = 0; ni < nodes.length; ni++) {
+      const nodeIdx = nodes[ni];
+      const nodeCross = nodeCrossSizes[ni];
       if (isHorizontal) {
         childBounds[nodeIdx] = {
           x: bounds.x + mainOffset,
           y: bounds.y + crossCursor,
           w: nodeMainSize,
-          h: cappedCross,
+          h: nodeCross,
         };
       } else {
         childBounds[nodeIdx] = {
           x: bounds.x + crossCursor,
           y: bounds.y + mainOffset,
-          w: cappedCross,
+          w: nodeCross,
           h: nodeMainSize,
         };
       }
-      crossCursor += cappedCross + gap;
+      crossCursor += nodeCross + gap;
     }
   }
 

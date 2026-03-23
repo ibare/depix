@@ -42,8 +42,12 @@ import {
 /** Max width:height ratio for shape elements inside a box (col layout). */
 const MAX_SHAPE_ASPECT = 3.0;
 
-/** Max node size as a fraction of parent short axis (flow/tree). */
+/** Max node size as a fraction of parent short axis (tree). */
 const NODE_SIZE_CAP_RATIO = 0.25;
+
+/** 황금비(golden ratio). flow 노드의 cross-axis 크기를 main-axis 기준으로 산출할 때
+ *  cappedCross = maxLayerMain / PHI 형태로 사용. 단위: 무차원 비율. */
+const PHI = 1.618;
 
 /** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback. */
 const SHAPE_PREFERRED_RATIO: Readonly<Record<string, number>> = {
@@ -444,20 +448,20 @@ export function computeLayoutChildren(
       });
       const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
 
-      // Uniform cross-axis: use densest layer as reference for all nodes
+      // Cross-axis: cap by golden-ratio of the widest layer (natural proportions)
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
       const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
-      const maxCrossSize = Math.min(mainAxis, crossAxis) * NODE_SIZE_CAP_RATIO;
+      const maxLayerMain = Math.max(...layerMainSizes, 1);
 
       return plan.children.map(c => {
         const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
         const layerMain = layerMainSizes[layer];
 
-        // Cap cross-axis: uniform reference + absolute cap
-        const isShape = c.astNode.kind === 'element' && SHAPE_ELEMENT_TYPES.has(c.astNode.elementType);
-        const cappedCross = isShape
-          ? Math.min(referenceCross, layerMain * MAX_SHAPE_ASPECT, maxCrossSize)
-          : Math.min(referenceCross, maxCrossSize);
+        // Shape-specific preferred ratio (circle=1:1, diamond=1.6:1); default = PHI
+        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
+        const goldenCross = maxLayerMain / preferredRatio;
+        const cappedCross = Math.min(referenceCross, goldenCross);
 
         if (isHorizontal) {
           return { id: c.id, width: Math.max(layerMain, 4), height: Math.max(cappedCross, 3) };
