@@ -446,6 +446,9 @@ function emitChildNode(
 /**
  * Emit an inline block (block nested inside a shape/box element).
  * Uses runLayout for positioning children within the given bounds.
+ *
+ * @param childBlockRouter - Optional callback for scene-aware block children (e.g. box/layer).
+ *   Called before the default emitInlineBlock recursion. Return null to fall through.
  */
 export function emitInlineBlock(
   block: ASTBlock,
@@ -453,6 +456,7 @@ export function emitInlineBlock(
   theme: DepixTheme,
   boundsMap: Map<string, IRBounds>,
   scaleCtx?: ScaleContext,
+  childBlockRouter?: (block: ASTBlock, bounds: IRBounds, boundsMap: Map<string, IRBounds>) => IRElement | null,
 ): IRContainer {
   // Chart blocks need specialized rendering (bars, axes, labels)
   if (block.blockType === 'chart') {
@@ -487,7 +491,8 @@ export function emitInlineBlock(
     const child = childNodes[i];
     const childBounds = layoutResult.childBounds[i];
     if (child.kind === 'block') {
-      irChildren.push(emitInlineBlock(child, childBounds, theme, boundsMap, scaleCtx));
+      const routed = childBlockRouter?.(child, childBounds, boundsMap);
+      irChildren.push(routed ?? emitInlineBlock(child, childBounds, theme, boundsMap, scaleCtx, childBlockRouter));
     } else {
       irChildren.push(emitElement(child, childBounds, theme, boundsMap, scaleCtx));
     }

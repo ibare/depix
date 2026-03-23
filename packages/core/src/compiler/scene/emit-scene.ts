@@ -247,10 +247,23 @@ function emitSceneContent(
       return emitBoxBlock(node, id, bounds, theme, sceneTheme, baseFontSize);
     }
     // Diagram-like blocks (flow, tree, layers, grid, stack, group, canvas):
-    // delegate to the diagram pipeline for layout + rendering within scene bounds
+    // delegate to the diagram pipeline for layout + rendering within scene bounds.
+    // childBlockRouter intercepts box/layer children so they use the scene pipeline (emitBoxBlock)
+    // instead of the diagram pipeline — prevents compact-stacking shrinkage inside col stacks.
     const inlinePlan = { children: [planNode(node, theme)], totalWeight: 1 };
     const inlineScaleCtx = createScaleContext(inlinePlan, bounds);
-    return emitInlineBlock(node, bounds, theme, new Map(), inlineScaleCtx);
+    const childBlockRouter = (
+      b: ASTBlock,
+      childBounds: IRBounds,
+      bMap: Map<string, IRBounds>,
+    ): IRElement | null => {
+      if (b.blockType !== 'box' && b.blockType !== 'layer') return null;
+      const childId = b.id ?? generateId();
+      const el = emitBoxBlock(b, childId, childBounds, theme, sceneTheme, baseFontSize);
+      bMap.set(childId, childBounds);
+      return el;
+    };
+    return emitInlineBlock(node, bounds, theme, new Map(), inlineScaleCtx, childBlockRouter);
   }
 
   return null;
