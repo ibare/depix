@@ -505,6 +505,14 @@ export function emitInlineBlock(
 
   const containerId = block.id ?? generateId();
   const containerStyle = buildStyle(block.style);
+
+  // Group blocks get a default border when no explicit styling is provided
+  // (mirrors the same logic in emitBlockFromPlan)
+  if (block.blockType === 'group' && !containerStyle.stroke && !containerStyle.fill) {
+    containerStyle.stroke = theme.border;
+    containerStyle.strokeWidth = 0.3; // 0–100 좌표계 기준; emitBlockFromPlan group/box/layer 기본값과 동일
+  }
+
   const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
     ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
     : undefined;
