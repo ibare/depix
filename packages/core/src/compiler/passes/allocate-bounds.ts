@@ -28,7 +28,7 @@ import type {
 import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { MeasureMap } from './measure.js';
 import type { ScaleContext } from './scale-system.js';
-import { computeGap, computePadding } from './scale-system.js';
+import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
@@ -365,19 +365,41 @@ export function computeLayoutChildren(
         }));
       } else {
         const usable = bounds.h - gap * Math.max(n - 1, 0);
-        const rawHeights = plan.children.map(c => {
-          const hasExplicitH = c.astNode.kind === 'element' && typeof c.astNode.props.height === 'number';
-          return hasExplicitH ? c.intrinsicSize.height : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n);
-        });
-        const minHeights = plan.children.map(c => {
+
+        // Flex model: text/divider leaves get a content-natural height; blocks/shapes share the remainder.
+        // Mirrors CSS flexbox: fixed items shrink-0, flexible items grow into remaining space.
+
+        // TEXT_BLOCK_MULTIPLIER: 텍스트 자연 높이 = fontSize × 배율.
+        // 1.8 = line-height 기본값(1.4) + 상하 여백 여유(0.4). measure.ts의 TEXT_BLOCK_MULTIPLIER와 동일한 값.
+        // 단위: 0–100 상대 좌표 기준 fontSize에 곱하는 무차원 배율.
+        const TEXT_BLOCK_MULTIPLIER = 1.8;
+        // textNaturalH 폴백(6): scaleCtx 없을 때 baseUnit ≈ 10 가정 시
+        // computeFontSize(10, 'standaloneText') = 10 × 0.25 = 2.5, × 1.8 ≈ 4.5.
+        // 안전 여유를 포함해 6으로 설정. 단위: 0–100 상대 좌표.
+        const textNaturalH = scaleCtx
+          ? computeFontSize(scaleCtx.baseUnit, 'standaloneText') * TEXT_BLOCK_MULTIPLIER
+          : 6;
+
+        const naturalHeights: (number | null)[] = plan.children.map(c => {
           const m = measureMap?.get(c.id);
-          return m ? m.minHeight : 0;
+          if (m) return m.minHeight; // measured minHeight takes priority
+          if (c.nodeType === 'element-text' || c.nodeType === 'element-divider') {
+            return textNaturalH; // text leaf → natural content height
+          }
+          return null; // block or shape → flex (share of remaining)
         });
-        const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usable);
+
+        const fixedSum = naturalHeights.reduce<number>((s, h) => s + (h ?? 0), 0);
+        const flexItems = plan.children.filter((_, i) => naturalHeights[i] === null);
+        const flexWeight = flexItems.reduce((s, c) => s + c.weight, 0);
+        const remaining = Math.max(usable - fixedSum, 0);
+
         return plan.children.map((c, i) => ({
           id: c.id,
           width: bounds.w,
-          height: finalHeights[i],
+          height: naturalHeights[i] !== null
+            ? naturalHeights[i]!
+            : flexWeight > 0 ? remaining * (c.weight / flexWeight) : remaining / Math.max(flexItems.length, 1),
         }));
       }
     }

@@ -262,43 +262,54 @@ function emitSceneContent(
 
 const LINE_HEIGHT_MULTIPLIER = 2.0;
 
+// ---------------------------------------------------------------------------
+// Content height estimators — one entry per element type.
+// Returns height in 0-100 relative coordinates.
+// Blocks always return 0 (flex: use remaining space).
+// ---------------------------------------------------------------------------
+
+type ContentHeightEstimator = (node: ASTElement, baseFontSize: number, sceneTheme: SceneTheme) => number;
+
+const defaultContentHeight: ContentHeightEstimator = (_, base, theme) =>
+  base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+
+const CONTENT_HEIGHT_ESTIMATORS: Record<string, ContentHeightEstimator> = {
+  heading: (node, base, theme) => {
+    const level = typeof node.props.level === 'number' ? node.props.level : 1;
+    const mult = level === 1 ? theme.typography.headingSize : theme.typography.headingSize * 0.7;
+    return base * mult * LINE_HEIGHT_MULTIPLIER;
+  },
+  stat: (_, base, theme) =>
+    base * (theme.typography.statSize + theme.typography.bodySize) * LINE_HEIGHT_MULTIPLIER,
+  quote: (_, base, theme) =>
+    base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER * 2,
+  bullet: (node, base, theme) => {
+    const itemCount = node.children.filter(
+      (c): c is ASTElement => c.kind === 'element' && c.elementType === 'item',
+    ).length;
+    return Math.max(itemCount, 1) * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+  },
+  list: (node, base, theme) => {
+    const itemCount = node.items?.length ?? 1;
+    return Math.max(itemCount, 1) * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+  },
+  divider: () => 1,
+  line: () => 1,
+  image: (_, base) => base * 6,
+};
+
 /**
  * Estimate the content height of a scene element based on its type and font size.
  * Used by emitColumn/emitBoxBlock for compact vertical stacking instead of
  * equal-height distribution.
+ * Blocks return 0, meaning they are flex items that share remaining space.
  */
 function estimateContentHeight(node: ASTNode, baseFontSize: number, sceneTheme: SceneTheme): number {
+  if (node.kind === 'block') return 0; // flex — use remaining space
   if (node.kind === 'element') {
-    switch (node.elementType) {
-      case 'heading': {
-        const level = typeof node.props.level === 'number' ? node.props.level : 1;
-        const mult = level === 1 ? sceneTheme.typography.headingSize : sceneTheme.typography.headingSize * 0.7;
-        return baseFontSize * mult * LINE_HEIGHT_MULTIPLIER;
-      }
-      case 'stat':
-        return baseFontSize * sceneTheme.typography.statSize * LINE_HEIGHT_MULTIPLIER
-          + baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
-      case 'quote':
-        return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER * 2;
-      case 'bullet': {
-        const itemCount = node.children.filter((c): c is ASTElement => c.kind === 'element' && c.elementType === 'item').length;
-        return Math.max(itemCount, 1) * baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
-      }
-      case 'divider':
-      case 'line':
-        return 1;
-      case 'image':
-        return baseFontSize * 6;
-      default:
-        // text, label, step, icon, node, etc.
-        return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
-    }
+    return (CONTENT_HEIGHT_ESTIMATORS[node.elementType] ?? defaultContentHeight)(node, baseFontSize, sceneTheme);
   }
-  if (node.kind === 'block') {
-    // blocks (flow, stack, grid, box, etc.) — use a proportional share, not content height
-    return 0; // 0 means "use remaining space"
-  }
-  return baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+  return defaultContentHeight(node as ASTElement, baseFontSize, sceneTheme);
 }
 
 /**
