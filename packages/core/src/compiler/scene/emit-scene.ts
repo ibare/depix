@@ -464,7 +464,7 @@ function emitHeading(
     style: resolveElementStyle(el),
     content: text,
     fontSize,
-    color: sceneTheme.colors.primary,
+    color: resolveTextColor(el.style, sceneTheme.colors.primary),
     fontWeight: 'bold',
     align: 'center',
     valign: 'middle',
@@ -497,7 +497,7 @@ function emitLabel(
     style: resolveElementStyle(el),
     content: text,
     fontSize: naturalFontSize * scale,
-    color: sceneTheme.colors.textMuted,
+    color: resolveTextColor(el.style, sceneTheme.colors.textMuted),
     align: 'center',
     valign: 'middle',
   };
@@ -548,7 +548,7 @@ function emitBullet(
       style: {},
       content: `${prefix} ${itemLabels[i]}`,
       fontSize: itemFontSize,
-      color: sceneTheme.colors.text,
+      color: resolveTextColor(el.style, sceneTheme.colors.text),
       align: 'left',
       valign: 'middle',
     } as IRText);
@@ -574,9 +574,7 @@ function emitStat(
 ): IRContainer {
   const statValue = el.label ?? '';
   const statLabel = typeof el.props.label === 'string' ? el.props.label : '';
-  const statColor = typeof el.props.color === 'string'
-    ? el.props.color
-    : sceneTheme.colors.accent;
+  const statColor = resolveTextColor(el.style, sceneTheme.colors.accent);
 
   const naturalValueFS = baseFontSize * sceneTheme.typography.statSize;
   const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize;
@@ -658,7 +656,7 @@ function emitQuote(
       style: {},
       content: `\u201C${quoteText}\u201D`,
       fontSize: quoteFontSize,
-      color: sceneTheme.colors.primary,
+      color: resolveTextColor(el.style, sceneTheme.colors.primary),
       fontStyle: 'italic',
       align: 'center',
       valign: 'middle',
@@ -718,15 +716,20 @@ function emitSceneShape(
     ? computeFitScale(bounds.h, bounds.w, naturalFontSize * LINE_HEIGHT_MULTIPLIER, estimateTextWidth(text, naturalFontSize))
     : 1;
   const fontSize = naturalFontSize * scale;
+  const shapeStyle = resolveElementStyle(el);
+  if (!shapeStyle.fill) shapeStyle.fill = sceneTheme.colors.background;
+  if (!shapeStyle.stroke) shapeStyle.stroke = sceneTheme.colors.textMuted;
+  const cornerRadius = typeof el.style.radius === 'number' ? el.style.radius : undefined;
   return {
     id,
     type: 'shape',
     bounds,
-    style: { fill: sceneTheme.colors.background, stroke: sceneTheme.colors.textMuted },
+    style: shapeStyle,
     shape: 'rect',
+    cornerRadius,
     innerText: el.label ? {
       content: el.label,
-      color: sceneTheme.colors.text,
+      color: resolveTextColor(el.style, sceneTheme.colors.text),
       fontSize,
       align: 'center' as const,
       valign: 'middle' as const,
@@ -809,7 +812,7 @@ function emitBoxBlock(
       style: {},
       content: block.label,
       fontSize: zoneFontSize,
-      color: sceneTheme.colors.textMuted,
+      color: resolveTextColor(block.style, sceneTheme.colors.textMuted),
       align: 'left',
       valign: 'middle',
       origin: { sourceType: 'layer-zone-label' },
@@ -837,7 +840,7 @@ function emitBoxBlock(
     curY += h + gap;
   }
 
-  const containerStyle = resolveElementStyle(block as unknown as ASTElement);
+  const containerStyle = resolveElementStyle(block);
   if (!containerStyle.stroke && !containerStyle.fill) {
     containerStyle.stroke = sceneTheme.colors.textMuted;
     containerStyle.strokeWidth = 0.3;
@@ -1178,7 +1181,7 @@ function emitIcon(
       style: {},
       content: iconSymbol,
       fontSize: symbolFS,
-      color: sceneTheme.colors.accent,
+      color: resolveTextColor(el.style, sceneTheme.colors.accent),
       align: 'center',
       valign: 'middle',
     } as IRText,
@@ -1287,7 +1290,7 @@ function emitStep(
       style: {},
       content: stepDesc,
       fontSize: descFS,
-      color: sceneTheme.colors.text,
+      color: resolveTextColor(el.style, sceneTheme.colors.text),
       align: 'center',
       valign: 'top',
     } as IRText);
@@ -1386,9 +1389,14 @@ function buildSceneTransitions(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveElementStyle(el: ASTElement): IRStyle {
+function resolveElementStyle(el: ASTElement | ASTBlock): IRStyle {
   const style: IRStyle = {};
   if ('background' in el.style) style.fill = String(el.style.background);
   if ('border' in el.style && typeof el.style.border === 'string') style.stroke = el.style.border;
+  if ('border-width' in el.style && typeof el.style['border-width'] === 'number') style.strokeWidth = el.style['border-width'];
   return style;
+}
+
+function resolveTextColor(style: Record<string, string | number>, fallback: string): string {
+  return typeof style.color === 'string' ? style.color : fallback;
 }
