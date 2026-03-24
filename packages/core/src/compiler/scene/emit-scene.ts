@@ -275,6 +275,56 @@ function emitSceneContent(
 
 const LINE_HEIGHT_MULTIPLIER = 2.0;
 
+// Proportional-font average character width as a fraction of fontSize (em units).
+// Derived from typical sans-serif glyph metrics; 0.55 ≈ width/fontSize for Latin text.
+// Units: dimensionless ratio (applies equally to 0–100 relative-coordinate fontSize values).
+const CHAR_WIDTH_RATIO = 0.55;
+
+// Minimum scale factor applied to baseFontSize when content overflows available space.
+// 0.3 ≈ 30% of original — chosen to keep text legible at extreme overflow; below this
+// threshold content becomes unreadable regardless of size. Units: dimensionless ratio.
+const MIN_FONT_SCALE = 0.3;
+
+/**
+ * Estimate the rendered width of a text string at a given fontSize.
+ * Uses a conservative average-character-width heuristic (CHAR_WIDTH_RATIO).
+ */
+function estimateTextWidth(text: string, fontSize: number): number {
+  return text.length * fontSize * CHAR_WIDTH_RATIO;
+}
+
+/**
+ * Compute a uniform scale factor [MIN_FONT_SCALE, 1.0] so that content of
+ * (naturalH × naturalW) fits within (boundsH × boundsW).
+ * Both height and width constraints are considered; the tighter one wins.
+ */
+function computeFitScale(
+  boundsH: number,
+  boundsW: number,
+  naturalH: number,
+  naturalW: number,
+  minScale: number = MIN_FONT_SCALE,
+): number {
+  const scaleH = naturalH > 0 ? Math.min(1, boundsH / naturalH) : 1;
+  const scaleW = naturalW > 0 ? Math.min(1, boundsW / naturalW) : 1;
+  return Math.max(minScale, Math.min(scaleH, scaleW));
+}
+
+/**
+ * Adaptive padding for box containers (step 1 of overflow adaptation).
+ * Returns the default padding when content fits; reduces it toward 0 when
+ * content natural height exceeds available space.
+ */
+function adaptBoxPadding(
+  boundsH: number,
+  contentNaturalH: number,
+  defaultRatio: number = 0.05,
+): number {
+  const def = boundsH * defaultRatio;
+  if (contentNaturalH <= boundsH - 2 * def) return def;
+  return Math.max(0, (boundsH - contentNaturalH) / 2);
+}
+
 // ---------------------------------------------------------------------------
 // Content height estimators — one entry per element type.
 // Returns height in 0-100 relative coordinates.
@@ -297,14 +347,16 @@ const CONTENT_HEIGHT_ESTIMATORS: Record<string, ContentHeightEstimator> = {
   quote: (_, base, theme) =>
     base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER * 2,
   bullet: (node, base, theme) => {
-    const itemCount = node.children.filter(
+    const n = Math.max(node.children.filter(
       (c): c is ASTElement => c.kind === 'element' && c.elementType === 'item',
-    ).length;
-    return Math.max(itemCount, 1) * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+    ).length, 1);
+    return n * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER
+      + (n - 1) * theme.layout.itemGap;
   },
   list: (node, base, theme) => {
-    const itemCount = node.items?.length ?? 1;
-    return Math.max(itemCount, 1) * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
+    const n = Math.max(node.items?.length ?? 1, 1);
+    return n * base * theme.typography.bodySize * LINE_HEIGHT_MULTIPLIER
+      + (n - 1) * theme.layout.itemGap;
   },
   divider: () => 1,
   line: () => 1,
@@ -396,14 +448,21 @@ function emitHeading(
 ): IRText {
   const level = typeof el.props.level === 'number' ? el.props.level : 1;
   const sizeMultiplier = level === 1 ? sceneTheme.typography.headingSize : sceneTheme.typography.headingSize * 0.7;
-  const fontSize = baseFontSize * sizeMultiplier;
+  const naturalFontSize = baseFontSize * sizeMultiplier;
+  const text = el.label ?? '';
+  const scale = computeFitScale(
+    bounds.h, bounds.w,
+    naturalFontSize * LINE_HEIGHT_MULTIPLIER,
+    estimateTextWidth(text, naturalFontSize),
+  );
+  const fontSize = naturalFontSize * scale;
 
   return {
     id,
     type: 'text',
     bounds,
     style: resolveElementStyle(el),
-    content: el.label ?? '',
+    content: text,
     fontSize,
     color: sceneTheme.colors.primary,
     fontWeight: 'bold',
@@ -423,14 +482,21 @@ function emitLabel(
   let sizeMultiplier = sceneTheme.typography.bodySize;
   if (sizeStr === 'sm') sizeMultiplier *= 0.8;
   if (sizeStr === 'lg') sizeMultiplier *= 1.2;
+  const naturalFontSize = baseFontSize * sizeMultiplier;
+  const text = el.label ?? '';
+  const scale = computeFitScale(
+    bounds.h, bounds.w,
+    naturalFontSize * LINE_HEIGHT_MULTIPLIER,
+    estimateTextWidth(text, naturalFontSize),
+  );
 
   return {
     id,
     type: 'text',
     bounds,
     style: resolveElementStyle(el),
-    content: el.label ?? '',
-    fontSize: baseFontSize * sizeMultiplier,
+    content: text,
+    fontSize: naturalFontSize * scale,
     color: sceneTheme.colors.textMuted,
     align: 'center',
     valign: 'middle',
@@ -460,15 +526,16 @@ function emitBullet(
   }
 
   const gap = sceneTheme.layout.itemGap;
-  // Adapt fontSize if items overflow available space
-  const idealItemH = baseFontSize * sceneTheme.typography.bodySize * LINE_HEIGHT_MULTIPLIER;
-  const totalIdealH = itemLabels.length * idealItemH + gap * Math.max(itemLabels.length - 1, 0);
-  const adaptedBase = totalIdealH > bounds.h && totalIdealH > 0
-    ? Math.max(baseFontSize * (bounds.h / totalIdealH), baseFontSize * 0.3)
-    : baseFontSize;
-  const itemFontSize = adaptedBase * sceneTheme.typography.bodySize;
-  const itemContentH = itemFontSize * LINE_HEIGHT_MULTIPLIER;
   const isOrdered = el.flags?.includes('ordered') ?? false;
+  const naturalItemFontSize = baseFontSize * sceneTheme.typography.bodySize;
+  const n = itemLabels.length;
+  const longestLabel = itemLabels.reduce((a, b) => a.length > b.length ? a : b, '');
+  const samplePrefix = isOrdered ? `${n}.` : '•';
+  const naturalH = n * naturalItemFontSize * LINE_HEIGHT_MULTIPLIER + gap * Math.max(n - 1, 0);
+  const naturalW = estimateTextWidth(`${samplePrefix} ${longestLabel}`, naturalItemFontSize);
+  const scale = computeFitScale(bounds.h, bounds.w - 4, naturalH, naturalW);
+  const itemFontSize = naturalItemFontSize * scale;
+  const itemContentH = itemFontSize * LINE_HEIGHT_MULTIPLIER;
 
   let curY = bounds.y;
   for (let i = 0; i < itemLabels.length; i++) {
@@ -511,18 +578,27 @@ function emitStat(
     ? el.props.color
     : sceneTheme.colors.accent;
 
-  const valueH = bounds.h * 0.55;
-  const labelH = bounds.h * 0.3;
-  const gap = bounds.h * 0.05;
+  const naturalValueFS = baseFontSize * sceneTheme.typography.statSize;
+  const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize;
+  const gap = sceneTheme.layout.itemGap;
+  const naturalTotalH = (naturalValueFS + naturalLabelFS) * LINE_HEIGHT_MULTIPLIER + gap;
+  const naturalW = estimateTextWidth(statValue || '0', naturalValueFS);
+  const scale = computeFitScale(bounds.h, bounds.w, naturalTotalH, naturalW);
+
+  const valueFontSize = naturalValueFS * scale;
+  const labelFontSize = naturalLabelFS * scale;
+  const valueH = valueFontSize * LINE_HEIGHT_MULTIPLIER;
+  const labelH = labelFontSize * LINE_HEIGHT_MULTIPLIER;
+  const startY = bounds.y + (bounds.h - valueH - labelH - gap) / 2;
 
   const children: IRElement[] = [
     {
       id: `${id}-value`,
       type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + (bounds.h - valueH - labelH - gap) / 2, w: bounds.w, h: valueH },
+      bounds: { x: bounds.x, y: startY, w: bounds.w, h: valueH },
       style: {},
       content: statValue,
-      fontSize: baseFontSize * sceneTheme.typography.statSize,
+      fontSize: valueFontSize,
       color: statColor,
       fontWeight: 'bold',
       align: 'center',
@@ -531,10 +607,10 @@ function emitStat(
     {
       id: `${id}-label`,
       type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + (bounds.h - valueH - labelH - gap) / 2 + valueH + gap, w: bounds.w, h: labelH },
+      bounds: { x: bounds.x, y: startY + valueH + gap, w: bounds.w, h: labelH },
       style: {},
       content: statLabel,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      fontSize: labelFontSize,
       color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
@@ -560,9 +636,19 @@ function emitQuote(
   const quoteText = el.label ?? '';
   const attribution = typeof el.props.attribution === 'string' ? el.props.attribution : '';
 
-  const quoteH = bounds.h * 0.65;
-  const attrH = bounds.h * 0.2;
-  const gap = bounds.h * 0.05;
+  const naturalQuoteFS = baseFontSize * sceneTheme.typography.headingSize * 0.8;
+  const naturalAttrFS = baseFontSize * sceneTheme.typography.bodySize;
+  const gap = sceneTheme.layout.itemGap;
+  const naturalTotalH = attribution
+    ? (naturalQuoteFS + naturalAttrFS) * LINE_HEIGHT_MULTIPLIER + gap
+    : naturalQuoteFS * LINE_HEIGHT_MULTIPLIER;
+  const naturalW = estimateTextWidth(quoteText, naturalQuoteFS);
+  const scale = computeFitScale(bounds.h, bounds.w, naturalTotalH, naturalW);
+
+  const quoteFontSize = naturalQuoteFS * scale;
+  const attrFontSize = naturalAttrFS * scale;
+  const quoteH = quoteFontSize * LINE_HEIGHT_MULTIPLIER;
+  const attrH = attrFontSize * LINE_HEIGHT_MULTIPLIER;
 
   const children: IRElement[] = [
     {
@@ -571,7 +657,7 @@ function emitQuote(
       bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: quoteH },
       style: {},
       content: `\u201C${quoteText}\u201D`,
-      fontSize: baseFontSize * sceneTheme.typography.headingSize * 0.8,
+      fontSize: quoteFontSize,
       color: sceneTheme.colors.primary,
       fontStyle: 'italic',
       align: 'center',
@@ -586,7 +672,7 @@ function emitQuote(
       bounds: { x: bounds.x, y: bounds.y + quoteH + gap, w: bounds.w, h: attrH },
       style: {},
       content: `\u2014 ${attribution}`,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      fontSize: attrFontSize,
       color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
@@ -626,7 +712,12 @@ function emitSceneShape(
   sceneTheme: SceneTheme,
   baseFontSize: number,
 ): IRShape {
-  const fontSize = baseFontSize * sceneTheme.typography.bodySize;
+  const naturalFontSize = baseFontSize * sceneTheme.typography.bodySize;
+  const text = el.label ?? '';
+  const scale = text
+    ? computeFitScale(bounds.h, bounds.w, naturalFontSize * LINE_HEIGHT_MULTIPLIER, estimateTextWidth(text, naturalFontSize))
+    : 1;
+  const fontSize = naturalFontSize * scale;
   return {
     id,
     type: 'shape',
@@ -690,8 +781,12 @@ function emitBoxBlock(
 ): IRContainer {
   const children: IRElement[] = [];
   const contentNodes = block.children.filter(c => c.kind !== 'edge');
-  const padding = bounds.h * 0.05;
   const gap = sceneTheme.layout.itemGap;
+  // Step 1: reduce padding when content height is tight
+  const naturalContentH = contentNodes.reduce(
+    (s, n) => s + estimateContentHeight(n, baseFontSize, sceneTheme), 0,
+  ) + gap * Math.max(contentNodes.length - 1, 0);
+  const padding = adaptBoxPadding(bounds.h, naturalContentH);
   const inner: IRBounds = {
     x: bounds.x + padding,
     y: bounds.y + padding,
@@ -781,6 +876,9 @@ function emitSceneTable(
       });
 
       // Cell text
+      const cellContent = String(values[ci]);
+      const naturalCellFS = baseFontSize * sceneTheme.typography.bodySize * 0.9;
+      const cellScale = computeFitScale(rowH, cellW - 1, naturalCellFS * LINE_HEIGHT_MULTIPLIER, estimateTextWidth(cellContent, naturalCellFS));
       const cellText: IRText = {
         id: `${id}-r${ri}-c${ci}-text`,
         type: 'text',
@@ -791,8 +889,8 @@ function emitSceneTable(
           h: cellBounds.h,
         },
         style: {},
-        content: String(values[ci]),
-        fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.9,
+        content: cellContent,
+        fontSize: naturalCellFS * cellScale,
         color: sceneTheme.colors.text,
         align: typeof values[ci] === 'number' ? 'right' : 'left',
         valign: 'middle',
@@ -981,6 +1079,10 @@ function emitImage(
 ): IRContainer {
   const src = el.label ?? '';
   const alt = typeof el.props.alt === 'string' ? el.props.alt : src;
+  const labelW = bounds.w - 4;
+  const labelH = bounds.h * 0.2;
+  const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize * 0.8;
+  const labelScale = computeFitScale(labelH, labelW, naturalLabelFS * LINE_HEIGHT_MULTIPLIER, estimateTextWidth(alt, naturalLabelFS));
 
   const children: IRElement[] = [
     {
@@ -993,10 +1095,10 @@ function emitImage(
     {
       id: `${id}-label`,
       type: 'text',
-      bounds: { x: bounds.x + 2, y: bounds.y + bounds.h * 0.4, w: bounds.w - 4, h: bounds.h * 0.2 },
+      bounds: { x: bounds.x + 2, y: bounds.y + bounds.h * 0.4, w: labelW, h: labelH },
       style: {},
       content: alt,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.8,
+      fontSize: naturalLabelFS * labelScale,
       color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'middle',
@@ -1017,19 +1119,36 @@ function emitIcon(
   const iconLabel = typeof el.props.label === 'string' ? el.props.label : '';
   const iconDesc = typeof el.props.description === 'string' ? el.props.description : '';
 
-  const iconH = bounds.h * 0.4;
-  const labelH = bounds.h * 0.2;
-  const descH = bounds.h * 0.25;
-  const gap = bounds.h * 0.05;
+  const naturalSymbolFS = baseFontSize * sceneTheme.typography.statSize;
+  const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize * 1.1;
+  const naturalDescFS = baseFontSize * sceneTheme.typography.bodySize * 0.85;
+  const gap = sceneTheme.layout.itemGap;
+  const partsCount = 1 + (iconLabel ? 1 : 0) + (iconDesc ? 1 : 0);
+  const naturalTotalH = (
+    naturalSymbolFS * LINE_HEIGHT_MULTIPLIER
+    + (iconLabel ? naturalLabelFS * LINE_HEIGHT_MULTIPLIER : 0)
+    + (iconDesc ? naturalDescFS * LINE_HEIGHT_MULTIPLIER : 0)
+    + gap * Math.max(partsCount - 1, 0)
+  );
+  const longestText = [iconSymbol, iconLabel, iconDesc].reduce((a, b) => a.length > b.length ? a : b, '');
+  const naturalW = estimateTextWidth(longestText, naturalSymbolFS);
+  const scale = computeFitScale(bounds.h, bounds.w, naturalTotalH, naturalW);
+
+  const symbolFS = naturalSymbolFS * scale;
+  const labelFS = naturalLabelFS * scale;
+  const descFS = naturalDescFS * scale;
+  const iconH = symbolFS * LINE_HEIGHT_MULTIPLIER;
+  const labelH = labelFS * LINE_HEIGHT_MULTIPLIER;
+  const descH = descFS * LINE_HEIGHT_MULTIPLIER;
 
   const children: IRElement[] = [
     {
       id: `${id}-symbol`,
       type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + bounds.h * 0.05, w: bounds.w, h: iconH },
+      bounds: { x: bounds.x, y: bounds.y + gap, w: bounds.w, h: iconH },
       style: {},
       content: iconSymbol,
-      fontSize: baseFontSize * sceneTheme.typography.statSize,
+      fontSize: symbolFS,
       color: sceneTheme.colors.accent,
       align: 'center',
       valign: 'middle',
@@ -1040,10 +1159,10 @@ function emitIcon(
     children.push({
       id: `${id}-label`,
       type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + iconH + gap, w: bounds.w, h: labelH },
+      bounds: { x: bounds.x, y: bounds.y + gap + iconH + gap, w: bounds.w, h: labelH },
       style: {},
       content: iconLabel,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize * 1.1,
+      fontSize: labelFS,
       color: sceneTheme.colors.text,
       fontWeight: 'bold',
       align: 'center',
@@ -1055,10 +1174,10 @@ function emitIcon(
     children.push({
       id: `${id}-desc`,
       type: 'text',
-      bounds: { x: bounds.x + bounds.w * 0.05, y: bounds.y + iconH + gap + labelH + gap * 0.5, w: bounds.w * 0.9, h: descH },
+      bounds: { x: bounds.x + bounds.w * 0.05, y: bounds.y + gap + iconH + gap + labelH + gap, w: bounds.w * 0.9, h: descH },
       style: {},
       content: iconDesc,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.85,
+      fontSize: descFS,
       color: sceneTheme.colors.textMuted,
       align: 'center',
       valign: 'top',
@@ -1078,9 +1197,21 @@ function emitStep(
   const stepLabel = el.label ?? '';
   const stepDesc = typeof el.props.label === 'string' ? el.props.label : '';
 
-  const markerH = bounds.h * 0.35;
-  const descH = bounds.h * 0.25;
-  const gap = bounds.h * 0.05;
+  const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize * 1.2;
+  const naturalDescFS = baseFontSize * sceneTheme.typography.bodySize;
+  const gap = sceneTheme.layout.itemGap;
+  // Marker circle size is derived from label font height
+  const naturalMarkerH = naturalLabelFS * LINE_HEIGHT_MULTIPLIER;
+  const naturalTotalH = stepDesc
+    ? naturalMarkerH + naturalDescFS * LINE_HEIGHT_MULTIPLIER + gap * 2
+    : naturalMarkerH;
+  const naturalW = Math.max(naturalMarkerH, stepDesc ? estimateTextWidth(stepDesc, naturalDescFS) : 0);
+  const scale = computeFitScale(bounds.h, bounds.w, naturalTotalH, naturalW);
+
+  const labelFS = naturalLabelFS * scale;
+  const descFS = naturalDescFS * scale;
+  const markerH = labelFS * LINE_HEIGHT_MULTIPLIER;
+  const descH = descFS * LINE_HEIGHT_MULTIPLIER;
 
   const children: IRElement[] = [
     {
@@ -1088,7 +1219,7 @@ function emitStep(
       type: 'shape',
       bounds: {
         x: bounds.x + (bounds.w - markerH) / 2,
-        y: bounds.y + bounds.h * 0.05,
+        y: bounds.y + gap,
         w: markerH,
         h: markerH,
       },
@@ -1100,13 +1231,13 @@ function emitStep(
       type: 'text',
       bounds: {
         x: bounds.x + (bounds.w - markerH) / 2,
-        y: bounds.y + bounds.h * 0.05,
+        y: bounds.y + gap,
         w: markerH,
         h: markerH,
       },
       style: {},
       content: stepLabel,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize * 1.2,
+      fontSize: labelFS,
       color: sceneTheme.colors.background,
       fontWeight: 'bold',
       align: 'center',
@@ -1120,13 +1251,13 @@ function emitStep(
       type: 'text',
       bounds: {
         x: bounds.x,
-        y: bounds.y + markerH + gap * 2,
+        y: bounds.y + gap + markerH + gap,
         w: bounds.w,
         h: descH,
       },
       style: {},
       content: stepDesc,
-      fontSize: baseFontSize * sceneTheme.typography.bodySize,
+      fontSize: descFS,
       color: sceneTheme.colors.text,
       align: 'center',
       valign: 'top',
