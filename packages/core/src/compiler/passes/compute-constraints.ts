@@ -17,6 +17,20 @@ import { getElementConfig } from '../element-type-registry.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+// 0.8: shape 요소 최대 너비 = baseUnit × 0.8. baseUnit = sqrt(canvasArea/n) × 0.55이므로
+// 3노드 90×90 캔버스: baseUnit≈28.6, maxW≈22.9 (캔버스의 25.4%). 0–100 상대 좌표.
+const SHAPE_MAX_W_FACTOR = 0.8;
+// 0.6: shape 요소 최대 높이 = baseUnit × 0.6. maxH≈17.2 (캔버스의 19.1%). 0–100 상대 좌표.
+const SHAPE_MAX_H_FACTOR = 0.6;
+// 2.5: 텍스트/라벨 요소 최대 너비 = baseUnit × 2.5. 긴 제목도 단일 행 표시 가능. 0–100 상대 좌표.
+const TEXT_MAX_W_FACTOR = 2.5;
+// 0.5: 텍스트/라벨 요소 최대 높이 = baseUnit × 0.5. 단일 행 텍스트 높이에 해당. 0–100 상대 좌표.
+const TEXT_MAX_H_FACTOR = 0.5;
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -76,7 +90,7 @@ function computeSingleConstraint(
 
   // Leaf element (no children or element kind)
   if (astNode.kind === 'element' && node.children.length === 0) {
-    return computeLeafConstraint(node);
+    return computeLeafConstraint(node, scaleCtx);
   }
 
   // Element with children (e.g. shape with nested elements)
@@ -89,28 +103,52 @@ function computeSingleConstraint(
     return computeBlockConstraint(node, astNode.blockType, scaleCtx, constraints);
   }
 
-  return computeLeafConstraint(node);
+  return computeLeafConstraint(node, scaleCtx);
 }
 
 // ---------------------------------------------------------------------------
 // Leaf constraints
 // ---------------------------------------------------------------------------
 
-function computeLeafConstraint(node: LayoutPlanNode): NodeConstraint {
+function computeLeafConstraint(node: LayoutPlanNode, scaleCtx: ScaleContext): NodeConstraint {
   const astNode = node.astNode;
   const hasExplicitW = astNode.kind === 'element' && typeof astNode.props.width === 'number';
   const hasExplicitH = astNode.kind === 'element' && typeof astNode.props.height === 'number';
 
   let minW: number;
   let minH: number;
+  let maxW: number;
+  let maxH: number;
 
   if (astNode.kind === 'element') {
     const config = getElementConfig(astNode.elementType);
     minW = config.constraint.minW;
     minH = config.constraint.minH;
+
+    // Content-aware max based on element measure type and scaleCtx.baseUnit
+    switch (config.measure) {
+      case 'shape':
+        maxW = scaleCtx.baseUnit * SHAPE_MAX_W_FACTOR;
+        maxH = scaleCtx.baseUnit * SHAPE_MAX_H_FACTOR;
+        break;
+      case 'text':
+      case 'row':
+        maxW = scaleCtx.baseUnit * TEXT_MAX_W_FACTOR;
+        maxH = scaleCtx.baseUnit * TEXT_MAX_H_FACTOR;
+        break;
+      case 'list':
+        maxW = scaleCtx.baseUnit * TEXT_MAX_W_FACTOR;
+        maxH = scaleCtx.baseUnit * SHAPE_MAX_H_FACTOR;
+        break;
+      default:
+        maxW = Infinity;
+        maxH = Infinity;
+    }
   } else {
     minW = 4;
     minH = 3;
+    maxW = Infinity;
+    maxH = Infinity;
   }
 
   const explicitW = hasExplicitW ? (astNode.props.width as number) : undefined;
@@ -118,9 +156,9 @@ function computeLeafConstraint(node: LayoutPlanNode): NodeConstraint {
 
   return {
     minWidth: explicitW ?? minW,
-    maxWidth: explicitW ?? Infinity,
+    maxWidth: explicitW ?? maxW,
     minHeight: explicitH ?? minH,
-    maxHeight: explicitH ?? Infinity,
+    maxHeight: explicitH ?? maxH,
     pinnedWidth: hasExplicitW,
     pinnedHeight: hasExplicitH,
   };

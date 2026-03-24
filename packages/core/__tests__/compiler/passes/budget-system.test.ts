@@ -81,7 +81,9 @@ describe('computeConstraints', () => {
     expect(c).toBeDefined();
     expect(c!.minWidth).toBe(4);
     expect(c!.minHeight).toBe(3);
-    expect(c!.maxWidth).toBe(Infinity);
+    // maxWidth is now content-aware (baseUnit × factor), not Infinity
+    expect(c!.maxWidth).toBeGreaterThan(c!.minWidth);
+    expect(c!.maxWidth).toBeLessThan(Infinity);
   });
 
   it('aggregates stack(col) children: minH = sum, minW = max', () => {

@@ -78,22 +78,24 @@ describe('layoutTree – single root, no children', () => {
     assertChildrenWithinParent(bounds, childBounds);
   });
 
-  it('root y equals container y for direction down', () => {
+  it('root is vertically centered for direction down', () => {
     const nodes = [node('root', [], 10, 10)];
     const config = baseConfig({ direction: 'down', bounds: { x: 0, y: 0, w: 100, h: 100 } });
 
     const { childBounds } = layoutTree(nodes, config);
 
-    expect(childBounds[0]!.y).toBeCloseTo(0, 1);
+    // Single node: centered in main axis → y ≈ (100 - 10) / 2 = 45
+    expect(childBounds[0]!.y).toBeCloseTo(45, 1);
   });
 
-  it('root x equals container x for direction right', () => {
+  it('root is horizontally centered for direction right', () => {
     const nodes = [node('root', [], 10, 10)];
     const config = baseConfig({ direction: 'right', bounds: { x: 0, y: 0, w: 100, h: 100 } });
 
     const { childBounds } = layoutTree(nodes, config);
 
-    expect(childBounds[0]!.x).toBeCloseTo(0, 1);
+    // Single node: centered in main axis → x ≈ (100 - 10) / 2 = 45
+    expect(childBounds[0]!.x).toBeCloseTo(45, 1);
   });
 });
 

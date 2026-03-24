@@ -27,6 +27,7 @@ import type {
 } from '../layout/types.js';
 import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { MeasureMap } from './measure.js';
+import type { ConstraintMap } from './budget-types.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
@@ -83,6 +84,7 @@ export function allocateDiagram(
   _theme: DepixTheme,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
+  constraintMap?: ConstraintMap,
 ): BoundsMap {
   const boundsMap: BoundsMap = new Map();
 
@@ -115,7 +117,7 @@ export function allocateDiagram(
       h: finalHeights[i],
     };
 
-    allocateNode(plan.children[i], childBounds, boundsMap, scaleCtx, measureMap);
+    allocateNode(plan.children[i], childBounds, boundsMap, scaleCtx, measureMap, constraintMap);
     currentY += finalHeights[i] + gap;
   }
 
@@ -132,9 +134,10 @@ function allocateNode(
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
+  constraintMap?: ConstraintMap,
 ): void {
   if (plan.astNode.kind === 'block') {
-    allocateBlock(plan, availBounds, boundsMap, scaleCtx, measureMap);
+    allocateBlock(plan, availBounds, boundsMap, scaleCtx, measureMap, constraintMap);
   } else {
     allocateLeaf(plan, availBounds, boundsMap, scaleCtx, measureMap);
   }
@@ -229,6 +232,7 @@ function allocateBlock(
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
+  constraintMap?: ConstraintMap,
 ): void {
   const block = plan.astNode;
   if (block.kind !== 'block') return;
@@ -237,7 +241,7 @@ function allocateBlock(
   const props = block.props;
 
   // Build LayoutChild[] with sizes proportional to available bounds
-  const layoutChildren = computeLayoutChildren(plan, availBounds, scaleCtx, measureMap);
+  const layoutChildren = computeLayoutChildren(plan, availBounds, scaleCtx, measureMap, constraintMap);
 
   // Run the appropriate layout algorithm
   const layoutResult = runLayout(
@@ -258,7 +262,7 @@ function allocateBlock(
     const childBounds = layoutResult.childBounds[i];
 
     if (childPlan.astNode.kind === 'block') {
-      allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap);
+      allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap, constraintMap);
     } else {
       // For flow/tree blocks, apply shape aspect ratio to leaf elements
       const isConnectionBlock = blockType === 'flow' || blockType === 'tree';
@@ -341,6 +345,7 @@ export function computeLayoutChildren(
   bounds: IRBounds,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
+  constraintMap?: ConstraintMap,
 ): LayoutChild[] {
   const block = plan.astNode;
   if (block.kind !== 'block') return [];
@@ -367,11 +372,11 @@ export function computeLayoutChildren(
           return m ? m.minWidth : 0;
         });
         const finalWidths = redistributeWithMinimums(rawWidths, minWidths, usable);
-        return plan.children.map((c, i) => ({
-          id: c.id,
-          width: finalWidths[i],
-          height: bounds.h,
-        }));
+        return plan.children.map((c, i) => {
+          const cc = constraintMap?.get(c.id);
+          const maxW = cc?.maxWidth ?? Infinity;
+          return { id: c.id, width: Math.min(finalWidths[i], maxW), height: bounds.h };
+        });
       } else {
         const usable = bounds.h - gap * Math.max(n - 1, 0);
 
@@ -403,13 +408,14 @@ export function computeLayoutChildren(
         const flexWeight = flexItems.reduce((s, c) => s + c.weight, 0);
         const remaining = Math.max(usable - fixedSum, 0);
 
-        return plan.children.map((c, i) => ({
-          id: c.id,
-          width: bounds.w,
-          height: naturalHeights[i] !== null
+        return plan.children.map((c, i) => {
+          const cc = constraintMap?.get(c.id);
+          const maxH = cc?.maxHeight ?? Infinity;
+          const rawH = naturalHeights[i] !== null
             ? naturalHeights[i]!
-            : flexWeight > 0 ? remaining * (c.weight / flexWeight) : remaining / Math.max(flexItems.length, 1),
-        }));
+            : flexWeight > 0 ? remaining * (c.weight / flexWeight) : remaining / Math.max(flexItems.length, 1);
+          return { id: c.id, width: bounds.w, height: Math.min(rawH, maxH) };
+        });
       }
     }
 
@@ -465,10 +471,14 @@ export function computeLayoutChildren(
           : (layerMain * preferredRatio);
         const cappedCross = Math.min(referenceCross, idealCross);
 
+        const cc = constraintMap?.get(c.id);
+        const maxW = cc?.maxWidth ?? Infinity;
+        const maxH = cc?.maxHeight ?? Infinity;
+
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(layerMain, 4), height: Math.max(cappedCross, 3) };
+          return { id: c.id, width: Math.min(Math.max(layerMain, 4), maxW), height: Math.min(Math.max(cappedCross, 3), maxH) };
         }
-        return { id: c.id, width: Math.max(cappedCross, 4), height: Math.max(layerMain, 3) };
+        return { id: c.id, width: Math.min(Math.max(cappedCross, 4), maxW), height: Math.min(Math.max(layerMain, 3), maxH) };
       });
     }
 
@@ -511,10 +521,15 @@ export function computeLayoutChildren(
           ? (nodeMain / preferredRatio)
           : (nodeMain * preferredRatio);
         const nodeCross = Math.min(levelCrossAvail, idealCross);
+
+        const cc = constraintMap?.get(c.id);
+        const maxW = cc?.maxWidth ?? Infinity;
+        const maxH = cc?.maxHeight ?? Infinity;
+
         if (isHorizontal) {
-          return { id: c.id, width: Math.max(nodeMain, 4), height: Math.max(nodeCross, 3) };
+          return { id: c.id, width: Math.min(Math.max(nodeMain, 4), maxW), height: Math.min(Math.max(nodeCross, 3), maxH) };
         }
-        return { id: c.id, width: Math.max(nodeCross, 4), height: Math.max(nodeMain, 3) };
+        return { id: c.id, width: Math.min(Math.max(nodeCross, 4), maxW), height: Math.min(Math.max(nodeMain, 3), maxH) };
       });
     }
 
@@ -522,11 +537,11 @@ export function computeLayoutChildren(
       const defaultLayerGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 2;
       const layerGap = typeof props.gap === 'number' ? props.gap : defaultLayerGap;
       const layerH = (bounds.h - layerGap * Math.max(n - 1, 0)) / n;
-      return plan.children.map(c => ({
-        id: c.id,
-        width: bounds.w,
-        height: layerH,
-      }));
+      return plan.children.map(c => {
+        const cc = constraintMap?.get(c.id);
+        const maxH = cc?.maxHeight ?? Infinity;
+        return { id: c.id, width: bounds.w, height: Math.min(layerH, maxH) };
+      });
     }
 
     case 'group': {
@@ -535,11 +550,12 @@ export function computeLayoutChildren(
       const innerH = bounds.h - padding * 2;
       const innerW = bounds.w - padding * 2;
       const usable = innerH - gap * Math.max(n - 1, 0);
-      return plan.children.map(c => ({
-        id: c.id,
-        width: innerW,
-        height: totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n,
-      }));
+      return plan.children.map(c => {
+        const cc = constraintMap?.get(c.id);
+        const maxH = cc?.maxHeight ?? Infinity;
+        const rawH = totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n;
+        return { id: c.id, width: innerW, height: Math.min(rawH, maxH) };
+      });
     }
 
     case 'table': {

@@ -71,15 +71,19 @@ export function layoutTree(
     mainScale, crossScale,
   );
 
+  // Center the tree within available space when it doesn't fill the full main axis
+  // (e.g. when max constraints cap node sizes, leaving surplus whitespace)
+  const mainCenterOffset = Math.max(0, (mainAvail - totalMainNeeded * mainScale) / 2);
+
   // Build child bounds
   const childBounds: IRBounds[] = nodes.map((node, i) => {
-    let mainPos = positions[i].main;
+    let mainPos = positions[i].main + mainCenterOffset;
     let crossPos = positions[i].cross;
 
     // Flip for reversed directions
     if (isReversed) {
       const totalMain = (totalMainNeeded * mainScale);
-      mainPos = totalMain - mainPos - (isHorizontal ? node.width : node.height) * mainScale;
+      mainPos = totalMain + mainCenterOffset - positions[i].main - (isHorizontal ? node.width : node.height) * mainScale;
     }
 
     // Center within available bounds

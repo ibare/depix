@@ -74,7 +74,7 @@ export function emitIR(ast: ASTDocument, theme: DepixTheme): DepixIR {
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, canvasBounds, constraints, scaleCtx);
     const mMap = measureDiagram(plan, theme, scaleCtx, budgetMap);
-    const boundsMap = allocateDiagram(plan, canvasBounds, theme, scaleCtx, mMap);
+    const boundsMap = allocateDiagram(plan, canvasBounds, theme, scaleCtx, mMap, constraints);
     return emitDiagramFromPlan(scene, plan, boundsMap, i, theme, scaleCtx, mMap);
   });
   const transitions = buildTransitions(ast.directives, scenes);
@@ -475,7 +475,13 @@ export function emitInlineBlock(
     }
   }
 
-  const layoutChildren = computeLayoutChildren(plan, bounds, scaleCtx);
+  // Compute inline constraints for max-clamping (prevents node bloat in scene pipeline)
+  let inlineConstraints;
+  if (scaleCtx) {
+    const fakePlan: DiagramLayoutPlan = { children: plan.children, totalWeight: plan.children.reduce((s, c) => s + c.weight, 0) };
+    inlineConstraints = computeConstraints(fakePlan, scaleCtx);
+  }
+  const layoutChildren = computeLayoutChildren(plan, bounds, scaleCtx, undefined, inlineConstraints);
 
   const layoutResult = runLayout(
     block.blockType,
