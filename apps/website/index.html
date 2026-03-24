@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Depix — A DSL that turns LLM output into visual content</title>
+    <meta name="description" content="Depix is a declarative DSL that transforms LLM text output into diagrams, slides, and visual content. No rendering pipeline needed." />
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="9a567c13-945f-4f10-b5fd-0fce4c05ab21"></script>
+    <!-- SPA redirect receiver for GitHub Pages (paired with 404.html) -->
+    <script>
+      (function(l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function(s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      }(window.location));
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
