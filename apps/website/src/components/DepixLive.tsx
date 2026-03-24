@@ -9,11 +9,13 @@ interface DepixLiveProps {
   aspectRatio?: number;
 }
 
-export default function DepixLive({ dsl, className = '', aspectRatio = 16 / 9 }: DepixLiveProps) {
+export default function DepixLive({ dsl: initialDsl, className = '', aspectRatio = 16 / 9 }: DepixLiveProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
-  const initialIR = useMemo(() => {
+  const [dsl, setDsl] = useState(initialDsl);
+
+  const ir = useMemo<DepixIR | null>(() => {
     try {
       return compile(dsl).ir;
     } catch {
@@ -21,14 +23,23 @@ export default function DepixLive({ dsl, className = '', aspectRatio = 16 / 9 }:
     }
   }, [dsl]);
 
-  const [ir, setIr] = useState<DepixIR | null>(initialIR);
+  const [editableIr, setEditableIr] = useState<DepixIR | null>(ir);
 
   useEffect(() => {
-    setIr(initialIR);
-  }, [initialIR]);
+    setEditableIr(ir);
+  }, [ir]);
+
+  // Reset when parent DSL changes (e.g. tab switch in Examples)
+  useEffect(() => {
+    setDsl(initialDsl);
+  }, [initialDsl]);
 
   const handleIRChange = useCallback((newIr: DepixIR) => {
-    setIr(newIr);
+    setEditableIr(newIr);
+  }, []);
+
+  const handleDSLChange = useCallback((newDsl: string) => {
+    setDsl(newDsl);
   }, []);
 
   useEffect(() => {
@@ -48,7 +59,7 @@ export default function DepixLive({ dsl, className = '', aspectRatio = 16 / 9 }:
     return () => observer.disconnect();
   }, [aspectRatio]);
 
-  if (!ir) return null;
+  if (!editableIr) return null;
 
   return (
     <div
@@ -58,8 +69,10 @@ export default function DepixLive({ dsl, className = '', aspectRatio = 16 / 9 }:
     >
       {size && (
         <DepixCanvasEditable
-          ir={ir}
+          ir={editableIr}
           onIRChange={handleIRChange}
+          dsl={dsl}
+          onDSLChange={handleDSLChange}
           width={size.width}
           height={size.height}
         />

@@ -107,6 +107,8 @@ export default function Playground() {
               <DepixCanvasEditable
                 ir={editableIr}
                 onIRChange={handleIRChange}
+                dsl={compiledDsl}
+                onDSLChange={(newDsl) => { setDsl(newDsl); setCompiledDsl(newDsl); }}
                 width={canvasWidth}
                 height={Math.round(canvasWidth / (16 / 9))}
               />
