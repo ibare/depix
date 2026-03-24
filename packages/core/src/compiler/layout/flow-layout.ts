@@ -64,26 +64,25 @@ export function layoutFlow(
     layerGroups[layers[i]].push(i);
   }
 
-  // 3. Cross minimization (barycenter heuristic — one sweep)
-  for (let l = 1; l < layerCount; l++) {
-    const barycenters = layerGroups[l].map((nodeIdx) => {
-      const predecessors: number[] = [];
-      for (const src of layerGroups[l - 1]) {
-        if (adj[src].includes(nodeIdx)) {
-          predecessors.push(layerGroups[l - 1].indexOf(src));
-        }
-      }
-      if (predecessors.length === 0) return 0;
-      return predecessors.reduce((a, b) => a + b, 0) / predecessors.length;
-    });
+  // 3. Cross minimization (barycenter heuristic — multi-pass forward+backward sweep)
+  // Build reverse adjacency for backward sweeps
+  const revAdj: number[][] = children.map(() => []);
+  for (let from = 0; from < adj.length; from++) {
+    for (const to of adj[from]) revAdj[to].push(from);
+  }
 
-    // Sort by barycenter
-    const indexed = layerGroups[l].map((nodeIdx, i) => ({
-      nodeIdx,
-      bc: barycenters[i],
-    }));
-    indexed.sort((a, b) => a.bc - b.bc);
-    layerGroups[l] = indexed.map((x) => x.nodeIdx);
+  // 4 passes = empirically good trade-off between quality and speed.
+  // Dimensionless iteration count (no units).
+  const CROSS_MIN_PASSES = 4;
+  for (let pass = 0; pass < CROSS_MIN_PASSES; pass++) {
+    // Forward sweep: order each layer by barycenter of predecessors
+    for (let l = 1; l < layerCount; l++) {
+      barycenterSortLayer(layerGroups, l, layerGroups[l - 1], adj, 'forward');
+    }
+    // Backward sweep: order each layer by barycenter of successors
+    for (let l = layerCount - 2; l >= 0; l--) {
+      barycenterSortLayer(layerGroups, l, layerGroups[l + 1], revAdj, 'backward');
+    }
   }
 
   // 4. Position assignment
@@ -232,4 +231,56 @@ function assignLayers(
   }
 
   return layers;
+}
+
+// ---------------------------------------------------------------------------
+// Barycenter sort helper (used by multi-pass cross minimization)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sort nodes in `layerGroups[layerIdx]` by the average position of their
+ * connected nodes in `referenceLayer`.
+ *
+ * @param direction 'forward' uses adj (predecessors→current),
+ *                  'backward' uses revAdj (successors→current).
+ */
+function barycenterSortLayer(
+  layerGroups: number[][],
+  layerIdx: number,
+  referenceLayer: number[],
+  adjacency: number[][],
+  direction: 'forward' | 'backward',
+): void {
+  const layer = layerGroups[layerIdx];
+  if (layer.length <= 1) return;
+
+  const refPositions = new Map<number, number>();
+  for (let i = 0; i < referenceLayer.length; i++) {
+    refPositions.set(referenceLayer[i], i);
+  }
+
+  const barycenters = layer.map((nodeIdx) => {
+    const connected: number[] = [];
+    if (direction === 'forward') {
+      // Find predecessors: nodes in referenceLayer that have edges to nodeIdx
+      for (const ref of referenceLayer) {
+        if (adjacency[ref].includes(nodeIdx)) {
+          connected.push(refPositions.get(ref) ?? 0);
+        }
+      }
+    } else {
+      // Find successors: nodes in referenceLayer that nodeIdx has edges to
+      for (const ref of referenceLayer) {
+        if (adjacency[ref].includes(nodeIdx)) {
+          connected.push(refPositions.get(ref) ?? 0);
+        }
+      }
+    }
+    if (connected.length === 0) return 0;
+    return connected.reduce((a, b) => a + b, 0) / connected.length;
+  });
+
+  const indexed = layer.map((nodeIdx, i) => ({ nodeIdx, bc: barycenters[i] }));
+  indexed.sort((a, b) => a.bc - b.bc);
+  layerGroups[layerIdx] = indexed.map((x) => x.nodeIdx);
 }
