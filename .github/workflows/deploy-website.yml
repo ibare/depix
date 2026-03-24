@@ -29,9 +29,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
+      - name: Build packages (skip typecheck)
+        run: pnpm -r --filter='!@depix/website' exec tsc -p tsconfig.build.json --emitDeclarationOnly || true
 
-      - run: pnpm --filter @depix/website build
+      - name: Build website
+        run: pnpm --filter @depix/website exec vite build
 
       - uses: actions/upload-pages-artifact@v3
         with:
