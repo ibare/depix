@@ -2,7 +2,8 @@
  * Shape Renderer
  *
  * Renders IRShape elements to Konva nodes.
- * Supports: rect, circle, ellipse, diamond, pill, hexagon, triangle, parallelogram.
+ * Supports: rect, circle, ellipse, diamond, pill, hexagon, triangle,
+ * parallelogram, cylinder, trapezoid.
  */
 
 import Konva from 'konva';
@@ -113,6 +114,50 @@ export function renderShape(shape: IRShape, transform: CoordinateTransform): Kon
           skew, 0,
           abs.width, 0,
           abs.width - skew, abs.height,
+          0, abs.height,
+        ],
+        closed: true,
+        ...styleAttrs,
+      });
+      break;
+    }
+
+    case 'cylinder': {
+      // Cylinder: elliptical top cap + rectangular body + curved bottom.
+      // capH = 12% of height — visually balanced ellipse cap.
+      const capH = abs.height * 0.12;
+      const w = abs.width;
+      const h = abs.height;
+      shapeNode = new Konva.Shape({
+        ...styleAttrs,
+        sceneFunc(ctx, s) {
+          ctx.beginPath();
+          // Top ellipse (full)
+          ctx.ellipse(w / 2, capH, w / 2, capH, 0, 0, Math.PI * 2);
+          // Body: left side down, bottom ellipse (front half), right side up
+          ctx.moveTo(0, capH);
+          ctx.lineTo(0, h - capH);
+          ctx.ellipse(w / 2, h - capH, w / 2, capH, 0, Math.PI, 0, true);
+          ctx.lineTo(w, capH);
+          ctx.closePath();
+          ctx.fillStrokeShape(s);
+          // Redraw top ellipse outline on top of fill
+          ctx.beginPath();
+          ctx.ellipse(w / 2, capH, w / 2, capH, 0, 0, Math.PI * 2);
+          ctx.strokeShape(s);
+        },
+      });
+      break;
+    }
+
+    case 'trapezoid': {
+      // Trapezoid: narrower top, wider bottom. inset = 15% of width.
+      const inset = abs.width * 0.15;
+      shapeNode = new Konva.Line({
+        points: [
+          inset, 0,
+          abs.width - inset, 0,
+          abs.width, abs.height,
           0, abs.height,
         ],
         closed: true,
