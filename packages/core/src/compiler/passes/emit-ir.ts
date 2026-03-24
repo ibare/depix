@@ -190,9 +190,15 @@ function emitDiagramFromPlan(
     }
   }
 
+  // Build shape map from emitted elements for shape-aware edge routing
+  const shapeMap = new Map<string, IRShapeType>();
+  for (const el of elements) {
+    if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
+  }
+
   // Route edges after all element bounds are known
   for (const edge of pendingEdges) {
-    const irEdge = routeASTEdge(edge, routingBoundsMap);
+    const irEdge = routeASTEdge(edge, routingBoundsMap, shapeMap);
     if (irEdge) elements.push(irEdge);
   }
 
@@ -242,9 +248,15 @@ function emitBlockFromPlan(
     }
   }
 
+  // Build shape map from emitted children for shape-aware edge routing
+  const shapeMap = new Map<string, IRShapeType>();
+  for (const el of irChildren) {
+    if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
+  }
+
   // Route internal edges
   for (const edge of plan.edges) {
-    const irEdge = routeASTEdge(edge, boundsMap);
+    const irEdge = routeASTEdge(edge, boundsMap, shapeMap);
     if (irEdge) irChildren.push(irEdge);
   }
 
@@ -504,8 +516,14 @@ export function emitInlineBlock(
     }
   }
 
+  // Build shape map from emitted children for shape-aware edge routing
+  const shapeMap = new Map<string, IRShapeType>();
+  for (const el of irChildren) {
+    if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
+  }
+
   for (const edge of childEdges) {
-    const irEdge = routeASTEdge(edge, boundsMap);
+    const irEdge = routeASTEdge(edge, boundsMap, shapeMap);
     if (irEdge) irChildren.push(irEdge);
   }
 
@@ -926,6 +944,7 @@ function emitPieChart(
 function routeASTEdge(
   edge: ASTEdge,
   boundsMap: Map<string, IRBounds>,
+  shapeMap?: Map<string, IRShapeType>,
 ): IREdgeType | null {
   const fromBounds = boundsMap.get(edge.fromId);
   const toBounds = boundsMap.get(edge.toId);
@@ -937,6 +956,8 @@ function routeASTEdge(
     toId: edge.toId,
     fromBounds,
     toBounds,
+    fromShape: shapeMap?.get(edge.fromId),
+    toShape: shapeMap?.get(edge.toId),
     edgeStyle: edge.edgeStyle,
     label: edge.label,
   };

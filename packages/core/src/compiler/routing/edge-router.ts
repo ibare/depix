@@ -149,11 +149,37 @@ export function getEllipseBoundaryPoint(
 }
 
 /**
+ * Compute intersection of the line from the diamond center to a target
+ * point with the diamond perimeter.
+ *
+ * Uses the L1-norm property: a point on the diamond satisfies
+ * |dx|/hw + |dy|/hh = 1, so the parameter t = 1 / (|dx|/hw + |dy|/hh).
+ */
+function getDiamondBoundaryPoint(
+  bounds: IRBounds,
+  target: IRPoint,
+): IRPoint {
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  const hw = bounds.w / 2;
+  const hh = bounds.h / 2;
+
+  const dx = target.x - cx;
+  const dy = target.y - cy;
+
+  if (dx === 0 && dy === 0) return { x: cx + hw, y: cy };
+
+  const t = 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
+  return { x: cx + t * dx, y: cy + t * dy };
+}
+
+/**
  * Get a boundary point on a shape given its type.
  *
- * For elliptic shapes (circle, ellipse, pill) uses ellipse math.
- * For all others (rect, diamond, hexagon, triangle, parallelogram)
- * uses rectangle boundary as an approximation.
+ * - Elliptic shapes (circle, ellipse, pill): ellipse math.
+ * - Diamond: L1-norm diamond perimeter intersection.
+ * - Cylinder: ellipse for top/bottom approach, rect for sides.
+ * - Others (rect, hexagon, triangle, parallelogram, trapezoid): rect approximation.
  */
 function getShapeBoundaryPoint(
   bounds: IRBounds,
@@ -162,6 +188,18 @@ function getShapeBoundaryPoint(
 ): IRPoint {
   if (shape === 'circle' || shape === 'ellipse' || shape === 'pill') {
     return getEllipseBoundaryPoint(bounds, target);
+  }
+  if (shape === 'diamond') {
+    return getDiamondBoundaryPoint(bounds, target);
+  }
+  if (shape === 'cylinder') {
+    // Cylinder top/bottom are elliptical; use ellipse when approaching vertically
+    const cy = bounds.y + bounds.h / 2;
+    const dy = target.y - cy;
+    if (Math.abs(dy) > bounds.h * 0.3) {
+      return getEllipseBoundaryPoint(bounds, target);
+    }
+    return getRectBoundaryPoint(bounds, target);
   }
   return getRectBoundaryPoint(bounds, target);
 }
