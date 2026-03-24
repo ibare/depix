@@ -781,7 +781,7 @@ function emitSceneShape(
     type: 'shape',
     bounds,
     style: shapeStyle,
-    shape: 'rect',
+    shape: getElementConfig(el.elementType).emitShape ?? 'rect',
     cornerRadius,
     innerText: el.label ? {
       content: el.label,

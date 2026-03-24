@@ -51,15 +51,22 @@ const PHI = 1.618;
  *  Tree는 flow 대비 레벨 간 시각적 분리가 중요(수직 계층 구조). 단위: 무차원 배율. */
 export const TREE_LEVEL_GAP_SCALE = 2;
 
-/** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback. */
+/** Preferred w:h ratio for strict-ratio shapes. Others use MAX_SHAPE_ASPECT fallback.
+ *  Unit: dimensionless w:h ratio. */
 const SHAPE_PREFERRED_RATIO: Readonly<Record<string, number>> = {
-  diamond: 1.6,
-  circle: 1.0,
-  hexagon: 1.15,
+  circle: 1.0,    // Perfect circle — equal width and height.
+  hexagon: 1.15,  // Regular hexagon circumscribed rect ≈ 2/sqrt(3) ≈ 1.155.
+  ellipse: 1.3,   // Visually balanced horizontal ellipse.
+  trapezoid: 1.4, // Wider than tall to accommodate skewed top edge.
+  diamond: 1.6,   // Rotated square needs extra width for label readability.
+  pill: 2.0,      // Capsule shape — width is 2× height for horizontal emphasis.
+  cylinder: 0.8,  // Taller than wide to suggest vertical storage container.
 };
 
 const SHAPE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
-  'node', 'cell', 'rect', 'circle', 'badge', 'icon', 'diamond', 'hexagon',
+  'node', 'cell', 'rect', 'circle', 'badge', 'icon',
+  'diamond', 'pill', 'hexagon', 'triangle', 'parallelogram',
+  'ellipse', 'cylinder', 'trapezoid',
 ]);
 
 // ---------------------------------------------------------------------------

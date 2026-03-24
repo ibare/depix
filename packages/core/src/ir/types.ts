@@ -279,7 +279,9 @@ export type IRShapeType =
   | 'pill'
   | 'hexagon'
   | 'triangle'
-  | 'parallelogram';
+  | 'parallelogram'
+  | 'cylinder'
+  | 'trapezoid';
 
 /**
  * A geometric shape element.

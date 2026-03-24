@@ -815,7 +815,8 @@ class Parser {
    * Returns true if a slot child was parsed, false if the caller should
    * fall through to property-value parsing.
    *
-   * ELEMENT_TYPE → always a slot (elements don't need `{}`).
+   * ELEMENT_TYPE → slot if followed by a label/block opener; bare property value
+   *                if followed by a line-ending token (e.g., `shape: diamond`).
    * BLOCK_TYPE   → slot only if followed by a token that starts a block
    *                declaration (STRING, HASH, IDENTIFIER, BRACE_OPEN, etc.),
    *                not a line-ending token (NEWLINE, COMMA, BRACE_CLOSE, EOF)
@@ -823,10 +824,20 @@ class Parser {
    */
   private parseSlotChild(slotName: string, children: ASTNode[]): boolean {
     if (this.check('ELEMENT_TYPE')) {
-      const el = this.parseElement();
-      el.slot = slotName;
-      children.push(el);
-      return true;
+      const afterElem = this.tokens[this.pos + 1];
+      const isPropertyValue =
+        !afterElem ||
+        afterElem.type === 'NEWLINE' ||
+        afterElem.type === 'COMMA' ||
+        afterElem.type === 'BRACE_CLOSE' ||
+        afterElem.type === 'EOF';
+      if (!isPropertyValue) {
+        const el = this.parseElement();
+        el.slot = slotName;
+        children.push(el);
+        return true;
+      }
+      return false;
     }
     if (this.check('BLOCK_TYPE')) {
       const afterBlock = this.tokens[this.pos + 1];

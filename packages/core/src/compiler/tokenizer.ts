@@ -94,6 +94,15 @@ export const ELEMENT_TYPES = new Set([
   'quote',
   'item',
   'step',
+  // Shape element types — usable directly in flow blocks (e.g. `diamond "Decision?"`)
+  'diamond',
+  'pill',
+  'hexagon',
+  'triangle',
+  'parallelogram',
+  'ellipse',
+  'cylinder',
+  'trapezoid',
 ]);
 
 export const FLAGS = new Set([

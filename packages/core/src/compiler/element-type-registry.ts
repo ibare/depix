@@ -14,7 +14,9 @@ import type { PlanNodeType } from './passes/plan-layout.js';
 export type MeasureKind = 'text' | 'shape' | 'list' | 'divider' | 'image' | 'row';
 export type EmitKind = 'shape' | 'text' | 'list' | 'divider' | 'image' | 'row';
 export type SceneEmitKind = 'heading' | 'label' | 'bullet' | 'stat' | 'quote' | 'image' | 'icon' | 'step' | 'list' | 'divider' | 'shape';
-export type ShapeKind = 'rect' | 'circle' | 'pill';
+export type ShapeKind =
+  | 'rect' | 'circle' | 'ellipse' | 'diamond' | 'pill'
+  | 'hexagon' | 'triangle' | 'parallelogram' | 'cylinder' | 'trapezoid';
 
 export interface ElementTypeConfig {
   /** Plan-layout classification. */
@@ -47,6 +49,15 @@ export const ELEMENT_TYPE_REGISTRY: Record<string, ElementTypeConfig> = {
   circle:  { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'circle' },
   badge:   { classify: 'element-shape', intrinsicSize: { width: 10, height: 4 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'pill' },
   icon:    { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'icon', emitShape: 'circle' },
+  // Shape element types — usable directly in flow DSL (e.g. `diamond "Decision?"`)
+  diamond:       { classify: 'element-shape', intrinsicSize: { width: 10, height: 10 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'diamond' },
+  pill:          { classify: 'element-shape', intrinsicSize: { width: 12, height: 6 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'pill' },
+  hexagon:       { classify: 'element-shape', intrinsicSize: { width: 10, height: 10 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'hexagon' },
+  triangle:      { classify: 'element-shape', intrinsicSize: { width: 10, height: 10 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'triangle' },
+  parallelogram: { classify: 'element-shape', intrinsicSize: { width: 14, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'parallelogram' },
+  ellipse:       { classify: 'element-shape', intrinsicSize: { width: 10, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'ellipse' },
+  cylinder:      { classify: 'element-shape', intrinsicSize: { width: 10, height: 12 }, constraint: { minW: 4, minH: 4 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'cylinder' },
+  trapezoid:     { classify: 'element-shape', intrinsicSize: { width: 14, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'trapezoid' },
 
   // --- Text ---
   heading: { classify: 'element-text', intrinsicSize: { width: 20, height: 6 }, constraint: { minW: 2, minH: 1.5 }, measure: 'text', emit: 'text', sceneEmit: 'heading', fontScale: 1.5 },

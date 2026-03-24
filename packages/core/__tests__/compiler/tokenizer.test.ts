@@ -429,7 +429,7 @@ describe('Property token sequences', () => {
     expect(pairs('shape: diamond')).toEqual([
       ['IDENTIFIER', 'shape'],
       ['COLON', ':'],
-      ['IDENTIFIER', 'diamond'],
+      ['ELEMENT_TYPE', 'diamond'],
     ]);
   });
 
