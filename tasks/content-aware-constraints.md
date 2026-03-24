@@ -93,13 +93,16 @@ budget 할당 단계에서도 max를 고려하여 budget이 max를 초과하지 
 
 ## 진행 상태
 
-- [ ] Phase 1: measure.ts — maxWidth/maxHeight 필드 추가
-- [ ] Phase 2: allocate-bounds.ts — redistributeWithConstraints
-- [ ] Phase 3: computeLayoutChildren — max 클램핑
-- [ ] Phase 4: emit-ir.ts — inline measure
-- [ ] Phase 5: allocate-budgets.ts — max constraint
+- [x] Phase 1: compute-constraints.ts — maxWidth/maxHeight 계산 (rule-guard 피드백으로 measure.ts→compute-constraints.ts로 변경)
+- [x] Phase 2: 별도 redistributeWithConstraints 구현 대신 inline max clamping으로 단순화
+- [x] Phase 3: computeLayoutChildren — flow/tree/stack/layers/group max 클램핑
+- [x] Phase 4: emit-ir.ts — allocateDiagram에 constraints 전달, emitInlineBlock에 inline constraint 계산
+- [ ] Phase 5: allocate-budgets.ts — max constraint (budget 단계)
 
-각 Phase 완료 후 커밋.
+커밋: e4ec77c (feat(core): content-aware max constraint pipeline for all layout types)
+
+Phase 5는 budget 단계에서 fontSize가 과도하게 크게 계산되는 문제를 해결하지만,
+현재 computeLayoutChildren의 max clamping으로 bounds는 이미 올바르게 제한됨.
 
 ---
 

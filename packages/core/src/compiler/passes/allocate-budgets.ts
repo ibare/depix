@@ -141,9 +141,10 @@ function allocateChildBudgets(
       const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usableH);
 
       for (let i = 0; i < n; i++) {
+        const maxH = constraints.get(children[i].id)?.maxHeight ?? Infinity;
         budgetMap.set(children[i].id, {
           width: innerW,
-          height: Math.max(finalHeights[i], 0),
+          height: Math.min(Math.max(finalHeights[i], 0), maxH),
         });
       }
       break;
@@ -180,8 +181,9 @@ function allocateChildBudgets(
       const finalWidths = redistributeWithMinimums(rawWidths, minWidths, usableW);
 
       for (let i = 0; i < n; i++) {
+        const maxW = constraints.get(children[i].id)?.maxWidth ?? Infinity;
         budgetMap.set(children[i].id, {
-          width: Math.max(finalWidths[i], 0),
+          width: Math.min(Math.max(finalWidths[i], 0), maxW),
           height: innerH,
         });
       }
@@ -208,7 +210,8 @@ function allocateChildBudgets(
       const usableH = innerH - gap * Math.max(n - 1, 0);
       const eachH = usableH / n;
       for (const child of children) {
-        budgetMap.set(child.id, { width: innerW, height: Math.max(eachH, 0) });
+        const maxH = constraints.get(child.id)?.maxHeight ?? Infinity;
+        budgetMap.set(child.id, { width: innerW, height: Math.min(Math.max(eachH, 0), maxH) });
       }
       break;
     }
@@ -317,7 +320,7 @@ function getNodeLayoutInfo(
 function allocateTreeFlowBudgets(
   node: LayoutPlanNode,
   parentBudget: NodeBudget,
-  _constraints: ConstraintMap,
+  constraints: ConstraintMap,
   scaleCtx: ScaleContext,
   budgetMap: BudgetMap,
 ): void {
@@ -358,10 +361,14 @@ function allocateTreeFlowBudgets(
       const span = spanInfo.nodeSpan.get(child.id) ?? 1;
       const nodeCross = crossAvail * (span / rootSpan);
 
+      const cc = constraints.get(child.id);
+      const maxMain = cc ? (isHorizontal ? cc.maxWidth : cc.maxHeight) : Infinity;
+      const maxCross = cc ? (isHorizontal ? cc.maxHeight : cc.maxWidth) : Infinity;
+
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: nodeMain, height: nodeCross });
+        budgetMap.set(child.id, { width: Math.min(nodeMain, maxMain), height: Math.min(nodeCross, maxCross) });
       } else {
-        budgetMap.set(child.id, { width: nodeCross, height: nodeMain });
+        budgetMap.set(child.id, { width: Math.min(nodeCross, maxCross), height: Math.min(nodeMain, maxMain) });
       }
     }
   } else {
@@ -389,10 +396,14 @@ function allocateTreeFlowBudgets(
       // Cap for single-node layers to prevent excessive size
       const cappedCross = nodesInLayer === 1 ? Math.min(nodeCross, crossAvail * 0.4) : nodeCross;
 
+      const cc = constraints.get(child.id);
+      const maxMain = cc ? (isHorizontal ? cc.maxWidth : cc.maxHeight) : Infinity;
+      const maxCross = cc ? (isHorizontal ? cc.maxHeight : cc.maxWidth) : Infinity;
+
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: layerMain, height: cappedCross });
+        budgetMap.set(child.id, { width: Math.min(layerMain, maxMain), height: Math.min(cappedCross, maxCross) });
       } else {
-        budgetMap.set(child.id, { width: cappedCross, height: layerMain });
+        budgetMap.set(child.id, { width: Math.min(cappedCross, maxCross), height: Math.min(layerMain, maxMain) });
       }
     }
   }
