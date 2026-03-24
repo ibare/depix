@@ -63,14 +63,25 @@ export function emitSceneIR(
   sceneTheme: SceneTheme,
 ): DepixIR {
   const meta = buildSceneMeta(ast.directives, theme, sceneTheme);
-  const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
+  const isAutoHeight = meta.autoHeight === true;
   const scenes: IRScene[] = [];
+  const sceneHeights: number[] = [];
 
   for (let sceneIndex = 0; sceneIndex < ast.scenes.length; sceneIndex++) {
     const sceneBlock = ast.scenes[sceneIndex];
+    const h = isAutoHeight ? computeSceneNaturalHeight(sceneBlock, sceneTheme) : 100;
+    sceneHeights.push(h);
+    const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h };
     const plan = planScene(sceneBlock, canvasBounds, sceneTheme);
     const irScene = emitScene(sceneBlock, plan, sceneIndex, theme, sceneTheme);
     scenes.push(irScene);
+  }
+
+  if (isAutoHeight && sceneHeights.length > 0) {
+    // Set aspect ratio and IR height from content so the engine sizes the canvas correctly.
+    const maxH = Math.max(...sceneHeights);
+    meta.aspectRatio = { width: 100, height: maxH };
+    meta.irHeight = maxH;
   }
 
   const transitions = buildSceneTransitions(ast.directives, scenes);
@@ -89,7 +100,8 @@ function emitScene(
   sceneTheme: SceneTheme,
 ): IRScene {
   const elements: IRElement[] = [];
-  const sceneBaseFontSize = plan.sceneBounds.h * 0.07;
+  // 0.07 = empirical ratio; cap at 100 to normalise autoHeight scenes (0–100 relative coords)
+  const sceneBaseFontSize = Math.min(plan.sceneBounds.h, 100) * 0.07;
 
   // Background rect
   elements.push(emitSceneBackground(plan.sceneBounds, sceneTheme));
@@ -433,6 +445,50 @@ function adaptBaseFontSize(
   }
 
   return baseFontSize;
+}
+
+/**
+ * Recursively estimate the natural height of a block node (box, layer, etc.)
+ * for use in auto-height calculations. Block children are not flex items here —
+ * their content drives the scene height.
+ */
+function estimateBlockNaturalHeight(
+  block: ASTBlock,
+  baseFontSize: number,
+  sceneTheme: SceneTheme,
+): number {
+  const gap = sceneTheme.layout.itemGap;
+  // Use scenePadding as a proxy for box inner padding (0–100 relative coords)
+  const padding = sceneTheme.layout.scenePadding;
+  const children = block.children.filter(c => c.kind !== 'edge');
+  if (children.length === 0) return padding * 2;
+  const childH = children.reduce((s, n) => {
+    if (n.kind === 'block') return s + estimateBlockNaturalHeight(n as ASTBlock, baseFontSize, sceneTheme);
+    return s + estimateContentHeight(n, baseFontSize, sceneTheme);
+  }, 0) + gap * Math.max(children.length - 1, 0);
+  return childH + padding * 2;
+}
+
+/**
+ * Estimate the total height a scene requires for its content.
+ * Used in @page * (auto-height) mode to derive the canvas h before planning.
+ */
+function computeSceneNaturalHeight(
+  sceneBlock: ASTBlock,
+  sceneTheme: SceneTheme,
+): number {
+  // 7 = 100 (canvas width) * 0.07; width-anchored baseline (0–100 relative coords)
+  const baseFontSize = 7;
+  const padding = sceneTheme.layout.scenePadding;
+  const gap = sceneTheme.layout.itemGap;
+  const nodes = sceneBlock.children.filter(c => c.kind !== 'edge');
+  if (nodes.length === 0) return 100;
+  const totalH = nodes.reduce((s, n) => {
+    if (n.kind === 'block') return s + estimateBlockNaturalHeight(n as ASTBlock, baseFontSize, sceneTheme);
+    return s + estimateContentHeight(n, baseFontSize, sceneTheme);
+  }, 0) + gap * Math.max(nodes.length - 1, 0);
+  // 100 = full canvas height (0–100 relative coords); minimum scene height
+  return Math.max(totalH + padding * 2, 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -1326,9 +1382,16 @@ function buildSceneMeta(
   let aspectRatio = { width: 16, height: 9 };
   let drawingStyle: 'default' | 'sketch' = 'default';
 
+  let autoHeight = false;
+
   for (const d of directives) {
     // @ratio and @page are both valid aspect ratio directives
     if (d.key === 'ratio' || d.key === 'page') {
+      if (d.value === '*') {
+        // @page * — content-driven height; scene h computed per scene
+        autoHeight = true;
+        continue;
+      }
       const parts = d.value.split(':');
       if (parts.length === 2) {
         const w = parseInt(parts[0], 10);
@@ -1347,6 +1410,7 @@ function buildSceneMeta(
     aspectRatio,
     background: { type: 'solid', color: theme.background ?? sceneTheme.colors.background },
     drawingStyle,
+    ...(autoHeight && { autoHeight: true }),
   };
 }
 

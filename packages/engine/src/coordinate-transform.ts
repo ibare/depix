@@ -33,8 +33,13 @@ export class CoordinateTransform {
   private offsetX: number;
   private offsetY: number;
 
-  constructor(viewport: ViewportSize, aspectRatio: AspectRatio = { width: 16, height: 9 }) {
-    // Compute scale to fit the IR space (0-100) into the viewport
+  constructor(
+    viewport: ViewportSize,
+    aspectRatio: AspectRatio = { width: 16, height: 9 },
+    /** IR y coordinate range (default 100). Use meta.irHeight for @page * scenes. */
+    irHeight: number = 100,
+  ) {
+    // Compute scale to fit the IR space (0-100 × 0-irHeight) into the viewport
     // while maintaining aspect ratio (letterbox/pillarbox)
     const viewAR = viewport.width / viewport.height;
     const canvasAR = aspectRatio.width / aspectRatio.height;
@@ -52,8 +57,8 @@ export class CoordinateTransform {
       effectiveH = effectiveW / canvasAR;
     }
 
-    this.scaleX = effectiveW / 100;
-    this.scaleY = effectiveH / 100;
+    this.scaleX = effectiveW / 100;      // x is always 0-100
+    this.scaleY = effectiveH / irHeight; // y range: 0-irHeight
     this.offsetX = (viewport.width - effectiveW) / 2;
     this.offsetY = (viewport.height - effectiveH) / 2;
   }

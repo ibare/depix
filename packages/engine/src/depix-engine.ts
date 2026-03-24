@@ -117,6 +117,7 @@ export class DepixEngine {
     this.transform = new CoordinateTransform(
       { width: fitted.width, height: fitted.height },
       ir.meta.aspectRatio,
+      ir.meta.irHeight ?? 100,
     );
 
     this.renderCurrentScene();
@@ -144,6 +145,7 @@ export class DepixEngine {
     this.transform = new CoordinateTransform(
       { width: fitted.width, height: fitted.height },
       ir.meta.aspectRatio,
+      ir.meta.irHeight ?? 100,
     );
 
     this.renderCurrentScene();
@@ -205,6 +207,7 @@ export class DepixEngine {
       this.transform = new CoordinateTransform(
         { width: fitted.width, height: fitted.height },
         this.ir.meta.aspectRatio,
+        this.ir.meta.irHeight ?? 100,
       );
       this.renderCurrentScene();
     } else {

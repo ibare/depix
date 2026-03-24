@@ -629,6 +629,10 @@ export interface IRMeta {
   background: IRBackground;
   /** Drawing style hint for the renderer. */
   drawingStyle: 'default' | 'sketch';
+  /** When true, scene heights are content-driven (not fixed at 100). @page * mode. */
+  autoHeight?: boolean;
+  /** IR coordinate height range. Default 100. Used by @page * to extend the y-axis beyond 100. */
+  irHeight?: number;
 }
 
 // ---------------------------------------------------------------------------

@@ -34,7 +34,8 @@ export type TokenType =
   | 'IDENTIFIER'
   // Special
   | 'HASH'
-  | 'ARROW';
+  | 'ARROW'
+  | 'STAR';
 
 export interface Token {
   type: TokenType;
@@ -232,6 +233,13 @@ class Tokenizer {
       // Word (identifier or keyword)
       if (this.isIdentStart(ch)) {
         this.readWord();
+        continue;
+      }
+
+      // Wildcard / multiplication operator (used in @page * directive)
+      if (ch === '*') {
+        this.emit('STAR', '*');
+        this.advance();
         continue;
       }
 

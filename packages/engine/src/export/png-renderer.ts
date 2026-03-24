@@ -85,7 +85,7 @@ export function renderIRToPNG(
  */
 export function renderSceneToPNG(
   scene: IRScene,
-  meta: { aspectRatio: { width: number; height: number }; background: IRBackground },
+  meta: { aspectRatio: { width: number; height: number }; background: IRBackground; irHeight?: number },
   options?: PNGOptions,
 ): PNGResult {
   // 1. Calculate dimensions
@@ -153,6 +153,7 @@ export function renderSceneToPNG(
     const transform = new CoordinateTransform(
       { width: pixelWidth, height: pixelHeight },
       meta.aspectRatio,
+      meta.irHeight ?? 100,
     );
 
     const group = renderElements(scene.elements, transform);
