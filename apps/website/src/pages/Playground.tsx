@@ -1,29 +1,48 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { DepixCanvas } from '@depix/react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { compile } from '@depix/core';
+import { DepixCanvasEditable } from '@depix/react';
+import type { DepixIR } from '@depix/core';
 import { useLang } from '../i18n/context';
 import { PLAYGROUND_DEFAULT } from '../data/playground-default';
 
 export default function Playground() {
   const { t } = useLang();
   const [dsl, setDsl] = useState(PLAYGROUND_DEFAULT);
-  const [rendered, setRendered] = useState(PLAYGROUND_DEFAULT);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(600);
+
+  const [compiledDsl, setCompiledDsl] = useState(PLAYGROUND_DEFAULT);
+
+  const ir = useMemo<DepixIR | null>(() => {
+    try {
+      const result = compile(compiledDsl);
+      setError(null);
+      return result.ir;
+    } catch (err) {
+      setError(String(err));
+      return null;
+    }
+  }, [compiledDsl]);
+
+  const [editableIr, setEditableIr] = useState<DepixIR | null>(ir);
+
+  useEffect(() => {
+    setEditableIr(ir);
+  }, [ir]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setDsl(value);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      try {
-        setRendered(value);
-        setError(null);
-      } catch (err) {
-        setError(String(err));
-      }
+      setCompiledDsl(value);
     }, 300);
+  }, []);
+
+  const handleIRChange = useCallback((newIr: DepixIR) => {
+    setEditableIr(newIr);
   }, []);
 
   useEffect(() => {
@@ -84,7 +103,14 @@ export default function Playground() {
             )}
           </div>
           <div ref={containerRef} className="depix-live">
-            <DepixCanvas data={rendered} width={canvasWidth} height={Math.round(canvasWidth / (16 / 9))} />
+            {editableIr && (
+              <DepixCanvasEditable
+                ir={editableIr}
+                onIRChange={handleIRChange}
+                width={canvasWidth}
+                height={Math.round(canvasWidth / (16 / 9))}
+              />
+            )}
           </div>
         </div>
       </div>

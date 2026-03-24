@@ -75,6 +75,9 @@ importers:
       '@depix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@depix/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@depix/engine':
         specifier: workspace:*
         version: link:../../packages/engine
