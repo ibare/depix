@@ -50,11 +50,21 @@ export function layoutFlow(
     }
   }
 
-  // 1. Topological sort (Kahn's)
-  const order = topoSort(adj, inDeg, children.length);
+  // 0. Detect and break cycles — back-edges are removed from the DAG
+  //    but preserved for later routing as curved feedback edges.
+  const { dagAdj, backEdges } = detectAndBreakCycles(adj, children.length);
+
+  // Recompute in-degrees on the DAG (cycles removed)
+  const dagInDeg: number[] = new Array(children.length).fill(0);
+  for (let i = 0; i < children.length; i++) {
+    for (const to of dagAdj[i]) dagInDeg[to]++;
+  }
+
+  // 1. Topological sort (Kahn's) — guaranteed acyclic after cycle breaking
+  const order = topoSort(dagAdj, dagInDeg, children.length);
 
   // 2. Layer assignment (longest path from sources)
-  const layers = assignLayers(order, adj, children.length);
+  const layers = assignLayers(order, dagAdj, children.length);
   const maxLayer = Math.max(...layers);
   const layerCount = maxLayer + 1;
 
@@ -65,10 +75,10 @@ export function layoutFlow(
   }
 
   // 3. Cross minimization (barycenter heuristic — multi-pass forward+backward sweep)
-  // Build reverse adjacency for backward sweeps
+  // Build reverse adjacency for backward sweeps (from DAG, not original)
   const revAdj: number[][] = children.map(() => []);
-  for (let from = 0; from < adj.length; from++) {
-    for (const to of adj[from]) revAdj[to].push(from);
+  for (let from = 0; from < dagAdj.length; from++) {
+    for (const to of dagAdj[from]) revAdj[to].push(from);
   }
 
   // 4 passes = empirically good trade-off between quality and speed.
@@ -77,7 +87,7 @@ export function layoutFlow(
   for (let pass = 0; pass < CROSS_MIN_PASSES; pass++) {
     // Forward sweep: order each layer by barycenter of predecessors
     for (let l = 1; l < layerCount; l++) {
-      barycenterSortLayer(layerGroups, l, layerGroups[l - 1], adj, 'forward');
+      barycenterSortLayer(layerGroups, l, layerGroups[l - 1], dagAdj, 'forward');
     }
     // Backward sweep: order each layer by barycenter of successors
     for (let l = layerCount - 2; l >= 0; l--) {
@@ -175,7 +185,48 @@ export function layoutFlow(
       h: Math.min(usedH, bounds.h),
     },
     childBounds,
+    ...(backEdges.length > 0 && { backEdgeIndices: backEdges }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Cycle detection (DFS-based back-edge identification)
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect cycles in the graph and remove back-edges to produce a DAG.
+ * Uses DFS coloring: WHITE(0)→GRAY(1)→BLACK(2). An edge to a GRAY node
+ * is a back-edge (cycle-closing). Returns the DAG adjacency and a list
+ * of removed back-edges.
+ */
+function detectAndBreakCycles(
+  adj: number[][],
+  n: number,
+): { dagAdj: number[][]; backEdges: [number, number][] } {
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Array(n).fill(WHITE);
+  const backEdges: [number, number][] = [];
+  const dagAdj: number[][] = adj.map(a => [...a]);
+
+  function dfs(u: number): void {
+    color[u] = GRAY;
+    for (const v of adj[u]) {
+      if (color[v] === GRAY) {
+        // Back-edge: u → v where v is an ancestor on the current DFS path
+        backEdges.push([u, v]);
+        dagAdj[u] = dagAdj[u].filter(x => x !== v);
+      } else if (color[v] === WHITE) {
+        dfs(v);
+      }
+    }
+    color[u] = BLACK;
+  }
+
+  for (let i = 0; i < n; i++) {
+    if (color[i] === WHITE) dfs(i);
+  }
+
+  return { dagAdj, backEdges };
 }
 
 // ---------------------------------------------------------------------------

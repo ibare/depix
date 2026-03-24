@@ -48,6 +48,8 @@ export interface RouteEdgeInput {
   label?: string;
   /** Path type for the edge route. Defaults to 'bezier'. */
   pathType?: 'straight' | 'polyline' | 'bezier';
+  /** True for cycle-closing edges — routed with wider curves around the main flow. */
+  isBackEdge?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +264,50 @@ export function createPolylinePath(
  * The offset is distance * 0.3. Control points are biased
  * horizontally or vertically depending on the connection direction.
  */
+/**
+ * Create a bezier path for a back-edge (cycle-closing feedback edge).
+ * Routes the curve around the main flow by offsetting control points
+ * to the side, producing a wide arc that loops back visually.
+ *
+ * Offset factor 0.6 = 60% of inter-node distance; chosen to clear
+ * intermediate nodes in typical 3–5 node cycles. Unit: 0–100 coords.
+ */
+function createBackEdgePath(
+  from: IRPoint,
+  to: IRPoint,
+): IREdgePathBezier {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  // 0.6 = wider arc than normal bezier (0.3) to loop around nodes.
+  const offset = Math.max(dist * 0.6, 8);
+
+  // Determine which side to route on — prefer the side with more space
+  const midX = (from.x + to.x) / 2;
+  const midY = (from.y + to.y) / 2;
+  // Route to the right/below if midpoint is in left/top half, otherwise left/above
+  const sideX = midX < 50 ? 1 : -1;
+  const sideY = midY < 50 ? 1 : -1;
+
+  let cp1: IRPoint;
+  let cp2: IRPoint;
+
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    // Primarily vertical flow — route sideways
+    cp1 = { x: from.x + sideX * offset, y: from.y };
+    cp2 = { x: to.x + sideX * offset, y: to.y };
+  } else {
+    // Primarily horizontal flow — route above/below
+    cp1 = { x: from.x, y: from.y + sideY * offset };
+    cp2 = { x: to.x, y: to.y + sideY * offset };
+  }
+
+  return {
+    type: 'bezier',
+    controlPoints: [{ cp1, cp2, end: to }],
+  };
+}
+
 export function createBezierPath(
   from: IRPoint,
   to: IRPoint,
@@ -540,16 +586,20 @@ export function routeEdge(input: RouteEdgeInput): IREdge {
 
   // 2. Compute path
   let path: IREdgePath;
-  switch (pathType) {
-    case 'straight':
-      path = createStraightPath();
-      break;
-    case 'polyline':
-      path = createPolylinePath(anchors.from, anchors.to);
-      break;
-    case 'bezier':
-      path = createBezierPath(anchors.from, anchors.to);
-      break;
+  if (input.isBackEdge) {
+    path = createBackEdgePath(anchors.from, anchors.to);
+  } else {
+    switch (pathType) {
+      case 'straight':
+        path = createStraightPath();
+        break;
+      case 'polyline':
+        path = createPolylinePath(anchors.from, anchors.to);
+        break;
+      case 'bezier':
+        path = createBezierPath(anchors.from, anchors.to);
+        break;
+    }
   }
 
   // 3. Map edge style to arrows and visual style

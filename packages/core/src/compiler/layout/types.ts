@@ -42,6 +42,8 @@ export interface LayoutResult {
   containerBounds: IRBounds;
   /** Computed bounds for each child (same order as input). */
   childBounds: IRBounds[];
+  /** Indices of back-edges detected in cycle breaking (flow layout only). */
+  backEdgeIndices?: [number, number][];
 }
 
 // ---------------------------------------------------------------------------

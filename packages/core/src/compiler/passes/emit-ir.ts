@@ -522,8 +522,19 @@ export function emitInlineBlock(
     if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
   }
 
+  // Identify back-edges from layout result for curved feedback routing
+  const backEdgeSet = new Set<string>();
+  if (layoutResult.backEdgeIndices) {
+    for (const [fromIdx, toIdx] of layoutResult.backEdgeIndices) {
+      const fromId = layoutChildren[fromIdx]?.id;
+      const toId = layoutChildren[toIdx]?.id;
+      if (fromId && toId) backEdgeSet.add(`${fromId}->${toId}`);
+    }
+  }
+
   for (const edge of childEdges) {
-    const irEdge = routeASTEdge(edge, boundsMap, shapeMap);
+    const isBack = backEdgeSet.has(`${edge.fromId}->${edge.toId}`);
+    const irEdge = routeASTEdge(edge, boundsMap, shapeMap, isBack);
     if (irEdge) irChildren.push(irEdge);
   }
 
@@ -945,6 +956,7 @@ function routeASTEdge(
   edge: ASTEdge,
   boundsMap: Map<string, IRBounds>,
   shapeMap?: Map<string, IRShapeType>,
+  isBackEdge = false,
 ): IREdgeType | null {
   const fromBounds = boundsMap.get(edge.fromId);
   const toBounds = boundsMap.get(edge.toId);
@@ -960,6 +972,7 @@ function routeASTEdge(
     toShape: shapeMap?.get(edge.toId),
     edgeStyle: edge.edgeStyle,
     label: edge.label,
+    isBackEdge,
   };
 
   return routeEdge(input);
