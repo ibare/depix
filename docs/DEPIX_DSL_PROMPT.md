@@ -132,8 +132,8 @@ scene {
   layout: header
   header: heading "Main Title"
   body: flow {
-    #a node "Start"
-    #b node "End"
+    node "Start" #a
+    node "End"   #b
     #a -> #b
   }
 }
@@ -170,7 +170,7 @@ Shape elements render as geometric shapes with optional inner text.
 ```
 node "Label"
 diamond "Decision?" { background: accent }
-#myId pill "Start" { background: primary, color: white }
+pill "Start" #myId { background: primary, color: white }
 ```
 
 ### Text Elements
@@ -220,18 +220,18 @@ image "alt text" { src: "url" }  // image placeholder
 Every element follows this pattern:
 
 ```
-[#id] <elementType> ["label"] [flags] [{ props/style/children }]
+<elementType> ["label"] [#id] [flags] [{ props/style/children }]
 ```
 
 All parts except `<elementType>` are optional.
 
 ### ID
 
-Prefix with `#` to assign an ID (required for edge connections):
+Suffix with `#` to assign an ID (required for edge connections):
 
 ```
-#start pill "Begin"
-#decision diamond "Check?"
+pill "Begin" #start
+diamond "Check?" #decision
 ```
 
 ### Label
@@ -294,15 +294,15 @@ Blocks are containers for layout and grouping.
 
 ```
 flow {
-  #start pill "Start"
-  #check diamond "Valid?"
-  #process rect "Process"
-  #db cylinder "Database"
-  #end pill "End"
+  pill "Start"       #start
+  diamond "Valid?"    #check
+  rect "Process"     #process
+  cylinder "Database" #db
+  pill "End"         #end
 
   #start -> #check
-  #check -> #process: "Yes"
-  #check --> #db: "No"        // dashed arrow
+  #check -> #process "Yes"
+  #check --> #db "No"         // dashed arrow
   #process -> #end
   #db -> #end
 }
@@ -314,9 +314,9 @@ flow {
 
 ```
 tree {
-  #root node "CEO"
-  #a node "CTO"
-  #b node "CFO"
+  node "CEO" #root
+  node "CTO" #a
+  node "CFO" #b
 
   #root -> #a
   #root -> #b
@@ -438,11 +438,11 @@ Edges connect elements by their `#id`. Only valid inside `flow`, `tree`, and oth
 
 ### Edge Labels
 
-Add a label with `: "text"` after the target:
+Add a label with `"text"` after the target:
 
 ```
-#a -> #b: "Yes"
-#a --> #c: "No"
+#a -> #b "Yes"
+#a --> #c "No"
 ```
 
 ### Edge Chains
@@ -461,15 +461,15 @@ Back-edges (loops) are automatically detected and routed with wider curved paths
 
 ```
 flow {
-  #start node "Start"
-  #check diamond "OK?"
-  #fix node "Fix"
+  node "Start"  #start
+  diamond "OK?" #check
+  node "Fix"    #fix
+  pill "Done"   #end
 
   #start -> #check
-  #check -> #fix: "No"
+  #check -> #fix "No"
   #fix -> #check            // back-edge: curved route
-  #check -> #end: "Yes"
-  #end pill "Done"
+  #check -> #end "Yes"
 }
 ```
 
@@ -520,19 +520,19 @@ scene "Details" {
 scene {
   layout: full
   body: flow {
-    #start pill "Start" { background: primary }
-    #input parallelogram "Get Input"
-    #check diamond "Valid?"
-    #process rect "Process"
-    #db cylinder "Save to DB"
-    #error rect "Show Error" { background: #ff4444, color: white }
-    #end pill "End" { background: primary }
+    pill "Start" #start { background: primary }
+    parallelogram "Get Input" #input
+    diamond "Valid?" #check
+    rect "Process" #process
+    cylinder "Save to DB" #db
+    rect "Show Error" #error { background: #ff4444, color: white }
+    pill "End" #end { background: primary }
 
     #start -> #input
     #input -> #check
-    #check -> #process: "Yes"
-    #check -> #error: "No"
-    #error --> #input: "Retry"
+    #check -> #process "Yes"
+    #check -> #error "No"
+    #error --> #input "Retry"
     #process -> #db
     #db -> #end
   }
