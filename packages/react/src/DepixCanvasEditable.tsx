@@ -41,8 +41,6 @@ import {
 } from '@depix/editor';
 import type { DepixTheme } from '@depix/core';
 import type { ToolType } from './types.js';
-import { FloatingToolbar } from './components/FloatingToolbar.js';
-import { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
 import { DepixDSLEditor } from './DepixDSLEditor.js';
 import { EditorStoreProvider, useEditorStore, useEditorStoreApi } from './store/editor-store-context.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
@@ -80,10 +78,6 @@ export interface DepixCanvasEditableProps {
   editButtonPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   /** Callback when edit mode changes. */
   onEditModeChange?: (editing: boolean) => void;
-  /** Whether to show the toolbar in edit mode. Default: true */
-  showToolbar?: boolean;
-  /** Whether to show the property panel in edit mode. Default: true */
-  showPropertyPanel?: boolean;
   /** Show debug overlay with element bounding boxes. Default: false */
   debug?: boolean;
 
@@ -198,8 +192,6 @@ const DepixCanvasEditableInner = forwardRef<
     initialEditMode = false,
     editButtonPosition = 'bottom-right',
     onEditModeChange,
-    showToolbar = true,
-    showPropertyPanel = true,
     debug = false,
     dsl,
     onDSLChange,
@@ -983,53 +975,6 @@ const DepixCanvasEditableInner = forwardRef<
         />
       )}
 
-      {showEditUI && !isDSLMode && showToolbar && panelPositions && (
-        <FloatingToolbar
-          tool={tool}
-          onToolChange={toolProp ? (props as any).onToolChange ?? (() => {}) : setInternalTool}
-          onUndo={undo}
-          onRedo={redo}
-          onDelete={deleteSelected}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          hasSelection={selectedIds.length > 0}
-          style={{
-            position: 'fixed',
-            top: `${panelPositions.toolbar.top}px`,
-            left: `${panelPositions.toolbar.left}px`,
-            zIndex: 10000,
-          }}
-          draggable
-        />
-      )}
-
-      {showEditUI && !isDSLMode && showPropertyPanel && panelPositions && (
-        <FloatingPropertyPanel
-          elements={selectedElements}
-          onStyleChange={handleStyleChange}
-          onTextChange={handleTextChange}
-          onBoundsChange={handleBoundsChange}
-          ir={ir}
-          currentSceneIndex={currentSceneIndex}
-          selectedIds={selectedIds}
-          onCancel={toolProp ? undefined : handleCancel}
-          onConfirm={toolProp ? undefined : handleConfirm}
-          onSceneChange={storeApi.getState().setActiveSceneIndex}
-          onAddScene={handleAddScene}
-          onDeleteScene={handleDeleteScene}
-          onRenameScene={handleRenameScene}
-          onSelectElement={handleSelectElement}
-          onAspectRatioChange={handleAspectRatioChange}
-          onBackgroundChange={handleBackgroundChange}
-          style={{
-            position: 'fixed',
-            top: `${panelPositions.panel.top}px`,
-            left: `${panelPositions.panel.left}px`,
-            zIndex: 10000,
-          }}
-          draggable
-        />
-      )}
     </div>
   );
 });

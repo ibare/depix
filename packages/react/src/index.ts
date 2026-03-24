@@ -28,15 +28,6 @@ export { useObjectCreation } from './hooks/useObjectCreation.js';
 export type { UseObjectCreationOptions, CreationHandlers, UseObjectCreationReturn } from './hooks/useObjectCreation.js';
 
 // UI Components
-export { FloatingPanel, PanelSection, PanelDivider, PanelButton } from './components/FloatingPanel.js';
-export type { FloatingPanelProps, PanelSectionProps, PanelButtonProps } from './components/FloatingPanel.js';
-
-export { FloatingToolbar } from './components/FloatingToolbar.js';
-export type { FloatingToolbarProps } from './components/FloatingToolbar.js';
-
-export { FloatingPropertyPanel } from './components/FloatingPropertyPanel.js';
-export type { FloatingPropertyPanelProps } from './components/FloatingPropertyPanel.js';
-
 export { SymbolPicker } from './components/SymbolPicker.js';
 export type { SymbolPickerProps } from './components/SymbolPicker.js';
 
