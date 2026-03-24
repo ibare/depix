@@ -794,15 +794,44 @@ function emitBoxBlock(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
-  const adaptedFontSize = adaptBaseFontSize(inner.h, contentNodes, baseFontSize, gap, sceneTheme);
-  const heights = computeCompactHeights(contentNodes, inner.h, gap, adaptedFontSize, sceneTheme);
+  // Zone label for layer blocks — rendered top-left as a small category marker.
+  let zoneLabelH = 0;
+  if (block.blockType === 'layer' && block.label) {
+    // 0.85 ≈ body font * 85% — conventional ratio for category label text.
+    // Smaller than body content to distinguish zone label from main content.
+    // Units: dimensionless ratio (font size multiplier).
+    const zoneFontSize = baseFontSize * sceneTheme.typography.bodySize * 0.85;
+    zoneLabelH = zoneFontSize * LINE_HEIGHT_MULTIPLIER;
+    children.push({
+      id: `${id}-zone-label`,
+      type: 'text',
+      bounds: { x: inner.x, y: inner.y, w: inner.w, h: zoneLabelH },
+      style: {},
+      content: block.label,
+      fontSize: zoneFontSize,
+      color: sceneTheme.colors.textMuted,
+      align: 'left',
+      valign: 'middle',
+      origin: { sourceType: 'layer-zone-label' },
+    } as IRText);
+  }
 
-  let curY = inner.y;
+  const innerAfterZone: IRBounds = {
+    x: inner.x,
+    y: inner.y + (zoneLabelH > 0 ? zoneLabelH + gap : 0),
+    w: inner.w,
+    h: Math.max(inner.h - (zoneLabelH > 0 ? zoneLabelH + gap : 0), 1),
+  };
+
+  const adaptedFontSize = adaptBaseFontSize(innerAfterZone.h, contentNodes, baseFontSize, gap, sceneTheme);
+  const heights = computeCompactHeights(contentNodes, innerAfterZone.h, gap, adaptedFontSize, sceneTheme);
+
+  let curY = innerAfterZone.y;
   for (let i = 0; i < contentNodes.length; i++) {
     const child = contentNodes[i];
     const childId = `${id}-child-${i}`;
     const h = Math.max(heights[i], 2);
-    const childBounds: IRBounds = { x: inner.x, y: curY, w: inner.w, h };
+    const childBounds: IRBounds = { x: innerAfterZone.x, y: curY, w: innerAfterZone.w, h };
     const el = emitSceneContent(child, childId, childBounds, theme, sceneTheme, adaptedFontSize);
     if (el) children.push(el);
     curY += h + gap;
@@ -820,7 +849,7 @@ function emitBoxBlock(
     bounds,
     style: containerStyle,
     children,
-    origin: { sourceType: 'box' as IROrigin['sourceType'], dslType: block.blockType },
+    origin: { sourceType: 'box', dslType: block.blockType },
   };
 }
 

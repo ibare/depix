@@ -113,6 +113,8 @@ export interface IROrigin {
     | 'chart'
     | 'bullet'
     | 'list'
+    | 'box'
+    | 'layer-zone-label'
     | 'scene-background'
     | 'scene-slot';
   /** Original DSL element type (e.g. 'heading', 'box', 'stat', 'quote', 'node'). */
