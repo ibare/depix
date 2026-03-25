@@ -13,7 +13,7 @@ export default function Footer() {
       }}
     >
       <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1em' }}>
-        <span>&copy; 2026 Day1Company. All rights reserved.</span>
+        <span>&copy; 2026 DAY 1 COMPANY. All rights reserved.</span>
         <div style={{ display: 'flex', gap: '1.5em' }}>
           <a href="https://github.com/ibare/depix" target="_blank" rel="noopener noreferrer">
             GitHub
