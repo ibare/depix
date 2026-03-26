@@ -13,7 +13,7 @@
 import { useEffect } from 'react';
 import type { DepixIR, IRElement } from '@depix/core';
 import { findElement } from '@depix/core';
-import type { DepixEngine } from '@depix/engine';
+import type { DepixEngine, TransformerHandle, StageHandle, LayerHandle } from '@depix/engine';
 import type { HandleManager } from '@depix/editor';
 import type { ToolType } from '../types.js';
 
@@ -63,21 +63,20 @@ export function useKonvaTransformer(opts: UseKonvaTransformerOptions): void {
 
   useEffect(() => {
     const engine = engineRef.current;
-    // Typed as any: Konva.Transformer returned by engine, no konva import needed.
-    const transformer = engine?.getEditTransformer() as any;
+    const transformer: TransformerHandle | null | undefined = engine?.getEditTransformer();
     if (!transformer || !isEditActive) return;
 
-    const stage = engine?.getStage() as any;
+    const stage: StageHandle | undefined = engine?.getStage();
     if (!stage) return;
 
     if (selectedIds.length === 0) {
       transformer.nodes([]);
-      (engine?.getOverlayLayer() as any)?.batchDraw();
+      engine?.getOverlayLayer()?.batchDraw();
       return;
     }
 
     // Find rendered Konva nodes by element ID
-    const nodes: any[] = [];
+    const nodes: unknown[] = [];
     for (const id of selectedIds) {
       const node = stage.findOne(`#${id}`);
       if (node) nodes.push(node);
@@ -85,7 +84,7 @@ export function useKonvaTransformer(opts: UseKonvaTransformerOptions): void {
 
     if (nodes.length === 0) {
       transformer.nodes([]);
-      (engine?.getOverlayLayer() as any)?.batchDraw();
+      engine?.getOverlayLayer()?.batchDraw();
       return;
     }
 
@@ -114,7 +113,7 @@ export function useKonvaTransformer(opts: UseKonvaTransformerOptions): void {
     }
 
     transformer.nodes(nodes);
-    const overlayLayer = engine?.getOverlayLayer() as any;
+    const overlayLayer: LayerHandle | null | undefined = engine?.getOverlayLayer();
     overlayLayer?.moveToTop();
     overlayLayer?.batchDraw();
   }, [selectedIds, ir, isEditing, toolProp]);

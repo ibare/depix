@@ -13,7 +13,7 @@
 import { useEffect } from 'react';
 import type { DepixIR, IRElement, IRContainer } from '@depix/core';
 import { findElement, ATOMIC_COMPOUND_TYPES } from '@depix/core';
-import type { DepixEngine } from '@depix/engine';
+import type { DepixEngine, StageHandle, StageEventObject, NodeHandle } from '@depix/engine';
 import type { SelectionManager } from '@depix/editor';
 import type { ToolType } from '../types.js';
 
@@ -70,12 +70,12 @@ export function useCanvasClickHandler(opts: UseCanvasClickHandlerOptions): void 
     const engine = engineRef.current;
     if (!engine || readOnly || (!isEditing && !toolProp)) return;
 
-    // engine.getStage() returns the Konva Stage reference managed by DepixEngine.
-    // Typed as any to avoid importing konva types in @depix/react.
-    const stage = engine.getStage() as any;
+    // engine.getStage() returns a StageHandle — typed contract from @depix/engine.
+    // Runtime guard: mock engines in tests may not provide a full StageHandle.
+    const stage: StageHandle = engine.getStage();
     if (!stage || typeof stage.on !== 'function') return;
 
-    const handleStageClick = (e: any) => {
+    const handleStageClick = (e: StageEventObject) => {
       // Only handle selection when in select mode
       const currentTool = toolProp ?? internalTool;
       if (currentTool !== 'select') return;
@@ -83,12 +83,12 @@ export function useCanvasClickHandler(opts: UseCanvasClickHandlerOptions): void 
       const shiftKey = e.evt?.shiftKey ?? false;
 
       // Step 1: Konva walk-up — reliable ONLY for edges (line stroke hit detection)
-      const target = e.target;
-      if (target && target !== stage) {
-        let node = target;
-        while (node && node !== stage) {
-          const id = typeof node.id === 'function' ? node.id() : node.id;
-          if (id && typeof id === 'string' && id.startsWith('el-')) {
+      const target: NodeHandle = e.target;
+      if (target) {
+        let node: NodeHandle | null = target;
+        while (node) {
+          const id = node.id();
+          if (id && id.startsWith('el-')) {
             const element = irRef.current ? findElement(irRef.current, id) : null;
             if (element?.type === 'edge') {
               selectionRef.current?.select(id, shiftKey);
@@ -104,7 +104,7 @@ export function useCanvasClickHandler(opts: UseCanvasClickHandlerOptions): void 
       const container = containerRef.current;
       if (!container || !engine) return;
 
-      const nativeEvent = e.evt as MouseEvent | undefined;
+      const nativeEvent = e.evt;
       if (!nativeEvent) return;
 
       const rect = container.getBoundingClientRect();

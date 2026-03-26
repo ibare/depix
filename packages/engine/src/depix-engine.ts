@@ -8,6 +8,7 @@
 
 import Konva from 'konva';
 import type { DepixIR, IRScene, IRBackground, IRElement, IRContainer } from '@depix/core';
+import type { StageHandle, LayerHandle, TransformerHandle } from './handles.js';
 import { CoordinateTransform } from './coordinate-transform.js';
 import { renderElements } from './ir-renderer/index.js';
 
@@ -235,7 +236,7 @@ export class DepixEngine {
   }
 
   /** Get the underlying Konva Stage (for advanced usage). */
-  getStage(): Konva.Stage {
+  getStage(): StageHandle {
     return this.stage;
   }
 
@@ -295,12 +296,12 @@ export class DepixEngine {
   }
 
   /** Get the Transformer created by createEditOverlay, or null if not in edit mode. */
-  getEditTransformer(): Konva.Transformer | null {
+  getEditTransformer(): TransformerHandle | null {
     return this.editTransformer;
   }
 
   /** Get the overlay Layer created by createEditOverlay, or null if not in edit mode. */
-  getOverlayLayer(): Konva.Layer | null {
+  getOverlayLayer(): LayerHandle | null {
     return this.overlayLayer;
   }
 
