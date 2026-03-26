@@ -402,7 +402,9 @@ function emitShapeWithChildren(
     h: Math.max(bounds.h - padding * 2, 1),
   };
 
+  // 0.8: reserve 20% vertical space for inter-child gaps; min 2 units per child
   const childH = scaleCtx ? Math.max(innerBounds.h / Math.max(element.children.length, 1) * 0.8, 2) : 4;
+  // 1.25: child step = child height + 25% gap between children
   const childStep = scaleCtx ? childH * 1.25 : 5;
   let childY = innerBounds.y;
   let planIdx = 0;
@@ -423,6 +425,7 @@ function emitShapeWithChildren(
       childMeasured,
     );
     children.push(childEl);
+    // 0.25: 25% of child height as vertical gap between siblings
     childY += (preallocBounds ? preallocBounds.h : childH) + (scaleCtx ? childH * 0.25 : 1);
   }
 
@@ -626,7 +629,9 @@ function emitListElement(
     : (typeof element.style['font-size'] === 'number'
       ? element.style['font-size']
       : scaleCtx ? computeFontSize(Math.min(bounds.w, bounds.h), 'listItem') : theme.fontSize.sm);
+  // 0.3: gap between list items = 30% of font size (compact spacing)
   const itemGap = measured ? measured.childGap : (fontSize * 0.3);
+  // 1.8: each item row height = font size × 1.8 (line-height + vertical padding)
   const itemHeight = fontSize * 1.8;
   // Distribute items using measured height or fallback to even distribution
   const totalNeeded = items.length > 0
@@ -665,6 +670,7 @@ function emitDividerElement(
 ): IRLine {
   const style = buildStyle(element.style);
   if (!style.stroke) style.stroke = '#e5e7eb';
+  // 0.2: hairline divider thickness in relative coordinate units
   if (!style.strokeWidth) style.strokeWidth = 0.2;
 
   return {
@@ -736,6 +742,7 @@ function emitRowElement(
       style: {
         fill: isHeader ? theme.colors.muted : theme.background,
         stroke: theme.border,
+        // 0.15: thin table cell border in relative units
         strokeWidth: 0.15,
       },
       shape: 'rect',
@@ -747,6 +754,7 @@ function emitRowElement(
       id: `${id}-cell-${i}-text`,
       type: 'text',
       bounds: {
+        // 0.5: horizontal padding inside table cells
         x: cellBounds.x + 0.5,
         y: cellBounds.y,
         w: cellBounds.w - 1,
@@ -833,6 +841,7 @@ function emitChartAxes(
   children.push({
     id: `${id}-ylabel-max`, type: 'text', bounds: axes.yLabelMax.bounds,
     style: {}, content: axes.yLabelMax.content,
+    // 0.7: axis labels use 70% of base font size for visual hierarchy
     fontSize: fontSize * 0.7, color: theme.foreground, align: 'right', valign: 'top',
   } as IRText);
 
@@ -867,6 +876,7 @@ function emitBarChart(
     children.push({
       id: `${id}-xlabel-${i}`, type: 'text', bounds: bar.labelBounds,
       style: {}, content: bar.category,
+      // 0.8: data/category labels use 80% of base font size
       fontSize: fontSize * 0.8, color: theme.foreground, align: 'center', valign: 'top',
     } as IRText);
   }
@@ -915,6 +925,7 @@ function emitLineChart(
     children.push({
       id: `${id}-xlabel-${i}`, type: 'text', bounds: pt.labelBounds,
       style: {}, content: pt.category,
+      // 0.8: data/category labels use 80% of base font size
       fontSize: fontSize * 0.8, color: theme.foreground, align: 'center', valign: 'top',
     } as IRText);
   }

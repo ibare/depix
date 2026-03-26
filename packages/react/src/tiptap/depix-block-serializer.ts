@@ -133,6 +133,8 @@ export function parseDepixBlock(markdown: string): DepixBlockAttrs | null {
 
     return attrs;
   } catch {
+    // Malformed JSON is expected — markdown content from external sources
+    // may contain invalid depix blocks, so we gracefully return null.
     return null;
   }
 }

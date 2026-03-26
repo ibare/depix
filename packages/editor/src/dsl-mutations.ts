@@ -623,6 +623,14 @@ function matchIRToAST(
 // ElementId-based mutations
 // ---------------------------------------------------------------------------
 
+/** Parse a DSL content fragment and extract the label from the first element. */
+function extractLabelFromFragment(content: string, fallback: string): string {
+  const fragment = parse(`scene { layout: full\nbody: ${content} }`);
+  const firstChild = fragment.ast.scenes[0]?.children[0];
+  if (firstChild?.kind === 'element') return (firstChild as ASTElement).label ?? fallback;
+  return fallback;
+}
+
 /**
  * Add a child element/block to a container identified by IR element ID.
  * Works at any depth in the AST tree.
@@ -650,20 +658,18 @@ export function addChild(
   if (parentNode.kind === 'element' && (parentNode as ASTElement).elementType === 'list') {
     const el = parentNode as ASTElement;
     if (!el.items) el.items = [];
-    // Extract label from content (e.g. 'item "New item"' → "New item")
-    const labelMatch = content.match(/"([^"]*)"/);
-    el.items.push(labelMatch ? labelMatch[1] : 'New item');
+    // Extract label from content via parser (e.g. 'item "New item"' → "New item")
+    el.items.push(extractLabelFromFragment(content, 'New item'));
     return serialize(ast);
   }
 
   // bullet element: add item child
   if (parentNode.kind === 'element' && (parentNode as ASTElement).elementType === 'bullet') {
     const el = parentNode as ASTElement;
-    const labelMatch = content.match(/"([^"]*)"/);
     el.children.push({
       kind: 'element',
       elementType: 'item',
-      label: labelMatch ? labelMatch[1] : 'New item',
+      label: extractLabelFromFragment(content, 'New item'),
       props: {},
       style: {},
       flags: [],

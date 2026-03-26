@@ -52,7 +52,13 @@ export function useDSLSync(
 
   const parsedAst = useMemo(() => {
     if (!dsl.trim() || !compiled.ir) return null;
-    try { return parse(dsl).ast; } catch { return null; }
+    try {
+      return parse(dsl).ast;
+    } catch {
+      // Parse errors are expected during live editing; compilation errors
+      // are already surfaced via the `errors` array above.
+      return null;
+    }
   }, [dsl, compiled.ir]);
 
   const scenes = useMemo<SceneInfo[]>(() => {

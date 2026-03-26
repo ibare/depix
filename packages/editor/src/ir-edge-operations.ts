@@ -105,8 +105,9 @@ export function recalculateEdge(ir: DepixIR, edgeId: string): DepixIR {
   };
 
   const newEdge = routeEdge(input);
-  // Preserve the original edge's ID
+  // Preserve the original edge's ID and style
   newEdge.id = typedEdge.id;
+  newEdge.style = typedEdge.style;
 
   // Clone IR and replace the edge
   const clone = structuredClone(ir);

@@ -107,6 +107,8 @@ function resolveElementIndex(
     if (irIdx >= 0 && irIdx < astElements.length) return irIdx;
     return undefined;
   } catch {
+    // DSL may be syntactically invalid while the user is mid-edit;
+    // parse errors are expected, so we silently fall back to undefined.
     return undefined;
   }
 }
