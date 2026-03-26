@@ -61,6 +61,18 @@ concerns:
         - "packages/editor/**"
         - "packages/react/**"
 
+  - id: C5
+    file: concerns/C5-static-analysis.md
+    description: 정적 분석 — TypeScript strict, ESLint/Prettier 설정 변경 시 영향 확인
+    triggers:
+      paths:
+        - "tsconfig*.json"
+        - "eslint.config.*"
+        - ".prettierrc*"
+      patterns:
+        - "@ts-ignore"
+        - "@ts-expect-error"
+
 # ─────────────────────────────────────
 # Specifics (Domain-specific)
 # ─────────────────────────────────────
@@ -104,3 +116,15 @@ specifics:
         - "useEditorStore"
         - "useEditorStoreApi"
         - "createEditorStore"
+
+  - id: S-dsl-mutations
+    file: specifics/S-dsl-mutations.md
+    description: DSL 뮤테이션 — parse→AST조작→serialize 패턴, 순수 함수, 라운드트립 보장
+    triggers:
+      paths:
+        - "packages/editor/src/dsl-mutations.ts"
+        - "packages/core/src/compiler/serializer.ts"
+      patterns:
+        - "serialize("
+        - "parse("
+        - "Mutation"

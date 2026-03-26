@@ -1,6 +1,10 @@
+---
+version: 1
+last_verified: 2026-03-07
+---
+
 # Principles
 
-<!-- last_verified: 2026-03-07 -->
 모든 코드에 항상 적용되는 핵심 원칙.
 
 ---

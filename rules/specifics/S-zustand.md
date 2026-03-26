@@ -1,3 +1,8 @@
+---
+version: 1
+last_verified: 2026-03-14
+---
+
 # Zustand Store — S-zustand
 
 ## When to Apply
