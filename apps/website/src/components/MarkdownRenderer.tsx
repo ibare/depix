@@ -5,27 +5,47 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-/** Shows DSL code block with a "Render" button. DepixLive is created only on click. */
-function LazyDepix({ dsl }: { dsl: string }) {
-  const [show, setShow] = useState(false);
+/** First example in a section: DSL code + live render shown together. */
+function DepixShowcase({ dsl }: { dsl: string }) {
+  return (
+    <div className="md-depix-showcase">
+      <pre className="md-code-block">
+        <code>{dsl}</code>
+      </pre>
+      <div className="md-depix-live">
+        <DepixLive dsl={dsl} />
+      </div>
+    </div>
+  );
+}
+
+/** Subsequent examples: tab UI to switch between DSL code and rendered view. */
+function DepixTabs({ dsl }: { dsl: string }) {
+  const [tab, setTab] = useState<'dsl' | 'render'>('dsl');
 
   return (
-    <div className="md-depix-lazy">
-      {show ? (
+    <div className="md-depix-tabs">
+      <div className="md-depix-tabs__bar">
+        <button
+          className={`md-depix-tabs__tab ${tab === 'dsl' ? 'md-depix-tabs__tab--active' : ''}`}
+          onClick={() => setTab('dsl')}
+        >
+          DSL
+        </button>
+        <button
+          className={`md-depix-tabs__tab ${tab === 'render' ? 'md-depix-tabs__tab--active' : ''}`}
+          onClick={() => setTab('render')}
+        >
+          Render
+        </button>
+      </div>
+      {tab === 'dsl' ? (
+        <pre className="md-code-block" style={{ borderTopLeftRadius: 0 }}>
+          <code>{dsl}</code>
+        </pre>
+      ) : (
         <div className="md-depix-live">
           <DepixLive dsl={dsl} />
-        </div>
-      ) : (
-        <div style={{ position: 'relative' }}>
-          <pre className="md-code-block">
-            <code>{dsl}</code>
-          </pre>
-          <button
-            className="btn btn--primary md-depix-render-btn"
-            onClick={() => setShow(true)}
-          >
-            ▶ Render
-          </button>
         </div>
       )}
     </div>
@@ -51,6 +71,7 @@ function parseMarkdown(md: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   let i = 0;
   let key = 0;
+  let depixCountInSection = 0;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -61,9 +82,10 @@ function parseMarkdown(md: string): React.ReactNode[] {
       continue;
     }
 
-    // Horizontal rule
+    // Horizontal rule — reset section counter
     if (/^---+$/.test(line.trim())) {
       nodes.push(<hr key={key++} className="md-hr" />);
+      depixCountInSection = 0;
       i++;
       continue;
     }
@@ -82,7 +104,12 @@ function parseMarkdown(md: string): React.ReactNode[] {
       const code = codeLines.join('\n');
 
       if (lang === 'depix') {
-        nodes.push(<LazyDepix key={key++} dsl={code} />);
+        if (depixCountInSection === 0) {
+          nodes.push(<DepixShowcase key={key++} dsl={code} />);
+        } else {
+          nodes.push(<DepixTabs key={key++} dsl={code} />);
+        }
+        depixCountInSection++;
       } else {
         nodes.push(
           <pre key={key++} className="md-code-block">
@@ -104,11 +131,12 @@ function parseMarkdown(md: string): React.ReactNode[] {
       continue;
     }
 
-    // Heading
+    // Heading — reset section counter on H2 (##)
     const headingMatch = line.match(/^(#{1,4})\s+(.+)/);
     if (headingMatch) {
       const level = headingMatch[1].length;
       const text = headingMatch[2];
+      if (level <= 2) depixCountInSection = 0;
       const heading = renderInline(text);
       const cls = `md-h${level}`;
       if (level === 1) nodes.push(<h2 key={key++} className={cls}>{heading}</h2>);
@@ -166,20 +194,15 @@ function parseMarkdown(md: string): React.ReactNode[] {
 // ---------------------------------------------------------------------------
 
 function renderInline(text: string): React.ReactNode {
-  // Split on inline code, bold, and links
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let idx = 0;
 
   while (remaining.length > 0) {
-    // Inline code
     const codeMatch = remaining.match(/`([^`]+)`/);
-    // Bold
     const boldMatch = remaining.match(/\*\*([^*]+)\*\*/);
-    // Link
     const linkMatch = remaining.match(/\[([^\]]+)\]\(([^)]+)\)/);
 
-    // Find earliest match
     const matches = [
       codeMatch ? { type: 'code', match: codeMatch } : null,
       boldMatch ? { type: 'bold', match: boldMatch } : null,

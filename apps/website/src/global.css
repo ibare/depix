@@ -376,16 +376,61 @@ p {
   margin-bottom: 1.25em;
 }
 
-.md-content .md-depix-lazy {
+/* Showcase: first example — code + live side by side */
+.md-content .md-depix-showcase {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+  margin-bottom: 1.25em;
+  align-items: start;
+}
+
+.md-content .md-depix-showcase > .md-code-block {
+  margin-bottom: 0;
+  max-height: 24em;
+}
+
+.md-content .md-depix-showcase > .md-depix-live {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .md-content .md-depix-showcase {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tabs: subsequent examples — DSL / Render toggle */
+.md-content .md-depix-tabs {
   margin-bottom: 1.25em;
 }
 
-.md-content .md-depix-render-btn {
-  position: absolute;
-  top: 0.5em;
-  right: 0.5em;
-  font-size: 0.75em;
-  padding: 0.35em 0.8em;
+.md-content .md-depix-tabs__bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.md-content .md-depix-tabs__tab {
+  padding: 0.45em 1em;
+  font-size: 0.82em;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s ease-out;
+}
+
+.md-content .md-depix-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.md-content .md-depix-tabs__tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
 }
 
 .md-content .md-hr {
