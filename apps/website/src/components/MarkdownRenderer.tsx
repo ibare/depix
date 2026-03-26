@@ -1,8 +1,35 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import DepixLive from './DepixLive';
 
 interface MarkdownRendererProps {
   content: string;
+}
+
+/** Shows DSL code block with a "Render" button. DepixLive is created only on click. */
+function LazyDepix({ dsl }: { dsl: string }) {
+  const [show, setShow] = useState(false);
+
+  return (
+    <div className="md-depix-lazy">
+      {show ? (
+        <div className="md-depix-live">
+          <DepixLive dsl={dsl} />
+        </div>
+      ) : (
+        <div style={{ position: 'relative' }}>
+          <pre className="md-code-block">
+            <code>{dsl}</code>
+          </pre>
+          <button
+            className="btn btn--primary md-depix-render-btn"
+            onClick={() => setShow(true)}
+          >
+            ▶ Render
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -55,11 +82,7 @@ function parseMarkdown(md: string): React.ReactNode[] {
       const code = codeLines.join('\n');
 
       if (lang === 'depix') {
-        nodes.push(
-          <div key={key++} className="md-depix-live">
-            <DepixLive dsl={code} />
-          </div>,
-        );
+        nodes.push(<LazyDepix key={key++} dsl={code} />);
       } else {
         nodes.push(
           <pre key={key++} className="md-code-block">
