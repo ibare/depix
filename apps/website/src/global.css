@@ -152,8 +152,7 @@ p {
   background: var(--color-bg-alt);
   border-radius: var(--radius);
   padding: 1.25em 1.5em;
-  overflow: auto;
-  max-height: 20em;
+  overflow-x: auto;
   font-family: var(--font-mono);
   font-size: 0.85em;
   line-height: 1.6;
@@ -383,7 +382,7 @@ p {
 
 .md-content .md-depix-showcase > .md-code-block {
   margin-bottom: 1em;
-  max-height: 20em;
+  max-height: none;
 }
 
 /* Tabs: subsequent examples — DSL / Render toggle */
