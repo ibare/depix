@@ -1,24 +1,41 @@
 import { useMemo, useState } from 'react';
 import DepixLive from './DepixLive';
+import { useShiki } from '../hooks/useShiki';
 
 interface MarkdownRendererProps {
   content: string;
 }
 
+/** Renders DSL code with Shiki highlighting (falls back to plain text). */
+function HighlightedCode({ code, highlight, style }: { code: string; highlight: ((c: string) => string) | null; style?: React.CSSProperties }) {
+  if (highlight) {
+    return (
+      <div
+        className="md-code-block md-code-highlighted"
+        style={style}
+        dangerouslySetInnerHTML={{ __html: highlight(code) }}
+      />
+    );
+  }
+  return (
+    <pre className="md-code-block" style={style}>
+      <code>{code}</code>
+    </pre>
+  );
+}
+
 /** First example in a section: DSL code above, live render below. */
-function DepixShowcase({ dsl }: { dsl: string }) {
+function DepixShowcase({ dsl, highlight }: { dsl: string; highlight: ((c: string) => string) | null }) {
   return (
     <div className="md-depix-showcase">
-      <pre className="md-code-block">
-        <code>{dsl}</code>
-      </pre>
+      <HighlightedCode code={dsl} highlight={highlight} />
       <DepixLive dsl={dsl} />
     </div>
   );
 }
 
 /** Subsequent examples: tab UI to switch between DSL code and rendered view. */
-function DepixTabs({ dsl }: { dsl: string }) {
+function DepixTabs({ dsl, highlight }: { dsl: string; highlight: ((c: string) => string) | null }) {
   const [tab, setTab] = useState<'dsl' | 'render'>('dsl');
 
   return (
@@ -38,9 +55,7 @@ function DepixTabs({ dsl }: { dsl: string }) {
         </button>
       </div>
       {tab === 'dsl' ? (
-        <pre className="md-code-block" style={{ borderTopLeftRadius: 0 }}>
-          <code>{dsl}</code>
-        </pre>
+        <HighlightedCode code={dsl} highlight={highlight} style={{ borderTopLeftRadius: 0 }} />
       ) : (
         <div className="md-depix-live">
           <DepixLive dsl={dsl} />
@@ -56,7 +71,8 @@ function DepixTabs({ dsl }: { dsl: string }) {
  * inline code, bold, tables, lists, horizontal rules, and links.
  */
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  const elements = useMemo(() => parseMarkdown(content), [content]);
+  const highlight = useShiki();
+  const elements = useMemo(() => parseMarkdown(content, highlight), [content, highlight]);
   return <div className="md-content">{elements}</div>;
 }
 
@@ -64,7 +80,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
 // Parser
 // ---------------------------------------------------------------------------
 
-function parseMarkdown(md: string): React.ReactNode[] {
+function parseMarkdown(md: string, highlight: ((code: string) => string) | null): React.ReactNode[] {
   const lines = md.split('\n');
   const nodes: React.ReactNode[] = [];
   let i = 0;
@@ -102,9 +118,9 @@ function parseMarkdown(md: string): React.ReactNode[] {
 
       if (lang === 'depix') {
         if (depixCountInSection === 0) {
-          nodes.push(<DepixShowcase key={key++} dsl={code} />);
+          nodes.push(<DepixShowcase key={key++} dsl={code} highlight={highlight} />);
         } else {
-          nodes.push(<DepixTabs key={key++} dsl={code} />);
+          nodes.push(<DepixTabs key={key++} dsl={code} highlight={highlight} />);
         }
         depixCountInSection++;
       } else {

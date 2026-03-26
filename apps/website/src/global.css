@@ -371,6 +371,21 @@ p {
   margin-bottom: 1.25em;
 }
 
+/* Shiki highlighted code — override Shiki's inline styles for consistency */
+.md-content .md-code-highlighted pre {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  font-family: var(--font-mono);
+  font-size: 1em;
+  line-height: 1.65;
+}
+
+.md-content .md-code-highlighted code {
+  font-family: var(--font-mono);
+  font-size: 1em;
+}
+
 .md-content .md-depix-live {
   margin-bottom: 1.25em;
 }

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Depix",
+  "scopeName": "source.depix",
+  "fileTypes": ["depix"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#directive" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#edge" },
+    { "include": "#id" },
+    { "include": "#block-type" },
+    { "include": "#element-type" },
+    { "include": "#flag" },
+    { "include": "#property-key" },
+    { "include": "#braces" },
+    { "include": "#brackets" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.depix"
+    },
+    "directive": {
+      "match": "@(page|style|transition|lane|presentation|theme|ratio|data|overrides)\\b",
+      "name": "keyword.control.directive.depix"
+    },
+    "string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.depix",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.depix"
+        }
+      ]
+    },
+    "number": {
+      "match": "\\b\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.depix"
+    },
+    "edge": {
+      "match": "<->|-->|->|--",
+      "name": "keyword.operator.edge.depix"
+    },
+    "id": {
+      "match": "#[a-zA-Z_][a-zA-Z0-9_-]*",
+      "name": "entity.name.tag.id.depix"
+    },
+    "block-type": {
+      "match": "\\b(flow|stack|grid|tree|group|layers|canvas|scene|column|table|chart|box|layer|row)\\b",
+      "name": "keyword.other.block.depix"
+    },
+    "element-type": {
+      "match": "\\b(node|label|list|badge|icon|divider|image|cell|rect|circle|line|text|heading|bullet|stat|quote|item|step|diamond|pill|hexagon|triangle|parallelogram|ellipse|cylinder|trapezoid)\\b",
+      "name": "support.type.element.depix"
+    },
+    "flag": {
+      "match": "\\b(bold|italic|underline|strikethrough|center|outline|header|ordered)\\b",
+      "name": "constant.language.flag.depix"
+    },
+    "property-key": {
+      "match": "\\b(background|color|border|border-width|border-style|shadow|radius|opacity|font-size|font-weight|direction|gap|ratio|cols|layout|subtitle|attribution|description|label|type|shape|width|height|size|fit|src|x|y|w|h)\\s*:",
+      "name": "variable.other.property.depix"
+    },
+    "braces": {
+      "match": "[{}]",
+      "name": "punctuation.definition.block.depix"
+    },
+    "brackets": {
+      "match": "[\\[\\]]",
+      "name": "punctuation.definition.array.depix"
+    }
+  }
+}
