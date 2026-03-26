@@ -23,8 +23,11 @@ async function loadHighlighter(): Promise<ShikiHighlighter> {
 
   const highlighter = await shiki.createHighlighter({
     themes: ['github-light'],
-    langs: [grammar],
+    langs: [],
   });
+
+  // Register the custom grammar explicitly
+  await highlighter.loadLanguage(grammar);
 
   cachedHighlighter = highlighter;
   return highlighter;

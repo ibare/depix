@@ -1,8 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Depix",
+  "name": "depix",
   "scopeName": "source.depix",
   "fileTypes": ["depix"],
+  "aliases": ["depix"],
   "patterns": [
     { "include": "#comment" },
     { "include": "#directive" },
