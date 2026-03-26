@@ -376,28 +376,14 @@ p {
   margin-bottom: 1.25em;
 }
 
-/* Showcase: first example — code + live side by side */
+/* Showcase: first example — code above, render below */
 .md-content .md-depix-showcase {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1em;
   margin-bottom: 1.25em;
-  align-items: start;
 }
 
 .md-content .md-depix-showcase > .md-code-block {
-  margin-bottom: 0;
-  max-height: 24em;
-}
-
-.md-content .md-depix-showcase > .md-depix-live {
-  margin-bottom: 0;
-}
-
-@media (max-width: 768px) {
-  .md-content .md-depix-showcase {
-    grid-template-columns: 1fr;
-  }
+  margin-bottom: 1em;
+  max-height: 20em;
 }
 
 /* Tabs: subsequent examples — DSL / Render toggle */

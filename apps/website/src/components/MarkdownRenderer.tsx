@@ -5,16 +5,14 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-/** First example in a section: DSL code + live render shown together. */
+/** First example in a section: DSL code above, live render below. */
 function DepixShowcase({ dsl }: { dsl: string }) {
   return (
     <div className="md-depix-showcase">
       <pre className="md-code-block">
         <code>{dsl}</code>
       </pre>
-      <div className="md-depix-live">
-        <DepixLive dsl={dsl} />
-      </div>
+      <DepixLive dsl={dsl} />
     </div>
   );
 }
@@ -82,10 +80,9 @@ function parseMarkdown(md: string): React.ReactNode[] {
       continue;
     }
 
-    // Horizontal rule — reset section counter
+    // Horizontal rule
     if (/^---+$/.test(line.trim())) {
       nodes.push(<hr key={key++} className="md-hr" />);
-      depixCountInSection = 0;
       i++;
       continue;
     }
@@ -136,7 +133,7 @@ function parseMarkdown(md: string): React.ReactNode[] {
     if (headingMatch) {
       const level = headingMatch[1].length;
       const text = headingMatch[2];
-      if (level <= 2) depixCountInSection = 0;
+      // No counter reset — only the very first depix block per page is a showcase
       const heading = renderInline(text);
       const cls = `md-h${level}`;
       if (level === 1) nodes.push(<h2 key={key++} className={cls}>{heading}</h2>);
