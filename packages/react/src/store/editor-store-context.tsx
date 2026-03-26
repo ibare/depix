@@ -7,7 +7,7 @@ import { createEditorStore } from './create-editor-store.js';
 // Context
 // ---------------------------------------------------------------------------
 
-type EditorStore = ReturnType<typeof createEditorStore>;
+export type EditorStore = ReturnType<typeof createEditorStore>;
 
 const EditorStoreContext = createContext<EditorStore | null>(null);
 
