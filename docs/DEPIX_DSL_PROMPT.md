@@ -31,119 +31,28 @@ If no `scene` block is written, the compiler wraps all top-level content in an i
 
 ---
 
-## Directives
-
-Directives start with `@` and set document-level configuration. Place them before any scene.
-
-| Directive | Values | Description |
-|-----------|--------|-------------|
-| `@page` | `16:9`, `4:3`, `1:1`, `*` | Canvas aspect ratio. `*` = auto-height (content-driven) |
-| `@style` | `default`, `sketch` | Drawing style hint |
-| `@transition` | `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom-in`, `zoom-out` | Scene transition |
-| `@ratio` | `16:9` etc. | Alias for @page |
-
-### @data — Named Dataset
+## Comments
 
 ```
-@data "sales" {
-  "Quarter" "Revenue" "Profit"
-  "Q1" 120 30
-  "Q2" 150 45
-  "Q3" 180 60
-}
+// This is a comment
+node "A"  // inline comment
 ```
 
-The first row is automatically treated as the header. Reference by name in a `chart` block.
-
-### @overrides — Element Position Override
-
-```
-@overrides {
-  #myElement { x: 10, y: 20, w: 30, h: 40 }
-}
-```
-
-Used by the editor to store manual position adjustments.
-
----
-
-## Scenes
-
-Each scene is a visual page/slide. Scenes use **slot-based layouts** to arrange content.
-
-```
-scene "Page Title" {
-  layout: <preset>
-  <slotName>: <content>
-  <slotName>: <content>
-}
-```
-
-### Layout Presets (14)
-
-| Preset | Slots | Description |
-|--------|-------|-------------|
-| `full` | body | Single full-area content |
-| `center` | body | Centered content area |
-| `split` | left, right | Vertical split (50:50, adjust with `ratio`) |
-| `rows` | top, bottom | Horizontal split (50:50, adjust with `ratio`) |
-| `sidebar` | main, side | Main + sidebar (70:30, adjust with `ratio`, `direction`) |
-| `header` | header, body | Top header + body below |
-| `header-split` | header, left, right | Header + vertical split |
-| `header-rows` | header, top, bottom | Header + horizontal split |
-| `header-sidebar` | header, main, side | Header + sidebar layout |
-| `grid` | cell (repeatable) | Uniform grid cells |
-| `header-grid` | header, cell (repeatable) | Header + grid |
-| `focus` | focus, cell (repeatable) | Large focus area + smaller cells |
-| `header-focus` | header, focus, cell (repeatable) | Header + focus + cells |
-| `custom` | cell (repeatable) | Simple vertical stack fallback |
-
-### Slot Names
-
-```
-header  — top section (fixed height)
-body    — main content area
-left    — left half (split layouts)
-right   — right half (split layouts)
-top     — top half (rows layouts)
-bottom  — bottom half (rows layouts)
-main    — primary area (sidebar layouts)
-side    — secondary area (sidebar layouts)
-focus   — large focal area (focus layouts)
-cell    — repeatable grid cell (grid/focus/custom)
-```
-
-### Scene Properties
-
-```
-scene "Title" {
-  layout: header-split      // layout preset (required for multi-slot)
-  ratio: 0.4                // split ratio (0.0–1.0)
-  direction: left            // sidebar direction
-}
-```
-
-### Slot Assignment Syntax
-
-Assign content to a slot with `slotName: content`:
-
-```
-scene {
-  layout: header
-  header: heading "Main Title"
-  body: flow {
-    node "Start" #a
-    node "End"   #b
-    #a -> #b
-  }
-}
-```
+Only line comments (`//`) are supported.
 
 ---
 
 ## Elements
 
 Elements are the atomic visual units. Each element type has a specific visual representation.
+
+Every element follows this pattern:
+
+```
+<elementType> ["label"] [#id] [flags] [{ props/style/children }]
+```
+
+All parts except `<elementType>` are optional.
 
 ### Shape Elements
 
@@ -212,18 +121,6 @@ bullet ["Item A", "Item B", "Item C"]
 divider                          // horizontal line
 image "alt text" { src: "url" }  // image placeholder
 ```
-
----
-
-## Element Syntax
-
-Every element follows this pattern:
-
-```
-<elementType> ["label"] [#id] [flags] [{ props/style/children }]
-```
-
-All parts except `<elementType>` are optional.
 
 ### ID
 
@@ -475,14 +372,113 @@ flow {
 
 ---
 
-## Comments
+## Scenes
+
+Each scene is a visual page/slide. Scenes use **slot-based layouts** to arrange content.
 
 ```
-// This is a comment
-node "A"  // inline comment
+scene "Page Title" {
+  layout: <preset>
+  <slotName>: <content>
+  <slotName>: <content>
+}
 ```
 
-Only line comments (`//`) are supported.
+### Layout Presets (14)
+
+| Preset | Slots | Description |
+|--------|-------|-------------|
+| `full` | body | Single full-area content |
+| `center` | body | Centered content area |
+| `split` | left, right | Vertical split (50:50, adjust with `ratio`) |
+| `rows` | top, bottom | Horizontal split (50:50, adjust with `ratio`) |
+| `sidebar` | main, side | Main + sidebar (70:30, adjust with `ratio`, `direction`) |
+| `header` | header, body | Top header + body below |
+| `header-split` | header, left, right | Header + vertical split |
+| `header-rows` | header, top, bottom | Header + horizontal split |
+| `header-sidebar` | header, main, side | Header + sidebar layout |
+| `grid` | cell (repeatable) | Uniform grid cells |
+| `header-grid` | header, cell (repeatable) | Header + grid |
+| `focus` | focus, cell (repeatable) | Large focus area + smaller cells |
+| `header-focus` | header, focus, cell (repeatable) | Header + focus + cells |
+| `custom` | cell (repeatable) | Simple vertical stack fallback |
+
+### Slot Names
+
+```
+header  — top section (fixed height)
+body    — main content area
+left    — left half (split layouts)
+right   — right half (split layouts)
+top     — top half (rows layouts)
+bottom  — bottom half (rows layouts)
+main    — primary area (sidebar layouts)
+side    — secondary area (sidebar layouts)
+focus   — large focal area (focus layouts)
+cell    — repeatable grid cell (grid/focus/custom)
+```
+
+### Scene Properties
+
+```
+scene "Title" {
+  layout: header-split      // layout preset (required for multi-slot)
+  ratio: 0.4                // split ratio (0.0–1.0)
+  direction: left            // sidebar direction
+}
+```
+
+### Slot Assignment Syntax
+
+Assign content to a slot with `slotName: content`:
+
+```
+scene {
+  layout: header
+  header: heading "Main Title"
+  body: flow {
+    node "Start" #a
+    node "End"   #b
+    #a -> #b
+  }
+}
+```
+
+---
+
+## Directives
+
+Directives start with `@` and set document-level configuration. Place them before any scene.
+
+| Directive | Values | Description |
+|-----------|--------|-------------|
+| `@page` | `16:9`, `4:3`, `1:1`, `*` | Canvas aspect ratio. `*` = auto-height (content-driven) |
+| `@style` | `default`, `sketch` | Drawing style hint |
+| `@transition` | `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom-in`, `zoom-out` | Scene transition |
+| `@ratio` | `16:9` etc. | Alias for @page |
+
+### @data — Named Dataset
+
+```
+@data "sales" {
+  "Quarter" "Revenue" "Profit"
+  "Q1" 120 30
+  "Q2" 150 45
+  "Q3" 180 60
+}
+```
+
+The first row is automatically treated as the header. Reference by name in a `chart` block.
+
+### @overrides — Element Position Override
+
+```
+@overrides {
+  #myElement { x: 10, y: 20, w: 30, h: 40 }
+}
+```
+
+Used by the editor to store manual position adjustments.
 
 ---
 
