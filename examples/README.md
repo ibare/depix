@@ -6,7 +6,7 @@ Standalone reference examples showing how to use the `@depix/*` packages.
 
 | File | Description |
 |------|-------------|
-| `01-basic-react.tsx` | Render a DSL diagram with `<DepixCanvas>` |
+| `01-basic-react.tsx` | Render a DSL diagram with `<DepixCanvasEditable>` |
 | `02-tiptap-integration.ts` | Serialize/parse Depix blocks in Markdown |
 | `03-programmatic-ir.ts` | Build a DepixIR document programmatically |
 | `04-custom-theme.ts` | Create and apply a custom theme |

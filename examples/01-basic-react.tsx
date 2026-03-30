@@ -1,13 +1,19 @@
 /**
- * Example: Render a DSL diagram with <DepixCanvas>
+ * Example: Render a DSL diagram with <DepixCanvasEditable>
  *
  * Usage:
- *   import { DepixCanvas } from '@depix/react';
- *   <DepixCanvas data={dsl} width={800} height={450} />
+ *   import { DepixCanvasEditable } from '@depix/react';
+ *   import { compile } from '@depix/core';
+ *
+ *   const { ir } = compile(dsl);
+ *   <DepixCanvasEditable ir={ir} onIRChange={() => {}} width={800} height={450} />
  */
+import { useState } from 'react';
+import { DepixCanvasEditable } from '@depix/react';
+import type { DepixCanvasEditableRef } from '@depix/react';
+import { compile } from '@depix/core';
+import type { DepixIR } from '@depix/core';
 import { useRef } from 'react';
-import { DepixCanvas } from '@depix/react';
-import type { DepixCanvasRef } from '@depix/react';
 
 const dsl = `
 @page 16:9
@@ -23,12 +29,12 @@ flow direction:right {
 `;
 
 export function BasicExample() {
-  const ref = useRef<DepixCanvasRef>(null);
+  const [ir, setIr] = useState<DepixIR>(() => compile(dsl).ir);
+  const ref = useRef<DepixCanvasEditableRef>(null);
 
   return (
     <div>
-      <DepixCanvas ref={ref} data={dsl} width={800} height={450} />
-      <button onClick={() => ref.current?.nextScene()}>Next Scene</button>
+      <DepixCanvasEditable ref={ref} ir={ir} onIRChange={setIr} width={800} height={450} />
     </div>
   );
 }

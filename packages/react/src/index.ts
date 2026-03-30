@@ -1,9 +1,6 @@
 // @depix/react — React components, hooks, and integrations for Depix
 
 // Canvas components
-export { DepixCanvas } from './DepixCanvas.js';
-export type { DepixCanvasProps, DepixCanvasRef } from './DepixCanvas.js';
-
 export { DepixCanvasEditable } from './DepixCanvasEditable.js';
 export type { DepixCanvasEditableProps, DepixCanvasEditableRef } from './DepixCanvasEditable.js';
 
@@ -15,9 +12,6 @@ export { DepixProvider, useDepixContext } from './context/DepixContext.js';
 export type { DepixContextValue, DepixProviderProps } from './context/DepixContext.js';
 
 // Hooks
-export { useDepixCanvas } from './hooks/useDepixCanvas.js';
-export type { UseDepixCanvasOptions, UseDepixCanvasReturn } from './hooks/useDepixCanvas.js';
-
 export { useDraggable } from './hooks/useDraggable.js';
 export type { UseDraggableOptions, DragHandleProps, UseDraggableReturn } from './hooks/useDraggable.js';
 

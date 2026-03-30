@@ -39,7 +39,7 @@ const DepixCanvasEditableInner = forwardRef<DepixCanvasEditableRef, DepixCanvasE
       ir, onIRChange, onSelectionChange, tool: toolProp, readOnly = false,
       className, style, width = 800, height = 450, initialEditMode = false,
       editButtonPosition = 'bottom-right', onEditModeChange, debug = false,
-      dsl, onDSLChange, dslTheme,
+      dsl, onDSLChange, dslTheme, registryUrl,
     } = props;
 
     // Store access
@@ -82,7 +82,7 @@ const DepixCanvasEditableInner = forwardRef<DepixCanvasEditableRef, DepixCanvasE
 
     // Engine lifecycle (extracted hook)
     const { containerRef, engineRef, enterFullscreen } = useEditableEngine({
-      renderIR, width, height, debug, currentSceneIndex,
+      renderIR, registryUrl, width, height, debug, currentSceneIndex,
       isEditing, isFullscreen, totalScenes: ir.scenes.length,
       aspectRatio: ir.meta.aspectRatio, storeApi,
     });

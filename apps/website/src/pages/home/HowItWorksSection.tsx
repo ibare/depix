@@ -5,7 +5,8 @@ const CODE = `// ① System prompt includes Depix DSL grammar
 const dsl = await llm.generate(prompt, { system: DEPIX_DSL_PROMPT });
 
 // ② Compile and render
-<DepixCanvas data={dsl} width={800} height={450} />`;
+const { ir } = compile(dsl);
+<DepixCanvasEditable ir={ir} onIRChange={() => {}} width={800} height={450} />`;
 
 export default function HowItWorksSection() {
   const { t } = useLang();

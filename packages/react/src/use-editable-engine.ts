@@ -11,6 +11,7 @@ import type { DepixIR } from '@depix/core';
 import { DepixEngine } from '@depix/engine';
 import type { EditorStore } from './store/index.js';
 import { computeEditDims } from './editable-styles.js';
+import { usePluginRegistry } from './hooks/usePluginRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,6 +20,8 @@ import { computeEditDims } from './editable-styles.js';
 export interface UseEditableEngineOptions {
   /** The IR currently rendered (may be editingIR during DSL editing). */
   renderIR: DepixIR;
+  /** URL of the shape registry index. Defaults to the official depix-registry on jsDelivr. */
+  registryUrl?: string;
   /** Base canvas width. */
   width: number;
   /** Base canvas height. */
@@ -56,6 +59,7 @@ export interface UseEditableEngineReturn {
 
 export function useEditableEngine({
   renderIR,
+  registryUrl,
   width,
   height,
   debug,
@@ -94,6 +98,10 @@ export function useEditableEngine({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---- Plugin registry (icon pack lazy loading) --------------------------
+
+  usePluginRegistry(engineRef, renderIR, registryUrl);
 
   // ---- Update IR when it changes -----------------------------------------
 

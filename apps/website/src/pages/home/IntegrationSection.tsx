@@ -2,9 +2,11 @@ import { useLang } from '../../i18n/context';
 import Card from '../../components/Card';
 import CodeBlock from '../../components/CodeBlock';
 
-const REACT_CODE = `import { DepixCanvas } from '@depix/react';
+const REACT_CODE = `import { DepixCanvasEditable } from '@depix/react';
+import { compile } from '@depix/core';
 
-<DepixCanvas data={dsl} width={800} height={450} />`;
+const { ir } = compile(dsl);
+<DepixCanvasEditable ir={ir} onIRChange={() => {}} width={800} height={450} />`;
 
 const MD_CODE = `# Architecture Overview
 

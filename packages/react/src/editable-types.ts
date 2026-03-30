@@ -48,6 +48,10 @@ export interface DepixCanvasEditableProps {
   onDSLChange?: (dsl: string) => void;
   /** Theme for DSL compilation. */
   dslTheme?: DepixTheme;
+
+  // ---- Icon registry ----
+  /** URL of the shape registry index. Defaults to the official depix-registry on jsDelivr. */
+  registryUrl?: string;
 }
 
 // ---------------------------------------------------------------------------

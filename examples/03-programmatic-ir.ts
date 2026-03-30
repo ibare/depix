@@ -2,7 +2,7 @@
  * Example: Build a DepixIR document programmatically
  *
  * Instead of writing DSL, you can construct IR objects directly
- * and render them with DepixCanvas or DepixEngine.
+ * and render them with DepixCanvasEditable or DepixEngine.
  */
 import type { DepixIR, IRScene, IRShape, IRText, IREdge } from '@depix/core';
 import { generateId } from '@depix/core';
