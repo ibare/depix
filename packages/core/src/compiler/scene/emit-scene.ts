@@ -230,7 +230,7 @@ function emitSceneContent(
       case 'stat': elResult = emitStat(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'quote': elResult = emitQuote(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'image': elResult = emitImage(node, id, bounds, sceneTheme, baseFontSize); break;
-      case 'icon': elResult = emitIcon(node, id, bounds, sceneTheme, baseFontSize); break;
+      case 'icon': elResult = emitIcon(node, id, bounds); break;
       case 'step': elResult = emitStep(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'list': elResult = emitBullet(node, id, bounds, sceneTheme, baseFontSize); break;
       case 'divider': elResult = emitSceneDivider(node, id, bounds, sceneTheme); break;

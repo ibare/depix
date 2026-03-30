@@ -17,3 +17,8 @@ export { CoordinateTransform } from './coordinate-transform.js';
 export type { ViewportSize, AspectRatio } from './coordinate-transform.js';
 
 export * from './export/index.js';
+
+export { ShapeRegistry } from './registry/shape-registry.js';
+export type { IconDefinition } from './registry/shape-registry.js';
+export { collectIconIds, loadRegistryIndex, resolveIcons } from './registry/plugin-loader.js';
+export type { RegistryIndex, RegistryPackEntry } from './registry/plugin-loader.js';

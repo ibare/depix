@@ -77,6 +77,9 @@ const {
 
 vi.mock('@depix/engine', () => ({
   DepixEngine: MockEngineConstructor,
+  collectIconIds: vi.fn().mockReturnValue([]),
+  loadRegistryIndex: vi.fn().mockResolvedValue({ version: '1', packs: [] }),
+  resolveIcons: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@depix/core', async () => {

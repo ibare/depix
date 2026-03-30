@@ -11,6 +11,7 @@ import type { DepixIR, IRScene, IRBackground, IRElement, IRContainer } from '@de
 import type { StageHandle, LayerHandle, TransformerHandle } from './handles.js';
 import { CoordinateTransform } from './coordinate-transform.js';
 import { renderElements } from './ir-renderer/index.js';
+import { ShapeRegistry } from './registry/shape-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,6 +74,7 @@ export class DepixEngine {
   private _debugMode = false;
   private overlayLayer: Konva.Layer | null = null;
   private editTransformer: Konva.Transformer | null = null;
+  private readonly registry = new ShapeRegistry();
 
   constructor(options: DepixEngineOptions) {
     const container =
@@ -245,6 +247,11 @@ export class DepixEngine {
     return this.transform;
   }
 
+  /** Get the shape registry for registering external icon packs. */
+  getRegistry(): ShapeRegistry {
+    return this.registry;
+  }
+
   // ---- Edit overlay ---------------------------------------------------------
 
   /**
@@ -350,7 +357,7 @@ export class DepixEngine {
   private renderContent(scene: IRScene): void {
     this.contentLayer.destroyChildren();
 
-    const group = renderElements(scene.elements, this.transform);
+    const group = renderElements(scene.elements, this.transform, this.registry);
     this.contentLayer.add(group);
     this.contentLayer.batchDraw();
   }

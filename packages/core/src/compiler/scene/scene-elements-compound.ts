@@ -11,6 +11,7 @@ import type {
   IRBounds,
   IRContainer,
   IRElement,
+  IRIcon,
   IRText,
 } from '../../ir/types.js';
 import type { SceneTheme } from '../../theme/scene-theme.js';
@@ -201,77 +202,14 @@ export function emitIcon(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-  sceneTheme: SceneTheme,
-  baseFontSize: number,
-): IRContainer {
-  const iconSymbol = el.label ?? '';
-  const iconLabel = typeof el.props.label === 'string' ? el.props.label : '';
-  const iconDesc = typeof el.props.description === 'string' ? el.props.description : '';
-
-  const naturalSymbolFS = baseFontSize * sceneTheme.typography.statSize;
-  const naturalLabelFS = baseFontSize * sceneTheme.typography.bodySize * 1.1;
-  const naturalDescFS = baseFontSize * sceneTheme.typography.bodySize * 0.85;
-  const gap = sceneTheme.layout.itemGap;
-  const partsCount = 1 + (iconLabel ? 1 : 0) + (iconDesc ? 1 : 0);
-  const naturalTotalH = (
-    naturalSymbolFS * LINE_HEIGHT_MULTIPLIER
-    + (iconLabel ? naturalLabelFS * LINE_HEIGHT_MULTIPLIER : 0)
-    + (iconDesc ? naturalDescFS * LINE_HEIGHT_MULTIPLIER : 0)
-    + gap * Math.max(partsCount - 1, 0)
-  );
-  const longestText = [iconSymbol, iconLabel, iconDesc].reduce((a, b) => a.length > b.length ? a : b, '');
-  const naturalW = estimateTextWidth(longestText, naturalSymbolFS);
-  const scale = computeFitScale(bounds.h, bounds.w, naturalTotalH, naturalW);
-
-  const symbolFS = naturalSymbolFS * scale;
-  const labelFS = naturalLabelFS * scale;
-  const descFS = naturalDescFS * scale;
-  const iconH = symbolFS * LINE_HEIGHT_MULTIPLIER;
-  const labelH = labelFS * LINE_HEIGHT_MULTIPLIER;
-  const descH = descFS * LINE_HEIGHT_MULTIPLIER;
-
-  const children: IRElement[] = [
-    {
-      id: `${id}-symbol`,
-      type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + gap, w: bounds.w, h: iconH },
-      style: {},
-      content: iconSymbol,
-      fontSize: symbolFS,
-      color: resolveTextColor(el.style, sceneTheme.colors.accent),
-      align: 'center',
-      valign: 'middle',
-    } as IRText,
-  ];
-
-  if (iconLabel) {
-    children.push({
-      id: `${id}-label`,
-      type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + gap + iconH + gap, w: bounds.w, h: labelH },
-      style: {},
-      content: iconLabel,
-      fontSize: labelFS,
-      color: sceneTheme.colors.text,
-      fontWeight: 'bold',
-      align: 'center',
-      valign: 'middle',
-    } as IRText);
-  }
-
-  if (iconDesc) {
-    children.push({
-      id: `${id}-desc`,
-      type: 'text',
-      bounds: { x: bounds.x + bounds.w * 0.05, y: bounds.y + gap + iconH + gap + labelH + gap, w: bounds.w * 0.9, h: descH },
-      style: {},
-      content: iconDesc,
-      fontSize: descFS,
-      color: sceneTheme.colors.textMuted,
-      align: 'center',
-      valign: 'top',
-    } as IRText);
-  }
-
-  return { id, type: 'container', bounds, style: {}, children };
+): IRIcon {
+  return {
+    id,
+    type: 'icon',
+    bounds,
+    style: {},
+    iconId: el.label ?? '',
+    label: typeof el.props.label === 'string' ? el.props.label : undefined,
+    description: typeof el.props.description === 'string' ? el.props.description : undefined,
+  };
 }

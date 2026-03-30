@@ -95,6 +95,23 @@ layers {
 }
 ```
 
+### 아이콘 다이어그램
+
+```depix
+@page 16:9
+
+scene "Architecture" {
+  layout: header-grid
+  header: heading "System Architecture"
+  cell: icon "server"   label:"API Server"
+  cell: icon "database" label:"PostgreSQL"
+  cell: icon "cache"    label:"Redis"
+  cell: icon "queue"    label:"Message Queue"
+}
+```
+
+아이콘 이름은 시맨틱 키(`"server"`, `"database"` 등)를 사용한다. 런타임에 레지스트리에서 SVG를 불러오므로 LLM은 URL을 알 필요가 없다. 등록되지 않은 키는 아웃라인 박스 폴백으로 항상 렌더링된다.
+
 ### 멀티 씬
 
 ```depix
@@ -332,7 +349,7 @@ DSL 텍스트
 
 ### IR 요소 타입
 
-IR은 7가지 discriminated union 타입으로 구성된다.
+IR은 8가지 discriminated union 타입으로 구성된다.
 
 | 타입 | 설명 |
 |------|------|
@@ -343,6 +360,7 @@ IR은 7가지 discriminated union 타입으로 구성된다.
 | `container` | 자식 요소를 포함하는 컨테이너 |
 | `image` | 이미지 |
 | `path` | SVG 패스 |
+| `icon` | 아이콘 (`iconId`: 레지스트리 키, `label?`, `description?`) |
 
 모든 요소는 `id`, `bounds` (0–100 상대 좌표), `style`, 타입별 필드를 가진다.
 
@@ -433,6 +451,17 @@ const dsl = `
 `;
 
 <DepixCanvas data={dsl} width={800} height={450} />
+```
+
+아이콘 레지스트리 URL을 지정할 수 있다. 기본값은 공식 jsDelivr CDN이다.
+
+```tsx
+<DepixCanvas
+  data={dsl}
+  width={800}
+  height={450}
+  registryUrl="https://cdn.jsdelivr.net/gh/ibare/depix-registry@main/registry.json"
+/>
 ```
 
 ### DepixCanvasEditable — 편집 가능한 캔버스
@@ -576,6 +605,75 @@ IR을 직접 조작하는 모드. DSL의 표현 범위에 제약받지 않는다
 - DSL로 생성한 다이어그램을 에디터에서 자유롭게 수정할 수 있다
 - 에디터에서 수정한 결과는 IR로 저장된다
 - 시맨틱 레이아웃의 제약에서 벗어나려면 **Detach** 기능을 사용한다 (Figma의 "Remove Auto Layout"과 동일)
+
+---
+
+## 아이콘 레지스트리
+
+Depix는 LLM이 `icon "server"` 처럼 시맨틱 이름만 기술하면, 런타임에 외부 레지스트리에서 매칭 SVG 아이콘을 자동으로 불러오는 플러그인 시스템을 제공한다.
+
+### 동작 방식
+
+```
+[앱 시작]
+레지스트리 인덱스 fetch (key 목록만) → 메모리 캐시
+
+[DSL 컴파일]
+icon "server" → IRIcon { iconId: "server", label: "..." }
+
+[렌더링 전]
+IR 스캔 → 필요한 iconId 수집
+→ 레지스트리 인덱스에서 팩 URL 조회
+→ 미로드 팩만 lazy fetch → ShapeRegistry 등록
+
+[렌더링]
+registry.get("server") → SVG path → Konva.Path
+(미등록 key) → 아웃라인 박스 + iconId 텍스트 (폴백)
+```
+
+컴파일러는 네트워크에 접근하지 않는다. 모든 레지스트리 로딩은 React/Engine 레이어에서 비동기로 처리된다.
+
+### 공식 레지스트리
+
+[ibare/depix-registry](https://github.com/ibare/depix-registry)에서 관리되며 jsDelivr CDN으로 서빙된다.
+
+| 팩 | 키 |
+|----|-----|
+| `tech` | `server` `database` `cloud` `api` `cache` `queue` `browser` `mobile` `cpu` `network` |
+
+### usePluginRegistry (직접 사용)
+
+```ts
+import { usePluginRegistry } from '@depix/react';
+
+// engineRef, ir, registryUrl을 받아 필요한 팩을 자동으로 로드한다.
+// DepixCanvas는 이 훅을 내부적으로 사용한다.
+usePluginRegistry(engineRef, ir, registryUrl);
+```
+
+### 커스텀 아이콘 직접 등록
+
+```ts
+import { DepixEngine } from '@depix/engine';
+
+const engine = new DepixEngine({ container: 'canvas', width: 800, height: 450 });
+
+engine.getRegistry().register('my-logo', {
+  svgPath: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  viewBox: '0 0 24 24',
+});
+```
+
+### 레지스트리 팩 포맷
+
+```json
+{
+  "server": { "svgPath": "M2 3h20v6H2z...", "viewBox": "0 0 24 24" },
+  "database": { "svgPath": "M12 2C6.48 2...", "viewBox": "0 0 24 24" }
+}
+```
+
+공개 레지스트리에 기여하려면 [depix-registry](https://github.com/ibare/depix-registry)에 PR을 올린다.
 
 ---
 

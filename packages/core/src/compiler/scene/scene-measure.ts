@@ -122,7 +122,7 @@ export function estimateContentHeight(node: ASTNode, baseFontSize: number, scene
   if (node.kind === 'element') {
     return (CONTENT_HEIGHT_ESTIMATORS[node.elementType] ?? defaultContentHeight)(node, baseFontSize, sceneTheme);
   }
-  return defaultContentHeight(node as ASTElement, baseFontSize, sceneTheme);
+  return defaultContentHeight(node as unknown as ASTElement, baseFontSize, sceneTheme);
 }
 
 /**

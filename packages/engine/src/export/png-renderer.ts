@@ -12,6 +12,7 @@ import Konva from 'konva';
 import type { DepixIR, IRScene, IRBackground } from '@depix/core';
 import { CoordinateTransform } from '../coordinate-transform.js';
 import { renderElements } from '../ir-renderer/index.js';
+import { ShapeRegistry } from '../registry/shape-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -156,7 +157,7 @@ export function renderSceneToPNG(
       meta.irHeight ?? 100,
     );
 
-    const group = renderElements(scene.elements, transform);
+    const group = renderElements(scene.elements, transform, new ShapeRegistry());
     contentLayer.add(group);
   } finally {
     (Konva as Record<string, unknown>).isBrowser = wasBrowser;

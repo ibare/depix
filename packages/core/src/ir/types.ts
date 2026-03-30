@@ -17,7 +17,7 @@
 /**
  * Discriminator for IR element types.
  *
- * 7 element kinds cover all visual primitives:
+ * 8 element kinds cover all visual primitives:
  * - `shape`     - rect, circle, ellipse, diamond, pill, hexagon, triangle, parallelogram
  * - `text`      - standalone text block
  * - `image`     - raster / vector image reference
@@ -25,6 +25,7 @@
  * - `path`      - SVG path data (free-form curves, polygons)
  * - `edge`      - connection between two elements with a resolved route
  * - `container` - parent that holds child elements (layout already resolved)
+ * - `icon`      - named icon resolved from the shape registry at render time
  */
 export type IRElementType =
   | 'shape'
@@ -33,7 +34,8 @@ export type IRElementType =
   | 'line'
   | 'path'
   | 'edge'
-  | 'container';
+  | 'container'
+  | 'icon';
 
 // ---------------------------------------------------------------------------
 // Geometry primitives
@@ -545,6 +547,32 @@ export interface IRContainer extends IRBase {
 }
 
 // ---------------------------------------------------------------------------
+// Icon
+// ---------------------------------------------------------------------------
+
+/**
+ * A named icon element resolved from the shape registry at render time.
+ *
+ * The compiler emits an IRIcon with a semantic `iconId` (e.g. "server").
+ * The engine looks up the registry at render time:
+ * - Match found  → renders the SVG path as a Konva.Path
+ * - No match     → renders a fallback (outline rect + iconId text)
+ *
+ * This keeps the compiler pure (no network calls) while enabling
+ * dynamic icon resolution from an external pack registry.
+ */
+export interface IRIcon extends IRBase {
+  /** Discriminator -- always `'icon'`. */
+  type: 'icon';
+  /** Semantic icon name used as registry lookup key (e.g. "server", "database"). */
+  iconId: string;
+  /** Optional label text rendered below the icon. */
+  label?: string;
+  /** Optional small description rendered below the label. */
+  description?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Discriminated union of all element types
 // ---------------------------------------------------------------------------
 
@@ -559,6 +587,7 @@ export interface IRContainer extends IRBase {
  * - `'path'`      -> {@link IRPath}
  * - `'edge'`      -> {@link IREdge}
  * - `'container'` -> {@link IRContainer}
+ * - `'icon'`      -> {@link IRIcon}
  */
 export type IRElement =
   | IRShape
@@ -567,7 +596,8 @@ export type IRElement =
   | IRLine
   | IRPath
   | IREdge
-  | IRContainer;
+  | IRContainer
+  | IRIcon;
 
 // ---------------------------------------------------------------------------
 // Scene

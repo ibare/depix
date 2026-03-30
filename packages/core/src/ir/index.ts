@@ -23,6 +23,7 @@ export type {
   IRElementType,
   IRGradient,
   IRGradientStop,
+  IRIcon,
   IRImage,
   IRInnerText,
   IRLine,

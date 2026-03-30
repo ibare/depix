@@ -15,6 +15,7 @@
 import Konva from 'konva';
 import type {
   IRElement,
+  IRIcon,
   IRText,
   IRImage,
   IRLine,
@@ -22,10 +23,12 @@ import type {
   IRContainer,
 } from '@depix/core';
 import type { CoordinateTransform } from '../coordinate-transform.js';
+import { ShapeRegistry } from '../registry/shape-registry.js';
 import { resolveStyleAttrs, buildFontStyle, applyTransform } from './style.js';
 import { createArrowMarker } from './helpers.js';
 import { renderShape } from './shape-renderer.js';
 import { renderEdge } from './edge-renderer.js';
+import { renderIcon } from './icon-renderer.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -35,9 +38,12 @@ import { renderEdge } from './edge-renderer.js';
  * Render a single IR element to a Konva node.
  * Dispatches by element.type — no other condition is used for branching.
  */
+const EMPTY_REGISTRY = new ShapeRegistry();
+
 export function renderElement(
   element: IRElement,
   transform: CoordinateTransform,
+  registry: ShapeRegistry = EMPTY_REGISTRY,
 ): Konva.Group | Konva.Shape {
   switch (element.type) {
     case 'shape':
@@ -53,7 +59,9 @@ export function renderElement(
     case 'edge':
       return renderEdge(element, transform);
     case 'container':
-      return renderContainer(element, transform);
+      return renderContainer(element, transform, registry);
+    case 'icon':
+      return renderIcon(element as IRIcon, transform, registry);
   }
 }
 
@@ -63,10 +71,11 @@ export function renderElement(
 export function renderElements(
   elements: IRElement[],
   transform: CoordinateTransform,
+  registry: ShapeRegistry = EMPTY_REGISTRY,
 ): Konva.Group {
   const group = new Konva.Group();
   for (const el of elements) {
-    group.add(renderElement(el, transform));
+    group.add(renderElement(el, transform, registry));
   }
   return group;
 }
@@ -193,7 +202,11 @@ function renderPath(pathEl: IRPath, transform: CoordinateTransform): Konva.Path 
 // Container renderer
 // ---------------------------------------------------------------------------
 
-function renderContainer(container: IRContainer, transform: CoordinateTransform): Konva.Group {
+function renderContainer(
+  container: IRContainer,
+  transform: CoordinateTransform,
+  registry: ShapeRegistry,
+): Konva.Group {
   const abs = transform.toAbsoluteBounds(container.bounds);
   const group = new Konva.Group({
     x: abs.x,
@@ -222,7 +235,7 @@ function renderContainer(container: IRContainer, transform: CoordinateTransform)
   // IR children use absolute canvas coordinates; subtract the container origin
   // so children are placed relative to the Group's local origin.
   for (const child of container.children) {
-    const childNode = renderElement(child, transform);
+    const childNode = renderElement(child, transform, registry);
     childNode.x(childNode.x() - abs.x);
     childNode.y(childNode.y() - abs.y);
     group.add(childNode);

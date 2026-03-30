@@ -64,6 +64,7 @@ const ELEMENT_TYPES: ReadonlySet<string> = new Set<IRElementType>([
   'path',
   'edge',
   'container',
+  'icon',
 ]);
 
 /** All valid shape kinds. */
@@ -710,6 +711,12 @@ function validateElementInternal(
       }
       if (el['clip'] !== undefined && typeof el['clip'] !== 'boolean') {
         errors.push(`${path}.clip must be a boolean`);
+      }
+      break;
+    }
+    case 'icon': {
+      if (typeof el['iconId'] !== 'string') {
+        errors.push(`${path}.iconId must be a string`);
       }
       break;
     }

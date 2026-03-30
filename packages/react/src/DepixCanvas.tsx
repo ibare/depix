@@ -19,6 +19,7 @@ import React, {
 import type { DepixIR } from '@depix/core';
 import { compile } from '@depix/core';
 import { DepixEngine } from '@depix/engine';
+import { usePluginRegistry } from './hooks/usePluginRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +40,8 @@ export interface DepixCanvasProps {
   width?: number;
   /** Initial height in pixels. Default: 450 */
   height?: number;
+  /** URL of the shape registry index. Defaults to the official depix-registry on jsDelivr. */
+  registryUrl?: string;
 }
 
 export interface DepixCanvasRef {
@@ -91,6 +94,7 @@ export const DepixCanvas = forwardRef<DepixCanvasRef, DepixCanvasProps>(
       style,
       width = 800,
       height = 450,
+      registryUrl,
     } = props;
 
     const generatedId = useId();
@@ -98,6 +102,7 @@ export const DepixCanvas = forwardRef<DepixCanvasRef, DepixCanvasProps>(
 
     const containerRef = useRef<HTMLDivElement>(null);
     const engineRef = useRef<DepixEngine | null>(null);
+    const ir = resolveIR(data);
 
     // ---- Engine lifecycle --------------------------------------------------
 
@@ -125,13 +130,16 @@ export const DepixCanvas = forwardRef<DepixCanvasRef, DepixCanvasProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ---- Plugin registry ---------------------------------------------------
+
+    usePluginRegistry(engineRef, ir, registryUrl);
+
     // ---- Data loading ------------------------------------------------------
 
     useEffect(() => {
       const engine = engineRef.current;
       if (!engine) return;
 
-      const ir = resolveIR(data);
       if (!ir) return;
 
       engine.load(ir);
