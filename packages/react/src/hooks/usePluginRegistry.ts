@@ -18,7 +18,7 @@ import type { DepixEngine } from '@depix/engine';
 import { collectShapeIds, loadRegistryIndex, resolveShapes } from '@depix/engine';
 
 export const DEFAULT_REGISTRY_URL =
-  'https://cdn.jsdelivr.net/gh/ibare/depix-registry@main/registry.json';
+  'https://cdn.jsdelivr.net/gh/ibare/depix-registry@v0.2.0/registry.json';
 
 export function usePluginRegistry(
   engineRef: React.MutableRefObject<DepixEngine | null>,

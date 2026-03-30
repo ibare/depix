@@ -108,15 +108,20 @@ function preloadSvgImage(svg: string): Promise<HTMLImageElement | undefined> {
 // Shape resolver
 // ---------------------------------------------------------------------------
 
-const loadedPackUrls = new Set<string>();
+// Global cache: pack URL → already-fetched & preloaded definitions.
+// Prevents redundant network requests while allowing each ShapeRegistry
+// instance to receive its own registrations.
+const packDataCache = new Map<string, Map<string, ShapeDefinition>>();
 
 /**
  * Fetch the minimum set of packs required to render `neededKeys`,
  * register all shapes, then pre-load their SVG images into HTMLImageElements.
  *
- * Only packs not already loaded are fetched (idempotent).
- * Resolves only after all image preloads complete so the caller can
- * trigger a re-render with fully loaded shapes.
+ * Pack fetch results are cached globally so the network request happens at
+ * most once per URL. However, shapes are registered into the provided
+ * `registry` instance every time — this ensures that each DepixEngine
+ * receives the definitions it needs even when multiple engines exist on
+ * the same page.
  */
 export async function resolveShapes(
   neededKeys: string[],
@@ -127,38 +132,43 @@ export async function resolveShapes(
 
   const needed = new Set(neededKeys);
 
-  // Find packs that contain at least one needed key and haven't been loaded yet
-  const packsToLoad = index.packs.filter(
-    (pack) => !loadedPackUrls.has(pack.url) && pack.keys.some((k) => needed.has(k)),
+  // Find packs that contain at least one needed key missing from THIS registry
+  const packsToProcess = index.packs.filter(
+    (pack) => pack.keys.some((k) => needed.has(k) && !registry.has(k)),
   );
 
-  if (packsToLoad.length === 0) return;
+  if (packsToProcess.length === 0) return;
 
   await Promise.all(
-    packsToLoad.map(async (pack) => {
+    packsToProcess.map(async (pack) => {
       try {
-        const res = await fetch(pack.url);
-        if (!res.ok) return;
-        const data = await res.json() as PackData;
+        // Use cached pack data if available; otherwise fetch & cache
+        let defs = packDataCache.get(pack.url);
+        if (!defs) {
+          const res = await fetch(pack.url);
+          if (!res.ok) return;
+          const data = await res.json() as PackData;
 
-        // Register icons and collect definitions that need image preloading
-        const defsToPreload: ShapeDefinition[] = [];
-        for (const [key, value] of Object.entries(data)) {
-          // Support both plain SVG string and { svg: string } object
-          const svg = typeof value === 'string' ? value : value.svg;
-          const def: ShapeDefinition = { svg };
-          registry.register(key, def);
-          defsToPreload.push(def);
+          defs = new Map<string, ShapeDefinition>();
+          for (const [key, value] of Object.entries(data)) {
+            const svg = typeof value === 'string' ? value : value.svg;
+            defs.set(key, { svg });
+          }
+
+          // Pre-load all SVG images so the renderer can work synchronously
+          await Promise.all(
+            [...defs.values()].map(async (def) => {
+              def.image = await preloadSvgImage(def.svg);
+            }),
+          );
+
+          packDataCache.set(pack.url, defs);
         }
 
-        loadedPackUrls.add(pack.url);
-
-        // Pre-load all SVG images so the renderer can work synchronously
-        await Promise.all(
-          defsToPreload.map(async (def) => {
-            def.image = await preloadSvgImage(def.svg);
-          }),
-        );
+        // Register into THIS engine's registry
+        for (const [key, def] of defs) {
+          registry.register(key, def);
+        }
       } catch {
         // Network failure: skip silently, fallback rendering will be used
       }
