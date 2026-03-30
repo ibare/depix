@@ -3,16 +3,19 @@
  *
  * Icons are registered by key (e.g. "server") at startup after fetching
  * the pack data. The renderer looks up the registry at render time:
- * - Match found  → render SVG path
+ * - Match found  → render via pre-loaded HTMLImageElement (SVG → data URL)
  * - No match     → render fallback (outline rect + icon name text)
  */
 
 /** A single icon definition loaded from a pack. */
 export interface IconDefinition {
-  /** SVG path data (the `d` attribute of a `<path>` element). */
-  svgPath: string;
-  /** ViewBox string, e.g. "0 0 24 24". */
-  viewBox: string;
+  /** Full SVG markup string (the entire `<svg>...</svg>` element). */
+  svg: string;
+  /**
+   * Pre-loaded HTMLImageElement populated by resolveIcons() after fetch.
+   * Undefined in Node.js environments (tests, SSR) where window is absent.
+   */
+  image?: HTMLImageElement;
 }
 
 /** Runtime registry of icon definitions keyed by semantic name. */

@@ -5,7 +5,7 @@
  * 1. `loadRegistryIndex(url)` fetches the lightweight index (keys only, no SVG data)
  * 2. `collectIconIds(ir)` scans an IR document for all IRIcon elements
  * 3. `resolveIcons(neededKeys, index, registry)` fetches only the packs that
- *    contain needed keys and registers them in the ShapeRegistry
+ *    contain needed keys, registers them, and pre-loads their SVG images
  *
  * The compiler never calls any of these — they run in the React/engine layer
  * to keep the compiler pure (P3).
@@ -32,8 +32,8 @@ export interface RegistryIndex {
   packs: RegistryPackEntry[];
 }
 
-// Pack data format (packs/xxx.json)
-type PackData = Record<string, IconDefinition>;
+// Pack data format (packs/xxx.json): key → full SVG string or IconDefinition object
+type PackData = Record<string, string | { svg: string }>;
 
 // ---------------------------------------------------------------------------
 // IR scanner
@@ -83,6 +83,28 @@ export async function loadRegistryIndex(url: string): Promise<RegistryIndex> {
 }
 
 // ---------------------------------------------------------------------------
+// SVG image preloader
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a full SVG string to an HTMLImageElement via a data URL.
+ * Returns undefined in non-browser environments (Node.js, SSR).
+ * Silently resolves on error so a missing image falls back to the outline box.
+ */
+function preloadSvgImage(svg: string): Promise<HTMLImageElement | undefined> {
+  if (typeof window === 'undefined' || typeof window.Image === 'undefined') {
+    return Promise.resolve(undefined);
+  }
+  return new Promise((resolve) => {
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(undefined);
+    img.src = url;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Icon resolver
 // ---------------------------------------------------------------------------
 
@@ -90,9 +112,11 @@ const loadedPackUrls = new Set<string>();
 
 /**
  * Fetch the minimum set of packs required to render `neededKeys`,
- * then register all icons from those packs into `registry`.
+ * register all icons, then pre-load their SVG images into HTMLImageElements.
  *
  * Only packs not already loaded are fetched (idempotent).
+ * Resolves only after all image preloads complete so the caller can
+ * trigger a re-render with fully loaded icons.
  */
 export async function resolveIcons(
   neededKeys: string[],
@@ -114,12 +138,27 @@ export async function resolveIcons(
     packsToLoad.map(async (pack) => {
       try {
         const res = await fetch(pack.url);
-        if (!res.ok) return; // silently skip unavailable packs
+        if (!res.ok) return;
         const data = await res.json() as PackData;
-        for (const [key, def] of Object.entries(data)) {
+
+        // Register icons and collect definitions that need image preloading
+        const defsToPreload: IconDefinition[] = [];
+        for (const [key, value] of Object.entries(data)) {
+          // Support both plain SVG string and { svg: string } object
+          const svg = typeof value === 'string' ? value : value.svg;
+          const def: IconDefinition = { svg };
           registry.register(key, def);
+          defsToPreload.push(def);
         }
+
         loadedPackUrls.add(pack.url);
+
+        // Pre-load all SVG images so the renderer can work synchronously
+        await Promise.all(
+          defsToPreload.map(async (def) => {
+            def.image = await preloadSvgImage(def.svg);
+          }),
+        );
       } catch {
         // Network failure: skip silently, fallback rendering will be used
       }
