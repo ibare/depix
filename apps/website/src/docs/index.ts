@@ -1,6 +1,7 @@
 export { documentStructure } from './document-structure';
 export { comments } from './comments';
 export { elements } from './elements';
+export { icons } from './icons';
 export { blocks } from './blocks';
 export { edgesConnections } from './edges-connections';
 export { scenes } from './scenes';
@@ -24,6 +25,7 @@ export const ALL_SECTIONS: DocSection[] = [
 import { documentStructure } from './document-structure';
 import { comments } from './comments';
 import { elements } from './elements';
+import { icons } from './icons';
 import { blocks } from './blocks';
 import { edgesConnections } from './edges-connections';
 import { scenes } from './scenes';
@@ -36,6 +38,7 @@ export function getSections(): DocSection[] {
     documentStructure,
     comments,
     elements,
+    icons,
     blocks,
     edgesConnections,
     scenes,
