@@ -444,6 +444,61 @@ scene {
 }
 ```
 
+### Slot Content Rules
+
+**Any element or block can go into any slot.** Slots only control position and size — they do not restrict content type.
+
+```
+// heading in body, flow in header — both valid
+scene {
+  layout: header
+  header: flow { node "A" #a  node "B" #b  #a -> #b }
+  body: heading "Dashboard"
+}
+```
+
+**Use only the slot names defined by your layout.** Using a slot name that doesn't belong to the current layout will silently produce no output:
+
+```
+// WRONG — 'split' layout has no 'body' slot
+scene { layout: split  body: heading "Title" }
+
+// CORRECT — 'split' uses 'left' and 'right'
+scene { layout: split  left: heading "Title"  right: text "Content" }
+```
+
+**`cell` is the only repeatable slot.** All other slots accept one assignment — duplicates overlap on the same position.
+
+```
+scene {
+  layout: header-grid
+  header: heading "Team"
+  cell: stat "42%" { label: "Growth" }
+  cell: stat "$1.2M" { label: "Revenue" }
+  cell: stat "99.9%" { label: "Uptime" }
+}
+```
+
+### Layout–Slot Quick Reference
+
+| Layout | Slot 1 | Slot 2 | Slot 3 | Properties |
+|--------|--------|--------|--------|------------|
+| `full` | `body` | | | |
+| `center` | `body` | | | |
+| `split` | `left` | `right` | | `ratio` |
+| `rows` | `top` | `bottom` | | `ratio` |
+| `sidebar` | `main` | `side` | | `ratio`, `direction` |
+| `header` | `header` | `body` | | |
+| `header-split` | `header` | `left` | `right` | `ratio` |
+| `header-rows` | `header` | `top` | `bottom` | `ratio` |
+| `header-sidebar` | `header` | `main` | `side` | `ratio`, `direction` |
+| `grid` | `cell` * | | | |
+| `header-grid` | `header` | `cell` * | | |
+| `focus` | `focus` | `cell` * | | |
+| `header-focus` | `header` | `focus` | `cell` * | |
+
+`*` = repeatable (use multiple times for grid cells)
+
 ---
 
 ## Directives
@@ -617,7 +672,7 @@ Canvas height grows automatically to fit all content.
 
 **Layouts:** `full`, `center`, `split`, `rows`, `sidebar`, `header`, `header-split`, `header-rows`, `header-sidebar`, `grid`, `header-grid`, `focus`, `header-focus`, `custom`
 
-**Slots:** `header`, `body`, `left`, `right`, `top`, `bottom`, `main`, `side`, `focus`, `cell`
+**Slots:** `header`, `body`, `left`, `right`, `top`, `bottom`, `main`, `side`, `focus`, `cell` — only use slots defined by the layout; `cell` is repeatable, others are single; any element/block can go in any slot
 
 **Directives:** `@page`, `@style`, `@transition`, `@ratio`, `@data`, `@overrides`
 

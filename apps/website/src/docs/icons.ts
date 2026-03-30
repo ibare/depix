@@ -14,24 +14,24 @@ You only write a semantic key — Depix resolves the matching SVG automatically.
 scene "System Components" {
   layout: header-grid
   header: heading "System Overview"
-  cell: shape "server"   label:"API Server"
-  cell: shape "database" label:"PostgreSQL"
-  cell: shape "cache"    label:"Redis"
-  cell: shape "queue"    label:"Message Queue"
+  cell: shape "server"   { label: "API Server" }
+  cell: shape "database" { label: "PostgreSQL" }
+  cell: shape "cache"    { label: "Redis" }
+  cell: shape "queue"    { label: "Message Queue" }
 }
 \`\`\`
 
 ## Syntax
 
 \`\`\`
-shape "key" [label:"..."] [description:"..."]
+shape "key" { label: "...", description: "..." }
 \`\`\`
 
 | Part | Required | Description |
 |------|:--------:|-------------|
 | \`"key"\` | ✓ | Registry key — the semantic name of the shape |
-| \`label:"..."\` | — | Short label rendered below the shape |
-| \`description:"..."\` | — | Small caption below the label |
+| \`label\` | — | Short label rendered below the shape |
+| \`description\` | — | Small caption below the label |
 
 ## Available Keys
 
@@ -60,10 +60,10 @@ The official **tech** pack ships with the following keys:
 scene "Data Pipeline" {
   layout: header-grid
   header: heading "Data Pipeline"
-  cell: shape "browser"  label:"Client"       description:"Web App"
-  cell: shape "api"      label:"API Gateway"  description:"REST / GraphQL"
-  cell: shape "server"   label:"Service"      description:"Node.js"
-  cell: shape "database" label:"Database"     description:"PostgreSQL"
+  cell: shape "browser"  { label: "Client", description: "Web App" }
+  cell: shape "api"      { label: "API Gateway", description: "REST / GraphQL" }
+  cell: shape "server"   { label: "Service", description: "Node.js" }
+  cell: shape "database" { label: "Database", description: "PostgreSQL" }
 }
 \`\`\`
 
@@ -85,9 +85,9 @@ scene "Microservices" {
     #gw -> #auth
   }
   right: stack direction:col {
-    shape "database" label:"User DB"      description:"PostgreSQL"
-    shape "cache"    label:"Session Cache" description:"Redis"
-    shape "queue"    label:"Event Bus"    description:"Kafka"
+    shape "database" { label: "User DB", description: "PostgreSQL" }
+    shape "cache"    { label: "Session Cache", description: "Redis" }
+    shape "queue"    { label: "Event Bus", description: "Kafka" }
   }
 }
 \`\`\`
@@ -103,8 +103,8 @@ a **dashed outline box** with the key name — so your diagram always displays c
 scene "With Fallback" {
   layout: header-grid
   header: heading "Known and Unknown Shapes"
-  cell: shape "server"       label:"Known key"
-  cell: shape "unknown-key"  label:"Unknown key (fallback)"
+  cell: shape "server"       { label: "Known key" }
+  cell: shape "unknown-key"  { label: "Unknown key (fallback)" }
 }
 \`\`\`
 
@@ -131,24 +131,24 @@ The compiler never accesses the network — registry loading happens entirely in
 scene "System Components" {
   layout: header-grid
   header: heading "시스템 개요"
-  cell: shape "server"   label:"API 서버"
-  cell: shape "database" label:"PostgreSQL"
-  cell: shape "cache"    label:"Redis"
-  cell: shape "queue"    label:"메시지 큐"
+  cell: shape "server"   { label: "API 서버" }
+  cell: shape "database" { label: "PostgreSQL" }
+  cell: shape "cache"    { label: "Redis" }
+  cell: shape "queue"    { label: "메시지 큐" }
 }
 \`\`\`
 
 ## 문법
 
 \`\`\`
-shape "key" [label:"..."] [description:"..."]
+shape "key" { label: "...", description: "..." }
 \`\`\`
 
 | 요소 | 필수 | 설명 |
 |------|:----:|------|
 | \`"key"\` | ✓ | 레지스트리 키 — 도형의 시맨틱 이름 |
-| \`label:"..."\` | — | 도형 아래 짧은 라벨 |
-| \`description:"..."\` | — | 라벨 아래 작은 설명 |
+| \`label\` | — | 도형 아래 짧은 라벨 |
+| \`description\` | — | 라벨 아래 작은 설명 |
 
 ## 사용 가능한 키
 
@@ -177,10 +177,10 @@ shape "key" [label:"..."] [description:"..."]
 scene "Data Pipeline" {
   layout: header-grid
   header: heading "데이터 파이프라인"
-  cell: shape "browser"  label:"클라이언트"    description:"Web App"
-  cell: shape "api"      label:"API 게이트웨이" description:"REST / GraphQL"
-  cell: shape "server"   label:"서비스"       description:"Node.js"
-  cell: shape "database" label:"데이터베이스"   description:"PostgreSQL"
+  cell: shape "browser"  { label: "클라이언트", description: "Web App" }
+  cell: shape "api"      { label: "API 게이트웨이", description: "REST / GraphQL" }
+  cell: shape "server"   { label: "서비스", description: "Node.js" }
+  cell: shape "database" { label: "데이터베이스", description: "PostgreSQL" }
 }
 \`\`\`
 
@@ -202,9 +202,9 @@ scene "마이크로서비스" {
     #gw -> #auth
   }
   right: stack direction:col {
-    shape "database" label:"사용자 DB"   description:"PostgreSQL"
-    shape "cache"    label:"세션 캐시"   description:"Redis"
-    shape "queue"    label:"이벤트 버스" description:"Kafka"
+    shape "database" { label: "사용자 DB", description: "PostgreSQL" }
+    shape "cache"    { label: "세션 캐시", description: "Redis" }
+    shape "queue"    { label: "이벤트 버스", description: "Kafka" }
   }
 }
 \`\`\`
@@ -220,8 +220,8 @@ scene "마이크로서비스" {
 scene "폴백 예시" {
   layout: header-grid
   header: heading "알려진 키와 알 수 없는 키"
-  cell: shape "server"       label:"알려진 키"
-  cell: shape "unknown-key"  label:"알 수 없는 키 (폴백)"
+  cell: shape "server"       { label: "알려진 키" }
+  cell: shape "unknown-key"  { label: "알 수 없는 키 (폴백)" }
 }
 \`\`\`
 
