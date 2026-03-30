@@ -79,7 +79,7 @@ describe('classifyNode', () => {
     expect(classifyNode(makeElement('rect'))).toBe('element-shape');
     expect(classifyNode(makeElement('circle'))).toBe('element-shape');
     expect(classifyNode(makeElement('badge'))).toBe('element-shape');
-    expect(classifyNode(makeElement('icon'))).toBe('element-shape');
+    expect(classifyNode(makeElement('shape'))).toBe('element-shape');
     expect(classifyNode(makeElement('cell'))).toBe('element-shape');
     expect(classifyNode(makeElement('label'))).toBe('element-text');
     expect(classifyNode(makeElement('text'))).toBe('element-text');

@@ -286,7 +286,7 @@ describe('emitIR — text elements', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Element emission — circle, badge, icon
+// Element emission — circle, badge, shape
 // ---------------------------------------------------------------------------
 
 describe('emitIR — shape variants', () => {
@@ -308,8 +308,8 @@ describe('emitIR — shape variants', () => {
     expect(el.innerText!.content).toBe('NEW');
   });
 
-  it('emits icon as IRShape(circle)', () => {
-    const icon = makeElement('icon', { id: 'i1' });
+  it('emits shape as IRShape(circle)', () => {
+    const icon = makeElement('shape', { id: 'i1' });
     const ir = emitIR(makeDoc([makeScene([icon])]), lightTheme);
 
     const el = ir.scenes[0].elements[0] as IRShape;

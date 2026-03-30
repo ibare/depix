@@ -2,7 +2,7 @@
  * Scene Emission — Compound Element Emitters
  *
  * IR emitters for compound scene elements that produce multi-child containers:
- * stat, quote, image, icon, step.
+ * stat, quote, image, shape, step.
  *
  * Split from scene-elements.ts for file size management.
  */
@@ -11,7 +11,7 @@ import type {
   IRBounds,
   IRContainer,
   IRElement,
-  IRIcon,
+  IRShapeAsset,
   IRText,
 } from '../../ir/types.js';
 import type { SceneTheme } from '../../theme/scene-theme.js';
@@ -195,20 +195,20 @@ export function emitImage(
 }
 
 // ---------------------------------------------------------------------------
-// Icon
+// Shape Asset
 // ---------------------------------------------------------------------------
 
-export function emitIcon(
+export function emitShapeAsset(
   el: ASTElement,
   id: string,
   bounds: IRBounds,
-): IRIcon {
+): IRShapeAsset {
   return {
     id,
-    type: 'icon',
+    type: 'shape-asset',
     bounds,
     style: {},
-    iconId: el.label ?? '',
+    shapeId: el.label ?? '',
     label: typeof el.props.label === 'string' ? el.props.label : undefined,
     description: typeof el.props.description === 'string' ? el.props.description : undefined,
   };

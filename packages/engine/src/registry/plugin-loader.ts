@@ -1,10 +1,10 @@
 /**
- * PluginLoader — fetches and registers icon packs from the shape registry.
+ * PluginLoader — fetches and registers shape packs from the shape registry.
  *
  * Flow:
  * 1. `loadRegistryIndex(url)` fetches the lightweight index (keys only, no SVG data)
- * 2. `collectIconIds(ir)` scans an IR document for all IRIcon elements
- * 3. `resolveIcons(neededKeys, index, registry)` fetches only the packs that
+ * 2. `collectShapeIds(ir)` scans an IR document for all IRShapeAsset elements
+ * 3. `resolveShapes(neededKeys, index, registry)` fetches only the packs that
  *    contain needed keys, registers them, and pre-loads their SVG images
  *
  * The compiler never calls any of these — they run in the React/engine layer
@@ -12,7 +12,7 @@
  */
 
 import type { DepixIR, IRElement } from '@depix/core';
-import type { ShapeRegistry, IconDefinition } from './shape-registry.js';
+import type { ShapeRegistry, ShapeDefinition } from './shape-registry.js';
 
 // ---------------------------------------------------------------------------
 // Registry index format (registry.json)
@@ -32,7 +32,7 @@ export interface RegistryIndex {
   packs: RegistryPackEntry[];
 }
 
-// Pack data format (packs/xxx.json): key → full SVG string or IconDefinition object
+// Pack data format (packs/xxx.json): key → full SVG string or ShapeDefinition object
 type PackData = Record<string, string | { svg: string }>;
 
 // ---------------------------------------------------------------------------
@@ -40,10 +40,10 @@ type PackData = Record<string, string | { svg: string }>;
 // ---------------------------------------------------------------------------
 
 /**
- * Walk all elements in an IR document and collect every `IRIcon.iconId`.
+ * Walk all elements in an IR document and collect every `IRShapeAsset.shapeId`.
  * Used to determine which packs need to be fetched before rendering.
  */
-export function collectIconIds(ir: DepixIR): string[] {
+export function collectShapeIds(ir: DepixIR): string[] {
   const ids = new Set<string>();
   for (const scene of ir.scenes) {
     walkElements(scene.elements, ids);
@@ -53,8 +53,8 @@ export function collectIconIds(ir: DepixIR): string[] {
 
 function walkElements(elements: IRElement[], ids: Set<string>): void {
   for (const el of elements) {
-    if (el.type === 'icon') {
-      if (el.iconId) ids.add(el.iconId);
+    if (el.type === 'shape-asset') {
+      if (el.shapeId) ids.add(el.shapeId);
     } else if (el.type === 'container') {
       walkElements(el.children, ids);
     }
@@ -105,20 +105,20 @@ function preloadSvgImage(svg: string): Promise<HTMLImageElement | undefined> {
 }
 
 // ---------------------------------------------------------------------------
-// Icon resolver
+// Shape resolver
 // ---------------------------------------------------------------------------
 
 const loadedPackUrls = new Set<string>();
 
 /**
  * Fetch the minimum set of packs required to render `neededKeys`,
- * register all icons, then pre-load their SVG images into HTMLImageElements.
+ * register all shapes, then pre-load their SVG images into HTMLImageElements.
  *
  * Only packs not already loaded are fetched (idempotent).
  * Resolves only after all image preloads complete so the caller can
- * trigger a re-render with fully loaded icons.
+ * trigger a re-render with fully loaded shapes.
  */
-export async function resolveIcons(
+export async function resolveShapes(
   neededKeys: string[],
   index: RegistryIndex,
   registry: ShapeRegistry,
@@ -142,11 +142,11 @@ export async function resolveIcons(
         const data = await res.json() as PackData;
 
         // Register icons and collect definitions that need image preloading
-        const defsToPreload: IconDefinition[] = [];
+        const defsToPreload: ShapeDefinition[] = [];
         for (const [key, value] of Object.entries(data)) {
           // Support both plain SVG string and { svg: string } object
           const svg = typeof value === 'string' ? value : value.svg;
-          const def: IconDefinition = { svg };
+          const def: ShapeDefinition = { svg };
           registry.register(key, def);
           defsToPreload.push(def);
         }

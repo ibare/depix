@@ -221,7 +221,7 @@ export function emitSceneShape(
 }
 
 // Compound emitters (multi-child containers) live in scene-elements-compound.ts
-export { emitStat, emitQuote, emitImage, emitIcon } from './scene-elements-compound.js';
+export { emitStat, emitQuote, emitImage, emitShapeAsset } from './scene-elements-compound.js';
 
 // ---------------------------------------------------------------------------
 // Step

@@ -35,7 +35,7 @@ export const ALL_ELEMENTS: SuggestionItem[] = [
   { type: 'quote', label: 'Quote', category: 'element' },
   { type: 'step', label: 'Step', category: 'element' },
   { type: 'list', label: 'List', category: 'element' },
-  { type: 'icon', label: 'Icon', category: 'element' },
+  { type: 'shape', label: 'Shape', category: 'element' },
   { type: 'image', label: 'Image', category: 'element' },
   { type: 'node', label: 'Node', category: 'element' },
   { type: 'divider', label: 'Divider', category: 'element' },

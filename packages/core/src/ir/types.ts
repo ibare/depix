@@ -18,14 +18,14 @@
  * Discriminator for IR element types.
  *
  * 8 element kinds cover all visual primitives:
- * - `shape`     - rect, circle, ellipse, diamond, pill, hexagon, triangle, parallelogram
- * - `text`      - standalone text block
- * - `image`     - raster / vector image reference
- * - `line`      - straight line between two points
- * - `path`      - SVG path data (free-form curves, polygons)
- * - `edge`      - connection between two elements with a resolved route
- * - `container` - parent that holds child elements (layout already resolved)
- * - `icon`      - named icon resolved from the shape registry at render time
+ * - `shape`       - rect, circle, ellipse, diamond, pill, hexagon, triangle, parallelogram
+ * - `text`        - standalone text block
+ * - `image`       - raster / vector image reference
+ * - `line`        - straight line between two points
+ * - `path`        - SVG path data (free-form curves, polygons)
+ * - `edge`        - connection between two elements with a resolved route
+ * - `container`   - parent that holds child elements (layout already resolved)
+ * - `shape-asset` - named shape resolved from the shape registry at render time
  */
 export type IRElementType =
   | 'shape'
@@ -35,7 +35,7 @@ export type IRElementType =
   | 'path'
   | 'edge'
   | 'container'
-  | 'icon';
+  | 'shape-asset';
 
 // ---------------------------------------------------------------------------
 // Geometry primitives
@@ -547,26 +547,26 @@ export interface IRContainer extends IRBase {
 }
 
 // ---------------------------------------------------------------------------
-// Icon
+// Shape Asset
 // ---------------------------------------------------------------------------
 
 /**
- * A named icon element resolved from the shape registry at render time.
+ * A named shape element resolved from the shape registry at render time.
  *
- * The compiler emits an IRIcon with a semantic `iconId` (e.g. "server").
+ * The compiler emits an IRShapeAsset with a semantic `shapeId` (e.g. "server-rack").
  * The engine looks up the registry at render time:
- * - Match found  → renders the SVG path as a Konva.Path
- * - No match     → renders a fallback (outline rect + iconId text)
+ * - Match found  → renders the SVG as a Konva.Image
+ * - No match     → renders a fallback (outline rect + shapeId text)
  *
  * This keeps the compiler pure (no network calls) while enabling
- * dynamic icon resolution from an external pack registry.
+ * dynamic shape resolution from an external pack registry.
  */
-export interface IRIcon extends IRBase {
-  /** Discriminator -- always `'icon'`. */
-  type: 'icon';
-  /** Semantic icon name used as registry lookup key (e.g. "server", "database"). */
-  iconId: string;
-  /** Optional label text rendered below the icon. */
+export interface IRShapeAsset extends IRBase {
+  /** Discriminator -- always `'shape-asset'`. */
+  type: 'shape-asset';
+  /** Semantic shape name used as registry lookup key (e.g. "server-rack", "db-cylinder"). */
+  shapeId: string;
+  /** Optional label text rendered below the shape. */
   label?: string;
   /** Optional small description rendered below the label. */
   description?: string;
@@ -580,14 +580,14 @@ export interface IRIcon extends IRBase {
  * Discriminated union of all IR element types.
  *
  * The `type` field serves as the discriminator:
- * - `'shape'`     -> {@link IRShape}
- * - `'text'`      -> {@link IRText}
- * - `'image'`     -> {@link IRImage}
- * - `'line'`      -> {@link IRLine}
- * - `'path'`      -> {@link IRPath}
- * - `'edge'`      -> {@link IREdge}
- * - `'container'` -> {@link IRContainer}
- * - `'icon'`      -> {@link IRIcon}
+ * - `'shape'`       -> {@link IRShape}
+ * - `'text'`        -> {@link IRText}
+ * - `'image'`       -> {@link IRImage}
+ * - `'line'`        -> {@link IRLine}
+ * - `'path'`        -> {@link IRPath}
+ * - `'edge'`        -> {@link IREdge}
+ * - `'container'`   -> {@link IRContainer}
+ * - `'shape-asset'` -> {@link IRShapeAsset}
  */
 export type IRElement =
   | IRShape
@@ -597,7 +597,7 @@ export type IRElement =
   | IRPath
   | IREdge
   | IRContainer
-  | IRIcon;
+  | IRShapeAsset;
 
 // ---------------------------------------------------------------------------
 // Scene

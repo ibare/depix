@@ -7,12 +7,12 @@
  * - No match     → render fallback (outline rect + icon name text)
  */
 
-/** A single icon definition loaded from a pack. */
-export interface IconDefinition {
+/** A single shape definition loaded from a pack. */
+export interface ShapeDefinition {
   /** Full SVG markup string (the entire `<svg>...</svg>` element). */
   svg: string;
   /**
-   * Pre-loaded HTMLImageElement populated by resolveIcons() after fetch.
+   * Pre-loaded HTMLImageElement populated by resolveShapes() after fetch.
    * Undefined in Node.js environments (tests, SSR) where window is absent.
    */
   image?: HTMLImageElement;
@@ -20,15 +20,15 @@ export interface IconDefinition {
 
 /** Runtime registry of icon definitions keyed by semantic name. */
 export class ShapeRegistry {
-  private readonly icons = new Map<string, IconDefinition>();
+  private readonly icons = new Map<string, ShapeDefinition>();
 
   /** Register an icon definition under the given key. */
-  register(key: string, def: IconDefinition): void {
+  register(key: string, def: ShapeDefinition): void {
     this.icons.set(key, def);
   }
 
   /** Look up an icon by key. Returns undefined if not registered. */
-  get(key: string): IconDefinition | undefined {
+  get(key: string): ShapeDefinition | undefined {
     return this.icons.get(key);
   }
 

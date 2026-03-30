@@ -15,7 +15,7 @@
 import Konva from 'konva';
 import type {
   IRElement,
-  IRIcon,
+  IRShapeAsset,
   IRText,
   IRImage,
   IRLine,
@@ -28,7 +28,7 @@ import { resolveStyleAttrs, buildFontStyle, applyTransform } from './style.js';
 import { createArrowMarker } from './helpers.js';
 import { renderShape } from './shape-renderer.js';
 import { renderEdge } from './edge-renderer.js';
-import { renderIcon } from './icon-renderer.js';
+import { renderShapeAsset } from './shape-asset-renderer.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -60,8 +60,8 @@ export function renderElement(
       return renderEdge(element, transform);
     case 'container':
       return renderContainer(element, transform, registry);
-    case 'icon':
-      return renderIcon(element as IRIcon, transform, registry);
+    case 'shape-asset':
+      return renderShapeAsset(element as IRShapeAsset, transform, registry);
   }
 }
 

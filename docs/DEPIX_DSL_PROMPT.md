@@ -93,7 +93,7 @@ pill "Start" #myId { background: primary, color: white }
 | `stat` | Large value + small label below. Props: `label` |
 | `quote` | Italic quote + attribution. Props: `attribution` |
 | `step` | Numbered circle marker + description. Props: `description` |
-| `icon` | Symbol character (large) + label + description. Props: `label`, `description` |
+| `shape` | Named shape loaded from registry at render time. Props: `label`, `description` |
 
 **Examples:**
 
@@ -102,7 +102,7 @@ heading "Welcome"
 stat "42%" { label: "Conversion Rate" }
 quote "Design is not just what it looks like." { attribution: "Steve Jobs" }
 step "1" { description: "Sign up for an account" }
-icon "🚀" { label: "Launch", description: "Deploy to production" }
+shape "server-rack" { label: "API Server", description: "Node.js" }
 ```
 
 ### List Elements
@@ -608,7 +608,8 @@ Canvas height grows automatically to fit all content.
 
 **Blocks:** `flow`, `tree`, `stack`, `grid`, `layers`, `box`, `layer`, `group`, `column`, `table`, `chart`, `scene`, `canvas`
 
-**Text:** `heading`, `text`, `label`, `stat`, `quote`, `step`, `icon`, `item`
+**Text:** `heading`, `text`, `label`, `stat`, `quote`, `step`, `item`
+**Registry:** `shape` — named shape from external registry (e.g. `shape "server"`, `shape "database"`)
 
 **Lists:** `list`, `bullet` — with `["item1", "item2"]` syntax, optional `ordered` flag
 

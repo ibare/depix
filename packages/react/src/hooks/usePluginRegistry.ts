@@ -4,7 +4,7 @@
  *
  * Flow:
  * 1. On first call: fetch the registry index (key list, no SVG data)
- * 2. Whenever `ir` changes: collect icon IDs → match against index keys
+ * 2. Whenever `ir` changes: collect shape IDs → match against index keys
  * 3. Fetch only missing packs → register in engine's ShapeRegistry
  * 4. Trigger a re-render by calling engine.update(ir)
  *
@@ -15,7 +15,7 @@
 import { useEffect, useRef } from 'react';
 import type { DepixIR } from '@depix/core';
 import type { DepixEngine } from '@depix/engine';
-import { collectIconIds, loadRegistryIndex, resolveIcons } from '@depix/engine';
+import { collectShapeIds, loadRegistryIndex, resolveShapes } from '@depix/engine';
 
 export const DEFAULT_REGISTRY_URL =
   'https://cdn.jsdelivr.net/gh/ibare/depix-registry@main/registry.json';
@@ -35,15 +35,15 @@ export function usePluginRegistry(
     const engine = engineRef.current;
     if (!engine || !ir) return;
 
-    const iconIds = collectIconIds(ir);
-    if (iconIds.length === 0) return;
+    const shapeIds = collectShapeIds(ir);
+    if (shapeIds.length === 0) return;
 
     let cancelled = false;
 
     loadRegistryIndex(urlRef.current)
       .then((index) => {
         if (cancelled) return;
-        return resolveIcons(iconIds, index, engine.getRegistry());
+        return resolveShapes(shapeIds, index, engine.getRegistry());
       })
       .then(() => {
         if (cancelled) return;

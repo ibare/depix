@@ -942,7 +942,7 @@ describe('Edge cases', () => {
   });
 
   it('handles mixed content correctly', () => {
-    const input = 'group "명반응" #light {\n  icon "sun"\n}';
+    const input = 'group "명반응" #light {\n  shape "sun"\n}';
     const result = tokenize(input);
     expect(result.errors).toHaveLength(0);
   });

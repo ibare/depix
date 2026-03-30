@@ -13,7 +13,7 @@ import type { PlanNodeType } from './passes/plan-layout.js';
 
 export type MeasureKind = 'text' | 'shape' | 'list' | 'divider' | 'image' | 'row';
 export type EmitKind = 'shape' | 'text' | 'list' | 'divider' | 'image' | 'row';
-export type SceneEmitKind = 'heading' | 'label' | 'bullet' | 'stat' | 'quote' | 'image' | 'icon' | 'step' | 'list' | 'divider' | 'shape';
+export type SceneEmitKind = 'heading' | 'label' | 'bullet' | 'stat' | 'quote' | 'image' | 'shape-asset' | 'step' | 'list' | 'divider' | 'shape';
 export type ShapeKind =
   | 'rect' | 'circle' | 'ellipse' | 'diamond' | 'pill'
   | 'hexagon' | 'triangle' | 'parallelogram' | 'cylinder' | 'trapezoid';
@@ -48,7 +48,7 @@ export const ELEMENT_TYPE_REGISTRY: Record<string, ElementTypeConfig> = {
   rect:    { classify: 'element-shape', intrinsicSize: { width: 12, height: 8 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'rect' },
   circle:  { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'circle' },
   badge:   { classify: 'element-shape', intrinsicSize: { width: 10, height: 4 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'pill' },
-  icon:    { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'icon', emitShape: 'circle' },
+  shape:   { classify: 'element-shape', intrinsicSize: { width: 8, height: 8 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape-asset', emitShape: 'circle' },
   // Shape element types — usable directly in flow DSL (e.g. `diamond "Decision?"`)
   diamond:       { classify: 'element-shape', intrinsicSize: { width: 10, height: 10 }, constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'diamond' },
   pill:          { classify: 'element-shape', intrinsicSize: { width: 12, height: 6 },  constraint: { minW: 4, minH: 3 }, measure: 'shape', emit: 'shape', sceneEmit: 'shape', emitShape: 'pill' },

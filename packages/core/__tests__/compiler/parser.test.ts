@@ -410,8 +410,8 @@ describe('Visual elements', () => {
   });
 
   it('parses icon with size', () => {
-    const el = firstChild('icon "database" { size: lg }') as ASTElement;
-    expect(el.elementType).toBe('icon');
+    const el = firstChild('shape "database" { size: lg }') as ASTElement;
+    expect(el.elementType).toBe('shape');
     expect(el.props.size).toBe('lg');
   });
 
@@ -627,7 +627,7 @@ describe('Comprehensive spec examples', () => {
 
 flow direction:right {
   group "명반응" #light {
-    icon "sun"
+    shape "sun"
     label "틸라코이드"
     label "H₂O → O₂"
     badge "산소 방출" { color: blue }
@@ -740,11 +740,11 @@ scene "인트로" {
 scene "기능 소개" {
   stack direction:row gap:lg {
     box "기능 1" {
-      icon "zap"
+      shape "zap"
       label "빠른 생성"
     }
     box "기능 2" {
-      icon "edit"
+      shape "edit"
       label "쉬운 편집"
     }
   }

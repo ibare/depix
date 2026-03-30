@@ -1,11 +1,11 @@
 export const icons = {
   id: 'icons',
-  title: 'Icons',
-  titleKo: '아이콘',
+  title: 'Shapes',
+  titleKo: '도형',
   content: `
-## What Are Icons?
+## What Are Shapes?
 
-The \`icon\` element displays an SVG icon loaded from an external registry at runtime.
+The \`shape\` element displays an SVG loaded from an external registry at render time.
 You only write a semantic key — Depix resolves the matching SVG automatically.
 
 \`\`\`depix
@@ -14,23 +14,23 @@ You only write a semantic key — Depix resolves the matching SVG automatically.
 scene "System Components" {
   layout: header-grid
   header: heading "System Overview"
-  cell: icon "server"   label:"API Server"
-  cell: icon "database" label:"PostgreSQL"
-  cell: icon "cache"    label:"Redis"
-  cell: icon "queue"    label:"Message Queue"
+  cell: shape "server"   label:"API Server"
+  cell: shape "database" label:"PostgreSQL"
+  cell: shape "cache"    label:"Redis"
+  cell: shape "queue"    label:"Message Queue"
 }
 \`\`\`
 
 ## Syntax
 
 \`\`\`
-icon "key" [label:"..."] [description:"..."]
+shape "key" [label:"..."] [description:"..."]
 \`\`\`
 
 | Part | Required | Description |
 |------|:--------:|-------------|
-| \`"key"\` | ✓ | Registry key — the semantic name of the icon |
-| \`label:"..."\` | — | Short label rendered below the icon |
+| \`"key"\` | ✓ | Registry key — the semantic name of the shape |
+| \`label:"..."\` | — | Short label rendered below the shape |
 | \`description:"..."\` | — | Small caption below the label |
 
 ## Available Keys
@@ -52,7 +52,7 @@ The official **tech** pack ships with the following keys:
 
 > **Tip:** Keys are resolved at runtime — new packs become available without updating Depix.
 
-## Icons with Labels and Descriptions
+## Shapes with Labels and Descriptions
 
 \`\`\`depix
 @page 16:9
@@ -60,16 +60,16 @@ The official **tech** pack ships with the following keys:
 scene "Data Pipeline" {
   layout: header-grid
   header: heading "Data Pipeline"
-  cell: icon "browser"  label:"Client"       description:"Web App"
-  cell: icon "api"      label:"API Gateway"  description:"REST / GraphQL"
-  cell: icon "server"   label:"Service"      description:"Node.js"
-  cell: icon "database" label:"Database"     description:"PostgreSQL"
+  cell: shape "browser"  label:"Client"       description:"Web App"
+  cell: shape "api"      label:"API Gateway"  description:"REST / GraphQL"
+  cell: shape "server"   label:"Service"      description:"Node.js"
+  cell: shape "database" label:"Database"     description:"PostgreSQL"
 }
 \`\`\`
 
 ## Architecture Diagram
 
-Combine icons with flow blocks to describe system topology:
+Combine shapes with flow blocks to describe system topology:
 
 \`\`\`depix
 @page 16:9
@@ -85,9 +85,9 @@ scene "Microservices" {
     #gw -> #auth
   }
   right: stack direction:col {
-    icon "database" label:"User DB"      description:"PostgreSQL"
-    icon "cache"    label:"Session Cache" description:"Redis"
-    icon "queue"    label:"Event Bus"    description:"Kafka"
+    shape "database" label:"User DB"      description:"PostgreSQL"
+    shape "cache"    label:"Session Cache" description:"Redis"
+    shape "queue"    label:"Event Bus"    description:"Kafka"
   }
 }
 \`\`\`
@@ -102,27 +102,27 @@ a **dashed outline box** with the key name — so your diagram always displays c
 
 scene "With Fallback" {
   layout: header-grid
-  header: heading "Known and Unknown Icons"
-  cell: icon "server"       label:"Known key"
-  cell: icon "unknown-key"  label:"Unknown key (fallback)"
+  header: heading "Known and Unknown Shapes"
+  cell: shape "server"       label:"Known key"
+  cell: shape "unknown-key"  label:"Unknown key (fallback)"
 }
 \`\`\`
 
-> The fallback ensures that diagrams with unknown or unloaded icons never break.
+> The fallback ensures that diagrams with unknown or unloaded shapes never break.
 
 ## How the Registry Works
 
 1. On first render, Depix fetches the **registry index** (a list of available keys — no SVG data).
-2. After compiling the DSL, Depix collects all \`icon\` keys used in the document.
+2. After compiling the DSL, Depix collects all \`shape\` keys used in the document.
 3. Only the **packs that contain those keys** are fetched lazily.
 4. SVGs are stored in the engine's \`ShapeRegistry\` for the lifetime of the component.
 
 The compiler never accesses the network — registry loading happens entirely in the React layer.
   `,
   contentKo: `
-## 아이콘이란?
+## 도형이란?
 
-\`icon\` 요소는 런타임에 외부 레지스트리에서 불러온 SVG 아이콘을 표시합니다.
+\`shape\` 요소는 런타임에 외부 레지스트리에서 불러온 SVG를 표시합니다.
 시맨틱 키만 작성하면 Depix가 자동으로 매칭 SVG를 가져옵니다.
 
 \`\`\`depix
@@ -131,23 +131,23 @@ The compiler never accesses the network — registry loading happens entirely in
 scene "System Components" {
   layout: header-grid
   header: heading "시스템 개요"
-  cell: icon "server"   label:"API 서버"
-  cell: icon "database" label:"PostgreSQL"
-  cell: icon "cache"    label:"Redis"
-  cell: icon "queue"    label:"메시지 큐"
+  cell: shape "server"   label:"API 서버"
+  cell: shape "database" label:"PostgreSQL"
+  cell: shape "cache"    label:"Redis"
+  cell: shape "queue"    label:"메시지 큐"
 }
 \`\`\`
 
 ## 문법
 
 \`\`\`
-icon "key" [label:"..."] [description:"..."]
+shape "key" [label:"..."] [description:"..."]
 \`\`\`
 
 | 요소 | 필수 | 설명 |
 |------|:----:|------|
-| \`"key"\` | ✓ | 레지스트리 키 — 아이콘의 시맨틱 이름 |
-| \`label:"..."\` | — | 아이콘 아래 짧은 라벨 |
+| \`"key"\` | ✓ | 레지스트리 키 — 도형의 시맨틱 이름 |
+| \`label:"..."\` | — | 도형 아래 짧은 라벨 |
 | \`description:"..."\` | — | 라벨 아래 작은 설명 |
 
 ## 사용 가능한 키
@@ -177,16 +177,16 @@ icon "key" [label:"..."] [description:"..."]
 scene "Data Pipeline" {
   layout: header-grid
   header: heading "데이터 파이프라인"
-  cell: icon "browser"  label:"클라이언트"    description:"Web App"
-  cell: icon "api"      label:"API 게이트웨이" description:"REST / GraphQL"
-  cell: icon "server"   label:"서비스"       description:"Node.js"
-  cell: icon "database" label:"데이터베이스"   description:"PostgreSQL"
+  cell: shape "browser"  label:"클라이언트"    description:"Web App"
+  cell: shape "api"      label:"API 게이트웨이" description:"REST / GraphQL"
+  cell: shape "server"   label:"서비스"       description:"Node.js"
+  cell: shape "database" label:"데이터베이스"   description:"PostgreSQL"
 }
 \`\`\`
 
 ## 아키텍처 다이어그램
 
-아이콘과 flow 블록을 조합해 시스템 구조를 표현할 수 있습니다:
+도형과 flow 블록을 조합해 시스템 구조를 표현할 수 있습니다:
 
 \`\`\`depix
 @page 16:9
@@ -202,9 +202,9 @@ scene "마이크로서비스" {
     #gw -> #auth
   }
   right: stack direction:col {
-    icon "database" label:"사용자 DB"   description:"PostgreSQL"
-    icon "cache"    label:"세션 캐시"   description:"Redis"
-    icon "queue"    label:"이벤트 버스" description:"Kafka"
+    shape "database" label:"사용자 DB"   description:"PostgreSQL"
+    shape "cache"    label:"세션 캐시"   description:"Redis"
+    shape "queue"    label:"이벤트 버스" description:"Kafka"
   }
 }
 \`\`\`
@@ -220,17 +220,17 @@ scene "마이크로서비스" {
 scene "폴백 예시" {
   layout: header-grid
   header: heading "알려진 키와 알 수 없는 키"
-  cell: icon "server"       label:"알려진 키"
-  cell: icon "unknown-key"  label:"알 수 없는 키 (폴백)"
+  cell: shape "server"       label:"알려진 키"
+  cell: shape "unknown-key"  label:"알 수 없는 키 (폴백)"
 }
 \`\`\`
 
-> 폴백 렌더링은 알 수 없거나 로드되지 않은 아이콘이 있어도 다이어그램이 깨지지 않도록 보장합니다.
+> 폴백 렌더링은 알 수 없거나 로드되지 않은 도형이 있어도 다이어그램이 깨지지 않도록 보장합니다.
 
 ## 레지스트리 동작 방식
 
 1. 첫 렌더링 시 **레지스트리 인덱스**(SVG 없이 키 목록만)를 fetch합니다.
-2. DSL 컴파일 후 문서에 사용된 모든 \`icon\` 키를 수집합니다.
+2. DSL 컴파일 후 문서에 사용된 모든 \`shape\` 키를 수집합니다.
 3. 해당 키가 포함된 팩만 **지연 fetch**합니다.
 4. SVG는 컴포넌트 생애 동안 엔진의 \`ShapeRegistry\`에 저장됩니다.
 

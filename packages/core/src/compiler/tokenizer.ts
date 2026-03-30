@@ -80,7 +80,7 @@ export const ELEMENT_TYPES = new Set([
   'label',
   'list',
   'badge',
-  'icon',
+  'shape',
   'divider',
   'image',
   'cell',
@@ -585,7 +585,12 @@ class Tokenizer {
     if (BLOCK_TYPES.has(value)) {
       type = 'BLOCK_TYPE';
     } else if (ELEMENT_TYPES.has(value)) {
-      type = 'ELEMENT_TYPE';
+      // If an element-type keyword is immediately followed by ':', it is being
+      // used as a property name (e.g. `shape: diamond`) — emit IDENTIFIER so
+      // the parser can handle it in property-assignment context.
+      let peek = this.pos;
+      while (peek < this.input.length && this.input[peek] === ' ') peek++;
+      type = peek < this.input.length && this.input[peek] === ':' ? 'IDENTIFIER' : 'ELEMENT_TYPE';
     } else if (FLAGS.has(value)) {
       type = 'FLAG';
     } else {

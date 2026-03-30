@@ -1,45 +1,45 @@
 /**
- * Icon Renderer — renders IRIcon elements.
+ * Shape Asset Renderer — renders IRShapeAsset elements.
  *
  * At render time the ShapeRegistry is consulted:
  * - Key found    → Konva.Image (pre-loaded SVG) + optional label/description
- * - Key missing  → fallback: dashed-outline rect + icon name as centered text
+ * - Key missing  → fallback: dashed-outline rect + shape name as centered text
  *
- * SVG images are pre-loaded into HTMLImageElement by resolveIcons() before
+ * SVG images are pre-loaded into HTMLImageElement by resolveShapes() before
  * the first render, so this renderer remains fully synchronous.
  *
  * Layout (when label and/or description present):
  *   ┌──────────────┐
  *   │  SVG image   │  60% of height
- *   │   (icon)     │
+ *   │   (shape)    │
  *   │    label     │  25% of height
  *   │  description │  15% of height
  *   └──────────────┘
  */
 
 import Konva from 'konva';
-import type { IRIcon } from '@depix/core';
+import type { IRShapeAsset } from '@depix/core';
 import type { CoordinateTransform } from '../coordinate-transform.js';
-import type { IconDefinition, ShapeRegistry } from '../registry/shape-registry.js';
+import type { ShapeDefinition, ShapeRegistry } from '../registry/shape-registry.js';
 import { applyTransform } from './style.js';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-export function renderIcon(
-  icon: IRIcon,
+export function renderShapeAsset(
+  shape: IRShapeAsset,
   transform: CoordinateTransform,
   registry: ShapeRegistry,
 ): Konva.Group {
-  const def = icon.iconId ? registry.get(icon.iconId) : undefined;
+  const def = shape.shapeId ? registry.get(shape.shapeId) : undefined;
   return def && def.image
-    ? renderSvgIcon(icon, def, transform)
-    : renderFallbackIcon(icon, transform);
+    ? renderSvgShape(shape, def, transform)
+    : renderFallbackShape(shape, transform);
 }
 
 // ---------------------------------------------------------------------------
-// SVG icon (pre-loaded image)
+// SVG shape (pre-loaded image)
 // ---------------------------------------------------------------------------
 
 /**
@@ -47,7 +47,7 @@ export function renderIcon(
  * Falls back to 24×24 if the viewBox cannot be parsed.
  */
 function parseSvgViewBox(svg: string): { w: number; h: number } {
-  const match = svg.match(/viewBox=["']([^"']+)["']/);
+  const match = svg.match(/viewBox=[\"']([^\"']+)[\"']/);
   if (match) {
     const parts = match[1].trim().split(/[\s,]+/);
     if (parts.length >= 4) {
@@ -59,43 +59,43 @@ function parseSvgViewBox(svg: string): { w: number; h: number } {
   return { w: 24, h: 24 };
 }
 
-function renderSvgIcon(
-  icon: IRIcon,
-  def: IconDefinition,
+function renderSvgShape(
+  shape: IRShapeAsset,
+  def: ShapeDefinition,
   transform: CoordinateTransform,
 ): Konva.Group {
-  const abs = transform.toAbsoluteBounds(icon.bounds);
-  const group = new Konva.Group({ x: abs.x, y: abs.y, id: icon.id });
+  const abs = transform.toAbsoluteBounds(shape.bounds);
+  const group = new Konva.Group({ x: abs.x, y: abs.y, id: shape.id });
 
-  const iconAreaH = icon.label ? abs.height * 0.6 : abs.height;
+  const shapeAreaH = shape.label ? abs.height * 0.6 : abs.height;
   const labelAreaH = abs.height * 0.25;
   const descAreaH = abs.height * 0.15;
 
   const { w: vbW, h: vbH } = parseSvgViewBox(def.svg);
   const scaleX = abs.width / vbW;
-  const scaleY = iconAreaH / vbH;
+  const scaleY = shapeAreaH / vbH;
   const scale = Math.min(scaleX, scaleY);
   const scaledW = vbW * scale;
   const scaledH = vbH * scale;
 
   // Konva.Image does not support width/height of the SVG source — we rely on
   // the pre-loaded HTMLImageElement and explicit width/height props to scale it.
-  // x/y offset centers the scaled image within the icon area.
+  // x/y offset centers the scaled image within the shape area.
   group.add(new Konva.Image({
     x: (abs.width - scaledW) / 2,
-    y: (iconAreaH - scaledH) / 2,
+    y: (shapeAreaH - scaledH) / 2,
     image: def.image!,
     width: scaledW,
     height: scaledH,
   }));
 
-  if (icon.label) {
+  if (shape.label) {
     group.add(new Konva.Text({
       x: 0,
-      y: iconAreaH,
+      y: shapeAreaH,
       width: abs.width,
       height: labelAreaH,
-      text: icon.label,
+      text: shape.label,
       fontSize: Math.max(transform.toAbsoluteSize(2.5), 11),
       fill: '#303336',
       fontStyle: 'bold',
@@ -104,13 +104,13 @@ function renderSvgIcon(
     }));
   }
 
-  if (icon.description) {
+  if (shape.description) {
     group.add(new Konva.Text({
       x: abs.width * 0.05,
-      y: iconAreaH + labelAreaH,
+      y: shapeAreaH + labelAreaH,
       width: abs.width * 0.9,
       height: descAreaH,
-      text: icon.description,
+      text: shape.description,
       fontSize: Math.max(transform.toAbsoluteSize(2), 9),
       fill: '#6b7280',
       align: 'center',
@@ -118,28 +118,28 @@ function renderSvgIcon(
     }));
   }
 
-  applyTransform(group, icon, transform);
+  applyTransform(group, shape, transform);
   return group;
 }
 
 // ---------------------------------------------------------------------------
-// Fallback icon (registry miss or image not yet loaded)
+// Fallback shape (registry miss or image not yet loaded)
 // ---------------------------------------------------------------------------
 
-function renderFallbackIcon(
-  icon: IRIcon,
+function renderFallbackShape(
+  shape: IRShapeAsset,
   transform: CoordinateTransform,
 ): Konva.Group {
-  const abs = transform.toAbsoluteBounds(icon.bounds);
-  const group = new Konva.Group({ x: abs.x, y: abs.y, id: icon.id });
+  const abs = transform.toAbsoluteBounds(shape.bounds);
+  const group = new Konva.Group({ x: abs.x, y: abs.y, id: shape.id });
 
-  const iconAreaH = icon.label ? abs.height * 0.6 : abs.height;
+  const shapeAreaH = shape.label ? abs.height * 0.6 : abs.height;
   const labelAreaH = abs.height * 0.25;
   const descAreaH = abs.height * 0.15;
 
-  const boxSize = Math.min(abs.width * 0.7, iconAreaH * 0.8);
+  const boxSize = Math.min(abs.width * 0.7, shapeAreaH * 0.8);
   const boxX = (abs.width - boxSize) / 2;
-  const boxY = (iconAreaH - boxSize) / 2;
+  const boxY = (shapeAreaH - boxSize) / 2;
 
   group.add(new Konva.Rect({
     x: boxX,
@@ -153,8 +153,8 @@ function renderFallbackIcon(
     cornerRadius: 4,
   }));
 
-  const displayText = icon.iconId
-    ? icon.iconId.slice(0, 8) + (icon.iconId.length > 8 ? '…' : '')
+  const displayText = shape.shapeId
+    ? shape.shapeId.slice(0, 8) + (shape.shapeId.length > 8 ? '…' : '')
     : '?';
 
   group.add(new Konva.Text({
@@ -169,13 +169,13 @@ function renderFallbackIcon(
     verticalAlign: 'middle',
   }));
 
-  if (icon.label) {
+  if (shape.label) {
     group.add(new Konva.Text({
       x: 0,
-      y: iconAreaH,
+      y: shapeAreaH,
       width: abs.width,
       height: labelAreaH,
-      text: icon.label,
+      text: shape.label,
       fontSize: Math.max(transform.toAbsoluteSize(2.5), 11),
       fill: '#303336',
       fontStyle: 'bold',
@@ -184,13 +184,13 @@ function renderFallbackIcon(
     }));
   }
 
-  if (icon.description) {
+  if (shape.description) {
     group.add(new Konva.Text({
       x: abs.width * 0.05,
-      y: iconAreaH + labelAreaH,
+      y: shapeAreaH + labelAreaH,
       width: abs.width * 0.9,
       height: descAreaH,
-      text: icon.description,
+      text: shape.description,
       fontSize: Math.max(transform.toAbsoluteSize(2), 9),
       fill: '#6b7280',
       align: 'center',
@@ -198,6 +198,6 @@ function renderFallbackIcon(
     }));
   }
 
-  applyTransform(group, icon, transform);
+  applyTransform(group, shape, transform);
   return group;
 }
