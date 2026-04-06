@@ -272,3 +272,77 @@ describe('layoutFlow – container bounds', () => {
     expect(containerBounds.h).toBeLessThanOrEqual(bounds.h + 0.01);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Association edges (structural: false) — 레이어 할당에서 제외
+// ---------------------------------------------------------------------------
+
+describe('layoutFlow – association edges (structural: false)', () => {
+  it('-- 엣지는 레이어 할당에 참여하지 않아 같은 레이어 배치', () => {
+    // server → db, server → cache (구조적), cache -- db (연관)
+    const children = [child('client'), child('server'), child('db'), child('cache')];
+    const edges: FlowEdge[] = [
+      { fromId: 'client', toId: 'server' },
+      { fromId: 'server', toId: 'db' },
+      { fromId: 'server', toId: 'cache' },
+      { fromId: 'cache', toId: 'db', structural: false }, // 연관 엣지
+    ];
+    const config = baseConfig({ direction: 'right', gap: 5, edges });
+
+    const { childBounds } = layoutFlow(children, config);
+    const [client, server, db, cache] = childBounds;
+
+    // client=layer0, server=layer1, cache=layer2, db=layer2 (같은 레이어)
+    expect(client.x).toBeLessThan(server.x);
+    expect(server.x).toBeLessThan(cache.x);
+    expect(cache.x).toBeCloseTo(db.x, 1); // 같은 레이어
+  });
+
+  it('구조적 엣지로 전달하면 db가 더 뒤 레이어에 배치', () => {
+    // 같은 그래프지만 cache→db가 구조적 엣지
+    const children = [child('client'), child('server'), child('db'), child('cache')];
+    const edges: FlowEdge[] = [
+      { fromId: 'client', toId: 'server' },
+      { fromId: 'server', toId: 'db' },
+      { fromId: 'server', toId: 'cache' },
+      { fromId: 'cache', toId: 'db' }, // 기본값 = 구조적
+    ];
+    const config = baseConfig({ direction: 'right', gap: 5, edges });
+
+    const { childBounds } = layoutFlow(children, config);
+    const [_client, _server, db, cache] = childBounds;
+
+    // cache=layer2, db=layer3 (구조적 엣지가 밀어냄)
+    expect(db.x).toBeGreaterThan(cache.x);
+  });
+
+  it('structural 미지정 시 기본값으로 구조적(true) 취급', () => {
+    const children = [child('a'), child('b'), child('c')];
+    const edges: FlowEdge[] = [
+      { fromId: 'a', toId: 'b' },
+      { fromId: 'b', toId: 'c' }, // structural 필드 없음 → 구조적
+    ];
+    const config = baseConfig({ direction: 'right', gap: 5, edges });
+
+    const { childBounds } = layoutFlow(children, config);
+    const [a, b, c] = childBounds;
+
+    expect(a.x).toBeLessThan(b.x);
+    expect(b.x).toBeLessThan(c.x);
+  });
+
+  it('모든 엣지가 연관이면 전부 레이어 0에 배치', () => {
+    const children = [child('a'), child('b'), child('c')];
+    const edges: FlowEdge[] = [
+      { fromId: 'a', toId: 'b', structural: false },
+      { fromId: 'b', toId: 'c', structural: false },
+    ];
+    const config = baseConfig({ direction: 'right', gap: 5, edges });
+
+    const { childBounds } = layoutFlow(children, config);
+
+    // 모든 노드가 같은 레이어 (layer 0)
+    expect(childBounds[0].x).toBeCloseTo(childBounds[1].x, 1);
+    expect(childBounds[0].x).toBeCloseTo(childBounds[2].x, 1);
+  });
+});

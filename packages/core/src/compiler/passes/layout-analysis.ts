@@ -186,7 +186,7 @@ export interface FlowLayerInfo {
  */
 export function computeFlowLayerInfo(
   nodeIds: string[],
-  edges: { fromId: string; toId: string }[],
+  edges: { fromId: string; toId: string; edgeStyle?: string }[],
 ): FlowLayerInfo {
   if (nodeIds.length === 0) {
     return { layerCount: 0, nodesPerLayer: [], nodeLayer: new Map() };
@@ -200,6 +200,7 @@ export function computeFlowLayerInfo(
   const inDeg: number[] = new Array(n).fill(0);
 
   for (const e of edges) {
+    if (e.edgeStyle === '--') continue; // 연관 엣지는 레이어 할당에서 제외
     const from = idToIdx.get(e.fromId);
     const to = idToIdx.get(e.toId);
     if (from !== undefined && to !== undefined) {

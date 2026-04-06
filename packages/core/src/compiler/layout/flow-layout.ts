@@ -42,6 +42,7 @@ export function layoutFlow(
   const inDeg: number[] = new Array(children.length).fill(0);
 
   for (const e of edges) {
+    if (e.structural === false) continue; // 연관 엣지(--) 는 DAG에서 제외
     const from = idToIdx.get(e.fromId);
     const to = idToIdx.get(e.toId);
     if (from !== undefined && to !== undefined) {

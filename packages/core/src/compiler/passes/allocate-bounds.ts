@@ -665,7 +665,7 @@ export function runLayout(
       });
 
     case 'flow': {
-      const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId }));
+      const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId, structural: e.edgeStyle !== '--' }));
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
       const baseGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
       const dir = (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right';

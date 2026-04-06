@@ -168,4 +168,38 @@ describe('computeFlowLayerInfo', () => {
     expect(result.nodeLayer.get('b')).toBe(0);
     expect(result.nodeLayer.get('c')).toBe(1);
   });
+
+  it('연관 엣지(edgeStyle="--")는 레이어 할당에서 제외', () => {
+    // server→db, server→cache (구조적), cache--db (연관)
+    const result = computeFlowLayerInfo(
+      ['client', 'server', 'db', 'cache'],
+      [
+        { fromId: 'client', toId: 'server' },
+        { fromId: 'server', toId: 'db' },
+        { fromId: 'server', toId: 'cache' },
+        { fromId: 'cache', toId: 'db', edgeStyle: '--' }, // 연관 엣지
+      ],
+    );
+    // cache와 db 모두 layer 2 (-- 엣지가 db를 layer 3으로 밀지 않음)
+    expect(result.layerCount).toBe(3);
+    expect(result.nodeLayer.get('cache')).toBe(2);
+    expect(result.nodeLayer.get('db')).toBe(2);
+    expect(result.nodesPerLayer[2]).toBe(2);
+  });
+
+  it('edgeStyle 미지정 시 구조적으로 취급 (기존 호환)', () => {
+    // 같은 그래프지만 edgeStyle 없음 → cache→db가 구조적
+    const result = computeFlowLayerInfo(
+      ['client', 'server', 'db', 'cache'],
+      [
+        { fromId: 'client', toId: 'server' },
+        { fromId: 'server', toId: 'db' },
+        { fromId: 'server', toId: 'cache' },
+        { fromId: 'cache', toId: 'db' }, // edgeStyle 없음 → 구조적
+      ],
+    );
+    // db=layer3 (cache→db가 밀어냄)
+    expect(result.layerCount).toBe(4);
+    expect(result.nodeLayer.get('db')).toBe(3);
+  });
 });

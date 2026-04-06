@@ -84,6 +84,8 @@ export interface GridLayoutConfig {
 export interface FlowEdge {
   fromId: string;
   toId: string;
+  /** false이면 레이어 할당에서 제외 (연관 엣지). 미지정 시 구조적(true)으로 취급. */
+  structural?: boolean;
 }
 
 export interface FlowLayoutConfig {

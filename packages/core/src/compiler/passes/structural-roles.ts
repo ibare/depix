@@ -73,7 +73,7 @@ const ROLE_TO_STEP: Record<StructuralRole, SizeStep> = {
  */
 export function analyzeFlowRoles(
   nodeIds: string[],
-  edges: { fromId: string; toId: string }[],
+  edges: { fromId: string; toId: string; edgeStyle?: string }[],
 ): Map<string, StructuralRole> {
   const roles = new Map<string, StructuralRole>();
   if (nodeIds.length === 0) return roles;
@@ -82,6 +82,7 @@ export function analyzeFlowRoles(
   const outDeg = new Map<string, number>();
   for (const id of nodeIds) { inDeg.set(id, 0); outDeg.set(id, 0); }
   for (const e of edges) {
+    if (e.edgeStyle === '--') continue; // 연관 엣지는 구조적 역할 판별에서 제외
     if (inDeg.has(e.fromId) && inDeg.has(e.toId)) {
       outDeg.set(e.fromId, (outDeg.get(e.fromId) ?? 0) + 1);
       inDeg.set(e.toId, (inDeg.get(e.toId) ?? 0) + 1);
