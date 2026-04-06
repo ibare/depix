@@ -74,7 +74,7 @@ function emitElement(
     case 'list':
       result = emitListElement(element, id, bounds, theme, scaleCtx, measured); break;
     case 'divider':
-      result = emitDividerElement(element, id, bounds); break;
+      result = emitDividerElement(element, id, bounds, theme); break;
     case 'image':
       result = emitImageElement(element, id, bounds); break;
     case 'row':
@@ -103,6 +103,10 @@ function emitShapeElement(
 ): IRElement {
   const shapeType = (element.props.shape as IRShapeType) ?? defaultShape;
   const style = buildStyle(element.style);
+  // Shape 요소 기본 테두리: 명시적 스타일 없을 때 theme border 적용
+  if (!style.stroke) style.stroke = theme.border;
+  // 0.3: shape 기본 테두리 두께; 0–100 상대 좌표 기준, group/box/layer 기본값과 동일
+  if (!style.strokeWidth) style.strokeWidth = 0.3;
   const cornerRadius = extractCornerRadius(element);
 
   const shape: IRShape = {
@@ -414,9 +418,10 @@ function emitDividerElement(
   element: ASTElement,
   id: string,
   bounds: IRBounds,
+  theme: DepixTheme,
 ): IRLine {
   const style = buildStyle(element.style);
-  if (!style.stroke) style.stroke = '#e5e7eb';
+  if (!style.stroke) style.stroke = theme.border;
   // 0.2: hairline divider thickness in relative coordinate units
   if (!style.strokeWidth) style.strokeWidth = 0.2;
 
