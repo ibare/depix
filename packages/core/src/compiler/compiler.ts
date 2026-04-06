@@ -150,11 +150,11 @@ function normalizeScene(block: ASTBlock): ASTBlock {
     };
   }
 
-  // Multiple children → wrap in group block, assign group to body
-  const groupBlock: ASTBlock = {
+  // Multiple children → wrap in stack block, assign to body
+  const stackBlock: ASTBlock = {
     kind: 'block',
-    blockType: 'group',
-    props: {},
+    blockType: 'stack',
+    props: { align: 'center' },
     children: [...nonEdge, ...edges],
     style: {},
     slot: 'body',
@@ -163,7 +163,7 @@ function normalizeScene(block: ASTBlock): ASTBlock {
   return {
     ...block,
     props: { ...block.props, layout: block.props.layout ?? 'full' },
-    children: [groupBlock],
+    children: [stackBlock],
   };
 }
 

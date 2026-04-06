@@ -421,7 +421,14 @@ export function computeLayoutChildren(
           const rawH = naturalHeights[i] !== null
             ? naturalHeights[i]!
             : flexWeight > 0 ? remaining * (c.weight / flexWeight) : remaining / Math.max(flexItems.length, 1);
-          return { id: c.id, width: bounds.w, height: Math.min(rawH, maxH) };
+          const h = Math.min(rawH, maxH);
+
+          // Shape 요소: height 기반 preferred ratio로 width 계산 (flow/tree와 동일 원칙)
+          const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+          const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
+          const w = preferredRatio ? Math.min(h * preferredRatio, bounds.w) : bounds.w;
+
+          return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
         });
       }
     }
@@ -561,7 +568,14 @@ export function computeLayoutChildren(
         const cc = constraintMap?.get(c.id);
         const maxH = cc?.maxHeight ?? Infinity;
         const rawH = totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n;
-        return { id: c.id, width: innerW, height: Math.min(rawH, maxH) };
+        const h = Math.min(rawH, maxH);
+
+        // Shape 요소: height 기반 preferred ratio로 width 계산 (flow/tree와 동일 원칙)
+        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
+        const w = preferredRatio ? Math.min(h * preferredRatio, innerW) : innerW;
+
+        return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
       });
     }
 
