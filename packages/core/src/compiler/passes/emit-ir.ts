@@ -1,17 +1,13 @@
 /**
  * Compiler Pass — Emit IR
  *
- * Converts a theme-resolved AST into a fully resolved DepixIR document.
- * Uses the plan → allocate → emit pipeline:
- *   1. planDiagram()     — structural analysis (plan-layout.ts)
- *   2. allocateDiagram() — top-down space allocation (allocate-bounds.ts)
- *   3. emitDiagramFromPlan() — AST→IR conversion using allocated bounds
+ * Provides emitInlineBlock() for the scene pipeline to render diagram-like
+ * blocks (flow, tree, stack, grid, group, layers, canvas) within scene slots.
  *
  * All coordinates in the output are in the 0-100 relative space.
  */
 
 import type {
-  DepixIR,
   IRBounds,
   IRContainer,
   IREdge as IREdgeType,
@@ -19,37 +15,30 @@ import type {
   IRImage,
   IRInnerText,
   IRLine,
-  IRMeta,
   IROrigin,
   IRPath,
-  IRScene,
   IRShape,
   IRShapeType,
   IRStyle,
   IRText,
-  IRTransition,
 } from '../../ir/types.js';
 import type { DepixTheme } from '../../theme/types.js';
 import type {
   ASTBlock,
-  ASTDirective,
-  ASTDocument,
   ASTEdge,
   ASTElement,
 } from '../ast.js';
 import { routeEdge, type RouteEdgeInput } from '../routing/edge-router.js';
 import { generateId } from '../../ir/utils.js';
-import { planDiagram, planNode } from './plan-layout.js';
-import { allocateDiagram, runLayout, computeLayoutChildren, type BoundsMap } from './allocate-bounds.js';
+import { planNode } from './plan-layout.js';
+import { runLayout, computeLayoutChildren } from './allocate-bounds.js';
 import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
 import type { ScaleContext } from './scale-system.js';
-import { createScaleContext, computeFontSize, computePadding } from './scale-system.js';
-import { measureDiagram } from './measure.js';
+import { computeFontSize, computePadding } from './scale-system.js';
 import type { MeasureMap, MeasureResult } from './measure.js';
 import { computeConstraints } from './compute-constraints.js';
 import { isOriginSourceType } from '../container-meta.js';
 import { getElementConfig } from '../element-type-registry.js';
-import { allocateBudgets } from './allocate-budgets.js';
 import {
   computeChartPositions,
   computeLineChartPositions,
@@ -57,248 +46,6 @@ import {
   extractChartData,
 } from '../layout/chart-layout.js';
 import { getChartColor } from '../layout/chart-colors.js';
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a theme-resolved AST into a complete DepixIR document.
- */
-export function emitIR(ast: ASTDocument, theme: DepixTheme): DepixIR {
-  const meta = buildMeta(ast.directives, theme);
-  const canvasBounds: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
-  const scenes = ast.scenes.map((scene, i) => {
-    const plan = planDiagram(scene, theme);
-    const scaleCtx = createScaleContext(plan, canvasBounds);
-    const constraints = computeConstraints(plan, scaleCtx);
-    const budgetMap = allocateBudgets(plan, canvasBounds, constraints, scaleCtx);
-    const mMap = measureDiagram(plan, theme, scaleCtx, budgetMap);
-    const boundsMap = allocateDiagram(plan, canvasBounds, theme, scaleCtx, mMap, constraints);
-    return emitDiagramFromPlan(scene, plan, boundsMap, i, theme, scaleCtx, mMap);
-  });
-  const transitions = buildTransitions(ast.directives, scenes);
-  return { meta, scenes, transitions };
-}
-
-// ---------------------------------------------------------------------------
-// Meta
-// ---------------------------------------------------------------------------
-
-function buildMeta(directives: ASTDirective[], theme: DepixTheme): IRMeta {
-  let aspectRatio = { width: 16, height: 9 };
-  let drawingStyle: 'default' | 'sketch' = 'default';
-
-  for (const d of directives) {
-    if (d.key === 'page') {
-      const parts = d.value.split(':');
-      if (parts.length === 2) {
-        const w = parseInt(parts[0], 10);
-        const h = parseInt(parts[1], 10);
-        if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
-          aspectRatio = { width: w, height: h };
-        }
-      }
-    }
-    if (d.key === 'style' && d.value === 'sketch') {
-      drawingStyle = 'sketch';
-    }
-  }
-
-  return {
-    aspectRatio,
-    background: { type: 'solid', color: theme.background },
-    drawingStyle,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Transitions
-// ---------------------------------------------------------------------------
-
-const VALID_TRANSITION_TYPES: readonly string[] = [
-  'fade', 'slide-left', 'slide-right', 'slide-up', 'slide-down',
-  'zoom-in', 'zoom-out',
-];
-
-function buildTransitions(
-  directives: ASTDirective[],
-  scenes: IRScene[],
-): IRTransition[] {
-  if (scenes.length < 2) return [];
-
-  let transitionType: IRTransition['type'] = 'fade';
-  for (const d of directives) {
-    if (d.key === 'transition' && VALID_TRANSITION_TYPES.includes(d.value)) {
-      transitionType = d.value as IRTransition['type'];
-    }
-  }
-
-  const transitions: IRTransition[] = [];
-  for (let i = 0; i < scenes.length - 1; i++) {
-    transitions.push({
-      from: scenes[i].id,
-      to: scenes[i + 1].id,
-      type: transitionType,
-      duration: 300,
-      easing: 'ease-in-out',
-    });
-  }
-  return transitions;
-}
-
-// ---------------------------------------------------------------------------
-// Scene emission from plan
-// ---------------------------------------------------------------------------
-
-function emitDiagramFromPlan(
-  scene: ASTBlock,
-  plan: DiagramLayoutPlan,
-  boundsMap: BoundsMap,
-  index: number,
-  theme: DepixTheme,
-  scaleCtx?: ScaleContext,
-  measureMap?: MeasureMap,
-): IRScene {
-  const elements: IRElement[] = [];
-  const pendingEdges: ASTEdge[] = [];
-  // Use boundsMap directly (mutable for edge routing additions)
-  const routingBoundsMap = new Map<string, IRBounds>(boundsMap);
-
-  let planIndex = 0;
-  for (const child of scene.children) {
-    switch (child.kind) {
-      case 'block': {
-        const childPlan = plan.children[planIndex++];
-        const container = emitBlockFromPlan(child, childPlan, routingBoundsMap, theme, scaleCtx, measureMap);
-        elements.push(container);
-        break;
-      }
-      case 'element': {
-        const childPlan = plan.children[planIndex++];
-        const bounds = routingBoundsMap.get(childPlan.id);
-        if (bounds) {
-          const m = measureMap?.get(childPlan.id);
-          const el = emitElement(child, bounds, theme, routingBoundsMap, scaleCtx, m, childPlan.children, measureMap);
-          elements.push(el);
-        }
-        break;
-      }
-      case 'edge':
-        pendingEdges.push(child);
-        break;
-    }
-  }
-
-  // Build shape map from emitted elements for shape-aware edge routing
-  const shapeMap = new Map<string, IRShapeType>();
-  for (const el of elements) {
-    if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
-  }
-
-  // Route edges after all element bounds are known
-  for (const edge of pendingEdges) {
-    const irEdge = routeASTEdge(edge, routingBoundsMap, shapeMap);
-    if (irEdge) elements.push(irEdge);
-  }
-
-  return {
-    id: scene.label ? `scene-${scene.label}` : `scene-${index}`,
-    elements,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Block emission from plan
-// ---------------------------------------------------------------------------
-
-function emitBlockFromPlan(
-  block: ASTBlock,
-  plan: LayoutPlanNode,
-  boundsMap: Map<string, IRBounds>,
-  theme: DepixTheme,
-  scaleCtx?: ScaleContext,
-  measureMap?: MeasureMap,
-): IRContainer {
-  const containerBounds = boundsMap.get(plan.id);
-  if (!containerBounds) {
-    throw new Error(`Missing bounds for block ${plan.id}`);
-  }
-
-  // Chart blocks need specialized rendering (bars, axes, labels)
-  if (block.blockType === 'chart') {
-    return emitChartBlock(block, block.id ?? generateId(), containerBounds, theme, scaleCtx);
-  }
-
-  const irChildren: IRElement[] = [];
-  let childPlanIdx = 0;
-
-  for (const child of block.children) {
-    if (child.kind === 'edge') continue;
-
-    const childPlan = plan.children[childPlanIdx++];
-    const childBounds = boundsMap.get(childPlan.id);
-    if (!childBounds) continue;
-
-    if (child.kind === 'block') {
-      irChildren.push(emitBlockFromPlan(child, childPlan, boundsMap, theme, scaleCtx, measureMap));
-    } else {
-      const m = measureMap?.get(childPlan.id);
-      irChildren.push(emitElement(child, childBounds, theme, boundsMap, scaleCtx, m, childPlan.children, measureMap));
-    }
-  }
-
-  // Build shape map from emitted children for shape-aware edge routing
-  const shapeMap = new Map<string, IRShapeType>();
-  for (const el of irChildren) {
-    if (el.type === 'shape') shapeMap.set(el.id, (el as IRShape).shape);
-  }
-
-  // Route internal edges
-  for (const edge of plan.edges) {
-    const irEdge = routeASTEdge(edge, boundsMap, shapeMap);
-    if (irEdge) irChildren.push(irEdge);
-  }
-
-  const containerId = block.id ?? generateId();
-  const containerStyle = buildStyle(block.style);
-
-  // Group blocks get a default border when no explicit styling is provided
-  if (block.blockType === 'group' && !containerStyle.stroke && !containerStyle.fill) {
-    containerStyle.stroke = theme.border;
-    containerStyle.strokeWidth = 0.3;
-  }
-
-  // Box/layer blocks: default border when no explicit styling
-  if ((block.blockType === 'box' || block.blockType === 'layer') && !containerStyle.stroke && !containerStyle.fill) {
-    containerStyle.stroke = theme.border;
-    containerStyle.strokeWidth = 0.3;
-  }
-
-  const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
-    ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
-    : undefined;
-
-  const container: IRContainer = {
-    id: containerId,
-    type: 'container',
-    bounds: containerBounds,
-    style: containerStyle,
-    children: irChildren,
-  };
-
-  if (origin) {
-    container.origin = { ...origin, dslType: block.blockType };
-  } else {
-    container.origin = { dslType: block.blockType };
-  }
-  boundsMap.set(containerId, containerBounds);
-  return container;
-}
-
-function isLayoutSourceType(type: string): boolean {
-  return isOriginSourceType(type);
-}
 
 // ---------------------------------------------------------------------------
 // ASTElement → IRElement
@@ -551,7 +298,7 @@ export function emitInlineBlock(
     containerStyle.strokeWidth = 0.3; // 0–100 좌표계 기준; emitBlockFromPlan group/box/layer 기본값과 동일
   }
 
-  const origin: IROrigin | undefined = isLayoutSourceType(block.blockType)
+  const origin: IROrigin | undefined = isOriginSourceType(block.blockType)
     ? { sourceType: block.blockType as IROrigin['sourceType'], sourceProps: { ...block.props } }
     : undefined;
 

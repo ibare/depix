@@ -133,12 +133,16 @@ export function layoutFlow(
     positionOffsets.push(positionOffsets[l - 1] + positionMainSizes[l - 1] + gap);
   }
 
+  // Center the flow within available space when content doesn't fill the full main axis
+  const totalMainNeeded = layerMainSizes.reduce((s, v) => s + v, 0) + totalLayerGap;
+  const mainCenterOffset = Math.max(0, (mainAvail - totalMainNeeded) / 2);
+
   const childBounds: IRBounds[] = new Array(children.length);
 
   for (let l = 0; l < layerCount; l++) {
     const layer = isReversed ? layerCount - 1 - l : l;
     const nodes = layerGroups[layer];
-    const mainOffset = positionOffsets[l];
+    const mainOffset = positionOffsets[l] + mainCenterOffset;
     const nodeMainSize = positionMainSizes[l];
 
     // Use pre-computed cross sizes from children (set by computeLayoutChildren)
@@ -172,15 +176,14 @@ export function layoutFlow(
     }
   }
 
-  // Compute container bounds
-  const usedMain = layerMainSizes.reduce((s, v) => s + v, 0) + totalLayerGap;
-  const usedW = isHorizontal ? usedMain : bounds.w;
-  const usedH = isHorizontal ? bounds.h : usedMain;
+  // Compute container bounds (centered within allocated space)
+  const usedW = isHorizontal ? totalMainNeeded : bounds.w;
+  const usedH = isHorizontal ? bounds.h : totalMainNeeded;
 
   return {
     containerBounds: {
-      x: bounds.x,
-      y: bounds.y,
+      x: bounds.x + (isHorizontal ? mainCenterOffset : 0),
+      y: bounds.y + (isHorizontal ? 0 : mainCenterOffset),
       w: Math.min(usedW, bounds.w),
       h: Math.min(usedH, bounds.h),
     },

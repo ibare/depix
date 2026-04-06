@@ -95,7 +95,7 @@ describe('layoutGroup – single child', () => {
     expect(b.x).toBeCloseTo(expectedX, 1);
   });
 
-  it('single child starts at padded y offset', () => {
+  it('single child is vertically centered within padded area', () => {
     const padding = 8;
     const config = baseConfig({
       bounds: { x: 0, y: 0, w: 100, h: 100 },
@@ -105,7 +105,11 @@ describe('layoutGroup – single child', () => {
 
     const { childBounds } = layoutGroup(children, config);
 
-    expect(childBounds[0]!.y).toBeCloseTo(padding, 1);
+    // contentH = 100 - 2*8 = 84, totalH = 10, centerOffset = (84-10)/2 = 37
+    // y = padding + centerOffset = 8 + 37 = 45
+    const contentH = 100 - padding * 2;
+    const centerOffset = (contentH - 10) / 2;
+    expect(childBounds[0]!.y).toBeCloseTo(padding + centerOffset, 1);
   });
 
   it('container height fits child + 2 × padding (up to bounds.h)', () => {
@@ -188,7 +192,7 @@ describe('layoutGroup – multiple children stacked vertically', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutGroup – padding affects content positioning', () => {
-  it('larger padding pushes children further inward', () => {
+  it('larger padding reduces content area, affecting centered position', () => {
     const smallPad = baseConfig({ bounds: { x: 0, y: 0, w: 100, h: 100 }, padding: 2 });
     const largePad = baseConfig({ bounds: { x: 0, y: 0, w: 100, h: 100 }, padding: 20 });
     const children = [child('a', 20, 10)];
@@ -196,17 +200,21 @@ describe('layoutGroup – padding affects content positioning', () => {
     const { childBounds: small } = layoutGroup(children, smallPad);
     const { childBounds: large } = layoutGroup(children, largePad);
 
-    // With larger padding the child starts further down
-    expect(large[0]!.y).toBeGreaterThan(small[0]!.y);
+    // Both are centered: small → padding + (96-10)/2 = 45, large → 20 + (60-10)/2 = 45
+    // With same child size and bounds, the center point stays the same
+    expect(large[0]!.y).toBeCloseTo(small[0]!.y, 0);
   });
 
-  it('zero padding: child y equals bounds.y', () => {
+  it('zero padding: child y is vertically centered', () => {
     const config = baseConfig({ bounds: { x: 0, y: 0, w: 100, h: 100 }, padding: 0 });
     const children = [child('a', 20, 10)];
 
     const { childBounds } = layoutGroup(children, config);
 
-    expect(childBounds[0]!.y).toBeCloseTo(0, 1);
+    // Vertically centered: contentH = 100, totalH = 10
+    const contentH = 100;
+    const centerOffset = (contentH - 10) / 2;
+    expect(childBounds[0]!.y).toBeCloseTo(centerOffset, 1);
   });
 
   it('container height is capped at bounds.h when children overflow', () => {
@@ -226,18 +234,21 @@ describe('layoutGroup – padding affects content positioning', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutGroup – container bounds origin', () => {
-  it('container x and y match bounds origin', () => {
+  it('container x matches bounds origin, y is centered', () => {
     const bounds = { x: 15, y: 25, w: 80, h: 60 };
     const config = baseConfig({ bounds, padding: 5 });
     const children = [child('a', 20, 10)];
 
     const { containerBounds } = layoutGroup(children, config);
 
+    // contentH = 60-10 = 50, totalH = 10, centerOffset = (50-10)/2 = 20
+    const contentH = bounds.h - 5 * 2;
+    const centerOffset = (contentH - 10) / 2;
     expect(containerBounds.x).toBeCloseTo(15, 1);
-    expect(containerBounds.y).toBeCloseTo(25, 1);
+    expect(containerBounds.y).toBeCloseTo(25 + centerOffset, 1);
   });
 
-  it('child x and y are offset by the bounds origin', () => {
+  it('child x and y are offset by bounds origin with centering', () => {
     const bounds = { x: 10, y: 20, w: 80, h: 100 };
     const padding = 5;
     const config = baseConfig({ bounds, padding });
@@ -245,8 +256,10 @@ describe('layoutGroup – container bounds origin', () => {
 
     const { childBounds } = layoutGroup(children, config);
 
-    // contentX = bounds.x + padding = 15; child.y = bounds.y + padding = 25
-    expect(childBounds[0]!.y).toBeCloseTo(bounds.y + padding, 1);
+    // contentH = 100-10 = 90, totalH = 10, centerOffset = (90-10)/2 = 40
+    const contentH = bounds.h - padding * 2;
+    const centerOffset = (contentH - 10) / 2;
+    expect(childBounds[0]!.y).toBeCloseTo(bounds.y + padding + centerOffset, 1);
     expect(childBounds[0]!.x).toBeGreaterThanOrEqual(bounds.x + padding - 0.01);
   });
 });

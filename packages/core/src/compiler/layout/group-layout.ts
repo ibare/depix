@@ -38,8 +38,11 @@ export function layoutGroup(
   const gap = 1; // small default gap
   const totalH = children.reduce((s, c) => s + c.height, 0) + gap * (children.length - 1);
 
+  // Center the group vertically within available space
+  const mainCenterOffset = Math.max(0, (contentH - totalH) / 2);
+
   const childBounds: IRBounds[] = [];
-  let yOffset = 0;
+  let yOffset = mainCenterOffset;
 
   for (const child of children) {
     // Center horizontally within content area
@@ -55,13 +58,13 @@ export function layoutGroup(
     yOffset += child.height + gap;
   }
 
-  // Container fits tightly around children + padding
+  // Container fits tightly around children + padding (centered)
   const usedH = Math.min(totalH + padding * 2, bounds.h);
 
   return {
     containerBounds: {
       x: bounds.x,
-      y: bounds.y,
+      y: bounds.y + mainCenterOffset,
       w: bounds.w,
       h: usedH,
     },

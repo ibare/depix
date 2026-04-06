@@ -246,15 +246,18 @@ describe('layoutFlow – diamond pattern', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutFlow – container bounds', () => {
-  it('container bounds respect the configured bounds origin', () => {
+  it('container bounds are centered within the configured bounds', () => {
     const bounds = { x: 20, y: 30, w: 100, h: 80 };
     const children = [child('a'), child('b')];
     const config = baseConfig({ bounds, direction: 'right', gap: 5, edges: [edge('a', 'b')] });
 
     const { containerBounds } = layoutFlow(children, config);
 
-    expect(containerBounds.x).toBeCloseTo(20, 1);
-    expect(containerBounds.y).toBeCloseTo(30, 1);
+    // Container is horizontally centered within bounds
+    const leftMargin = containerBounds.x - bounds.x;
+    const rightMargin = (bounds.x + bounds.w) - (containerBounds.x + containerBounds.w);
+    expect(leftMargin).toBeCloseTo(rightMargin, 1);
+    expect(containerBounds.y).toBeCloseTo(bounds.y, 1);
   });
 
   it('container w/h do not exceed the configured bounds', () => {
