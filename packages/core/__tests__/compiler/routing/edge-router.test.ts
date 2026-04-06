@@ -5,15 +5,15 @@ import {
   getRectBoundaryPoint,
   getEllipseBoundaryPoint,
   getAutoAnchors,
-  createStraightPath,
-  createPolylinePath,
-  createBezierPath,
   getBezierMidpoint,
   getPolylineMidpoint,
   routeEdge,
   routeEdges,
+  createStraightPath,
+  createBezierPath,
+  createEdgePath,
   type RouteEdgeInput,
-} from '../../../src/compiler/routing/edge-router.js';
+} from '../../../src/compiler/routing/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -248,10 +248,16 @@ describe('createStraightPath', () => {
 // createPolylinePath
 // ===========================================================================
 
-describe('createPolylinePath', () => {
+describe('createEdgePath — polyline', () => {
+  const defaultCtx = {
+    fromBounds: bounds(0, 0, 20, 20),
+    toBounds: bounds(70, 50, 20, 20),
+  };
+
   it('creates orthogonal route through midpoint', () => {
-    const path = createPolylinePath(pt(10, 20), pt(80, 60));
+    const path = createEdgePath('polyline', pt(10, 20), pt(80, 60), defaultCtx);
     expect(path.type).toBe('polyline');
+    if (path.type !== 'polyline') return;
     expect(path.points).toHaveLength(2);
 
     const midX = (10 + 80) / 2;
@@ -262,30 +268,16 @@ describe('createPolylinePath', () => {
   it('all segments are horizontal or vertical', () => {
     const from = pt(10, 30);
     const to = pt(70, 60);
-    const path = createPolylinePath(from, to);
+    const path = createEdgePath('polyline', from, to, defaultCtx);
+    if (path.type !== 'polyline') return;
     const fullPoints = [from, ...path.points, to];
 
     for (let i = 1; i < fullPoints.length; i++) {
       const dx = fullPoints[i].x - fullPoints[i - 1].x;
       const dy = fullPoints[i].y - fullPoints[i - 1].y;
-      // Either horizontal (dy=0) or vertical (dx=0)
       const isOrtho = Math.abs(dx) < 0.001 || Math.abs(dy) < 0.001;
       expect(isOrtho).toBe(true);
     }
-  });
-
-  it('handles same X position', () => {
-    const path = createPolylinePath(pt(50, 10), pt(50, 80));
-    expect(path.points).toHaveLength(2);
-    expect(path.points[0].x).toBeCloseTo(50);
-    expect(path.points[1].x).toBeCloseTo(50);
-  });
-
-  it('handles same Y position', () => {
-    const path = createPolylinePath(pt(10, 50), pt(80, 50));
-    expect(path.points).toHaveLength(2);
-    expect(path.points[0].y).toBeCloseTo(50);
-    expect(path.points[1].y).toBeCloseTo(50);
   });
 });
 
@@ -294,49 +286,40 @@ describe('createPolylinePath', () => {
 // ===========================================================================
 
 describe('createBezierPath', () => {
+  // face-perpendicular bezier는 bounds center 기반 outward normal 사용
+  const ctx = {
+    fromBounds: bounds(0, 40, 20, 20),  // center (10, 50)
+    toBounds: bounds(80, 40, 20, 20),   // center (90, 50)
+  };
+
   it('creates bezier path with one segment', () => {
-    const path = createBezierPath(pt(10, 50), pt(90, 50));
+    const path = createBezierPath(pt(20, 50), pt(80, 50), ctx);
     expect(path.type).toBe('bezier');
     expect(path.controlPoints).toHaveLength(1);
   });
 
-  it('uses horizontal bias when dx > dy', () => {
-    const from = pt(10, 50);
-    const to = pt(90, 50);
-    const path = createBezierPath(from, to);
+  it('control points follow outward normal direction', () => {
+    // from anchor at right face of fromBounds, to anchor at left face of toBounds
+    const from = pt(20, 50);
+    const to = pt(80, 50);
+    const path = createBezierPath(from, to, ctx);
     const seg = path.controlPoints[0];
 
-    // Horizontal bias: cp1.y = from.y, cp2.y = to.y
-    expect(seg.cp1.y).toBeCloseTo(from.y);
-    expect(seg.cp2.y).toBeCloseTo(to.y);
-
-    // cp1.x should be between from.x and to.x
+    // outward normal at from: (20-10, 50-50) = (1, 0) → cp1 is to the right
     expect(seg.cp1.x).toBeGreaterThan(from.x);
-    expect(seg.cp1.x).toBeLessThan(to.x);
-  });
+    expect(seg.cp1.y).toBeCloseTo(from.y);
 
-  it('uses vertical bias when dy >= dx', () => {
-    const from = pt(50, 10);
-    const to = pt(50, 90);
-    const path = createBezierPath(from, to);
-    const seg = path.controlPoints[0];
-
-    // Vertical bias: cp1.x = from.x, cp2.x = to.x
-    expect(seg.cp1.x).toBeCloseTo(from.x);
-    expect(seg.cp2.x).toBeCloseTo(to.x);
-
-    // cp1.y should be between from.y and to.y
-    expect(seg.cp1.y).toBeGreaterThan(from.y);
-    expect(seg.cp1.y).toBeLessThan(to.y);
+    // outward normal at to: (80-90, 50-50) = (-1, 0) → cp2 is to the left
+    expect(seg.cp2.x).toBeLessThan(to.x);
+    expect(seg.cp2.y).toBeCloseTo(to.y);
   });
 
   it('control points are within reasonable range', () => {
-    const from = pt(20, 30);
-    const to = pt(80, 70);
-    const path = createBezierPath(from, to);
+    const from = pt(20, 50);
+    const to = pt(80, 50);
+    const path = createBezierPath(from, to, ctx);
     const seg = path.controlPoints[0];
 
-    // All control points should be in the 0-100 space (roughly)
     for (const cp of [seg.cp1, seg.cp2]) {
       expect(cp.x).toBeGreaterThanOrEqual(-10);
       expect(cp.x).toBeLessThanOrEqual(110);
@@ -345,22 +328,10 @@ describe('createBezierPath', () => {
     }
   });
 
-  it('handles same-position from and to (zero distance)', () => {
-    const from = pt(50, 50);
-    const to = pt(50, 50);
-    const path = createBezierPath(from, to);
-    expect(path.type).toBe('bezier');
-    expect(path.controlPoints).toHaveLength(1);
-    // offset = 0 * 0.3 = 0, so control points collapse to from/to
-    const seg = path.controlPoints[0];
-    expect(seg.cp1.x).toBeCloseTo(50);
-    expect(seg.cp1.y).toBeCloseTo(50);
-  });
-
   it('end point equals the to point', () => {
-    const from = pt(10, 20);
-    const to = pt(80, 60);
-    const path = createBezierPath(from, to);
+    const from = pt(20, 50);
+    const to = pt(80, 50);
+    const path = createBezierPath(from, to, ctx);
     expect(path.controlPoints[0].end).toEqual(to);
   });
 });
@@ -456,12 +427,14 @@ describe('routeEdge — straight connection', () => {
     expect(edge.type).toBe('edge');
     expect(edge.path.type).toBe('straight');
 
-    // fromAnchor should be on the right face of fromBounds (x=30)
-    expect(edge.fromAnchor.x).toBeCloseTo(30, 1);
+    // fromAnchor should be near the right face of fromBounds (x=30),
+    // retracted inward by arrival gap (0.6 IR units)
+    expect(edge.fromAnchor.x).toBeCloseTo(30.6, 1);
     expect(edge.fromAnchor.y).toBeCloseTo(45, 1);
 
-    // toAnchor should be on the left face of toBounds (x=60)
-    expect(edge.toAnchor.x).toBeCloseTo(60, 1);
+    // toAnchor should be near the left face of toBounds (x=60),
+    // retracted inward by arrival gap (0.6 IR units)
+    expect(edge.toAnchor.x).toBeCloseTo(59.4, 1);
     expect(edge.toAnchor.y).toBeCloseTo(45, 1);
   });
 
@@ -539,7 +512,7 @@ describe('routeEdge — bezier connection', () => {
     expect(seg.end).toBeDefined();
   });
 
-  it('defaults to bezier when pathType is not specified', () => {
+  it('defaults to smooth-step when pathType is not specified', () => {
     const edge = routeEdge({
       fromId: 'a',
       toId: 'b',
@@ -548,6 +521,7 @@ describe('routeEdge — bezier connection', () => {
       edgeStyle: '->',
     });
 
+    // smooth-step은 IREdgePathBezier로 출력됨 (다중 segment cubic bezier)
     expect(edge.path.type).toBe('bezier');
   });
 

@@ -12,15 +12,14 @@ import type {
   IREdge,
   IREdgeLabel,
   IREdgePath,
-  IREdgePathBezier,
-  IREdgePathPolyline,
-  IREdgePathStraight,
   IRPoint,
   IRShapeType,
   IRStyle,
   IRArrowType,
 } from '../../ir/types.js';
 import { generateId } from '../../ir/utils.js';
+import { createEdgePath, computeBackEdgeDetour, type EdgePathType, type PathContext } from './edge-paths/index.js';
+import type { Face } from './edge-paths/index.js';
 
 // ---------------------------------------------------------------------------
 // Input interface
@@ -46,10 +45,26 @@ export interface RouteEdgeInput {
   edgeStyle: '->' | '-->' | '--' | '<->';
   /** Optional label text for the edge. */
   label?: string;
-  /** Path type for the edge route. Defaults to 'bezier'. */
-  pathType?: 'straight' | 'polyline' | 'bezier';
+  /** Path type for the edge route. Defaults to 'smooth-step'. */
+  pathType?: EdgePathType;
   /** True for cycle-closing edges — routed with wider curves around the main flow. */
   isBackEdge?: boolean;
+  /**
+   * Port offset for multi-edge distribution at the source node.
+   * Range [-1, 1]: 0 = center, ±1 = edge of perpendicular spread.
+   * Applied perpendicular to the center-to-center direction.
+   */
+  fromPortOffset?: number;
+  /**
+   * Port offset for multi-edge distribution at the target node.
+   * Same semantics as fromPortOffset.
+   */
+  toPortOffset?: number;
+  /**
+   * 백엣지 회피용: from/to를 제외한 같은 블록 내 형제 노드들의 bounds.
+   * 백엣지 경로가 다른 노드를 관통하지 않도록 방향 선택에 사용.
+   */
+  siblingBounds?: IRBounds[];
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +79,19 @@ export function getBoundsCenter(bounds: IRBounds): IRPoint {
     x: bounds.x + bounds.w / 2,
     y: bounds.y + bounds.h / 2,
   };
+}
+
+/**
+ * 도형의 특정 면(face) 중심 좌표를 반환한다.
+ * 백엣지 앵커 계산에 사용 — 호의 우회 방향과 일치하는 면에서 출발/도착.
+ */
+function getFaceCenter(bounds: IRBounds, face: Face): IRPoint {
+  switch (face) {
+    case 'right':  return { x: bounds.x + bounds.w,     y: bounds.y + bounds.h / 2 };
+    case 'left':   return { x: bounds.x,                y: bounds.y + bounds.h / 2 };
+    case 'top':    return { x: bounds.x + bounds.w / 2, y: bounds.y };
+    case 'bottom': return { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h };
+  }
 }
 
 /**
@@ -176,12 +204,124 @@ function getDiamondBoundaryPoint(
 }
 
 /**
+ * Compute intersection of a ray from polygon center to target with polygon edges.
+ * vertices: polygon vertices in order (closed — first vertex is NOT repeated at end).
+ */
+function getPolygonBoundaryPoint(
+  center: IRPoint,
+  target: IRPoint,
+  vertices: IRPoint[],
+): IRPoint {
+  const dx = target.x - center.x;
+  const dy = target.y - center.y;
+  if (dx === 0 && dy === 0) return vertices[0];
+
+  let bestT = Infinity;
+  let bestPoint = vertices[0];
+  const n = vertices.length;
+
+  for (let i = 0; i < n; i++) {
+    const a = vertices[i];
+    const b = vertices[(i + 1) % n];
+    // Ray: center + t*(target - center), t > 0
+    // Edge: a + s*(b - a), 0 <= s <= 1
+    const ex = b.x - a.x;
+    const ey = b.y - a.y;
+    const denom = dx * ey - dy * ex;
+    if (Math.abs(denom) < 1e-10) continue;
+
+    const t = ((a.x - center.x) * ey - (a.y - center.y) * ex) / denom;
+    const s = ((a.x - center.x) * dy - (a.y - center.y) * dx) / denom;
+
+    if (t > 0 && s >= 0 && s <= 1 && t < bestT) {
+      bestT = t;
+      bestPoint = { x: center.x + t * dx, y: center.y + t * dy };
+    }
+  }
+
+  return bestPoint;
+}
+
+/**
+ * Hexagon boundary: 6 vertices forming a regular flat-top hexagon.
+ * Inset = 25% of half-width on left/right edges.
+ */
+function getHexagonBoundaryPoint(bounds: IRBounds, target: IRPoint): IRPoint {
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  const hw = bounds.w / 2;
+  const hh = bounds.h / 2;
+  // 0.25 = flat-top hexagon inset ratio (quarter of half-width)
+  const inset = hw * 0.25;
+  const vertices: IRPoint[] = [
+    { x: cx - hw + inset, y: cy - hh }, // top-left
+    { x: cx + hw - inset, y: cy - hh }, // top-right
+    { x: cx + hw, y: cy },              // right
+    { x: cx + hw - inset, y: cy + hh }, // bottom-right
+    { x: cx - hw + inset, y: cy + hh }, // bottom-left
+    { x: cx - hw, y: cy },              // left
+  ];
+  return getPolygonBoundaryPoint({ x: cx, y: cy }, target, vertices);
+}
+
+/**
+ * Triangle boundary: isosceles pointing up, base at bottom.
+ */
+function getTriangleBoundaryPoint(bounds: IRBounds, target: IRPoint): IRPoint {
+  const cx = bounds.x + bounds.w / 2;
+  const vertices: IRPoint[] = [
+    { x: cx, y: bounds.y },                          // top
+    { x: bounds.x + bounds.w, y: bounds.y + bounds.h }, // bottom-right
+    { x: bounds.x, y: bounds.y + bounds.h },            // bottom-left
+  ];
+  // 0.6 = 삼각형 centroid 근사 (정삼각형 centroid는 2/3 ≈ 0.667이나 시각적 균형을 위해 0.6 사용); 비율 단위 (bounds.h 대비)
+  return getPolygonBoundaryPoint({ x: cx, y: bounds.y + bounds.h * 0.6 }, target, vertices);
+}
+
+/**
+ * Trapezoid boundary: wider at bottom, narrower at top.
+ * Top inset = 20% of width on each side.
+ */
+function getTrapezoidBoundaryPoint(bounds: IRBounds, target: IRPoint): IRPoint {
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  // 0.2 = top-edge inset ratio (each side narrows by 20% of width)
+  const topInset = bounds.w * 0.2;
+  const vertices: IRPoint[] = [
+    { x: bounds.x + topInset, y: bounds.y },            // top-left
+    { x: bounds.x + bounds.w - topInset, y: bounds.y }, // top-right
+    { x: bounds.x + bounds.w, y: bounds.y + bounds.h }, // bottom-right
+    { x: bounds.x, y: bounds.y + bounds.h },            // bottom-left
+  ];
+  return getPolygonBoundaryPoint({ x: cx, y: cy }, target, vertices);
+}
+
+/**
+ * Parallelogram boundary: skewed rectangle.
+ * Skew = 15% of width.
+ */
+function getParallelogramBoundaryPoint(bounds: IRBounds, target: IRPoint): IRPoint {
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  // 0.15 = skew ratio (horizontal offset as fraction of width)
+  const skew = bounds.w * 0.15;
+  const vertices: IRPoint[] = [
+    { x: bounds.x + skew, y: bounds.y },                    // top-left
+    { x: bounds.x + bounds.w, y: bounds.y },                // top-right
+    { x: bounds.x + bounds.w - skew, y: bounds.y + bounds.h }, // bottom-right
+    { x: bounds.x, y: bounds.y + bounds.h },                   // bottom-left
+  ];
+  return getPolygonBoundaryPoint({ x: cx, y: cy }, target, vertices);
+}
+
+/**
  * Get a boundary point on a shape given its type.
  *
  * - Elliptic shapes (circle, ellipse, pill): ellipse math.
  * - Diamond: L1-norm diamond perimeter intersection.
  * - Cylinder: ellipse for top/bottom approach, rect for sides.
- * - Others (rect, hexagon, triangle, parallelogram, trapezoid): rect approximation.
+ * - Polygon shapes (hexagon, triangle, trapezoid, parallelogram): exact polygon intersection.
+ * - Others (rect): rect approximation.
  */
 function getShapeBoundaryPoint(
   bounds: IRBounds,
@@ -203,6 +343,10 @@ function getShapeBoundaryPoint(
     }
     return getRectBoundaryPoint(bounds, target);
   }
+  if (shape === 'hexagon') return getHexagonBoundaryPoint(bounds, target);
+  if (shape === 'triangle') return getTriangleBoundaryPoint(bounds, target);
+  if (shape === 'trapezoid') return getTrapezoidBoundaryPoint(bounds, target);
+  if (shape === 'parallelogram') return getParallelogramBoundaryPoint(bounds, target);
   return getRectBoundaryPoint(bounds, target);
 }
 
@@ -211,137 +355,54 @@ function getShapeBoundaryPoint(
  *
  * Calculates the center of each element, then finds the boundary
  * intersection points from each center toward the other center.
+ *
+ * When port offsets are provided (for multi-edge distribution), the target
+ * point is shifted perpendicular to the center-to-center axis before
+ * computing the boundary intersection. This spreads multiple edges across
+ * the face of the node instead of all converging on the same point.
  */
 export function getAutoAnchors(
   fromBounds: IRBounds,
   toBounds: IRBounds,
   fromShape?: IRShapeType,
   toShape?: IRShapeType,
+  fromPortOffset = 0,
+  toPortOffset = 0,
 ): { from: IRPoint; to: IRPoint } {
   const fromCenter = getBoundsCenter(fromBounds);
   const toCenter = getBoundsCenter(toBounds);
 
-  const fromAnchor = getShapeBoundaryPoint(fromBounds, toCenter, fromShape);
-  const toAnchor = getShapeBoundaryPoint(toBounds, fromCenter, toShape);
+  // Perpendicular unit vector to center-to-center axis
+  const cdx = toCenter.x - fromCenter.x;
+  const cdy = toCenter.y - fromCenter.y;
+  const clen = Math.sqrt(cdx * cdx + cdy * cdy);
+
+  let px = 0;
+  let py = 0;
+  if (clen > 0.01) {
+    // Perpendicular direction: rotate 90 degrees CCW
+    px = -cdy / clen;
+    py = cdx / clen;
+  }
+
+  // Shift target points by port offset perpendicular to the main axis.
+  // 0.25 = spread factor (25% of shorter dimension) — keeps anchors near face center
+  const fromSpread = Math.min(fromBounds.w, fromBounds.h) * 0.25;
+  const toSpread = Math.min(toBounds.w, toBounds.h) * 0.25;
+
+  const fromTarget: IRPoint = {
+    x: toCenter.x + px * fromPortOffset * fromSpread,
+    y: toCenter.y + py * fromPortOffset * fromSpread,
+  };
+  const toTarget: IRPoint = {
+    x: fromCenter.x + px * toPortOffset * toSpread,
+    y: fromCenter.y + py * toPortOffset * toSpread,
+  };
+
+  const fromAnchor = getShapeBoundaryPoint(fromBounds, fromTarget, fromShape);
+  const toAnchor = getShapeBoundaryPoint(toBounds, toTarget, toShape);
 
   return { from: fromAnchor, to: toAnchor };
-}
-
-// ---------------------------------------------------------------------------
-// Path creation helpers (exported for testing)
-// ---------------------------------------------------------------------------
-
-/**
- * Create a straight path descriptor.
- */
-export function createStraightPath(): IREdgePathStraight {
-  return { type: 'straight' };
-}
-
-/**
- * Create an orthogonal (elbow) polyline path.
- *
- * Routes through a vertical midline:
- *   from -> (midX, from.y) -> (midX, to.y) -> to
- */
-export function createPolylinePath(
-  from: IRPoint,
-  to: IRPoint,
-): IREdgePathPolyline {
-  const midX = (from.x + to.x) / 2;
-  return {
-    type: 'polyline',
-    points: [
-      { x: midX, y: from.y },
-      { x: midX, y: to.y },
-    ],
-  };
-}
-
-/**
- * Create a cubic bezier path with adaptive control points.
- *
- * The offset is distance * 0.3. Control points are biased
- * horizontally or vertically depending on the connection direction.
- */
-/**
- * Create a bezier path for a back-edge (cycle-closing feedback edge).
- * Routes the curve around the main flow by offsetting control points
- * to the side, producing a wide arc that loops back visually.
- *
- * Offset factor 0.6 = 60% of inter-node distance; chosen to clear
- * intermediate nodes in typical 3–5 node cycles. Unit: 0–100 coords.
- */
-function createBackEdgePath(
-  from: IRPoint,
-  to: IRPoint,
-): IREdgePathBezier {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  // 0.6 = wider arc than normal bezier (0.3) to loop around nodes.
-  const offset = Math.max(dist * 0.6, 8);
-
-  // Determine which side to route on — prefer the side with more space
-  const midX = (from.x + to.x) / 2;
-  const midY = (from.y + to.y) / 2;
-  // Route to the right/below if midpoint is in left/top half, otherwise left/above
-  const sideX = midX < 50 ? 1 : -1;
-  const sideY = midY < 50 ? 1 : -1;
-
-  let cp1: IRPoint;
-  let cp2: IRPoint;
-
-  if (Math.abs(dy) >= Math.abs(dx)) {
-    // Primarily vertical flow — route sideways
-    cp1 = { x: from.x + sideX * offset, y: from.y };
-    cp2 = { x: to.x + sideX * offset, y: to.y };
-  } else {
-    // Primarily horizontal flow — route above/below
-    cp1 = { x: from.x, y: from.y + sideY * offset };
-    cp2 = { x: to.x, y: to.y + sideY * offset };
-  }
-
-  return {
-    type: 'bezier',
-    controlPoints: [{ cp1, cp2, end: to }],
-  };
-}
-
-export function createBezierPath(
-  from: IRPoint,
-  to: IRPoint,
-): IREdgePathBezier {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const offset = dist * 0.3;
-
-  let cp1: IRPoint;
-  let cp2: IRPoint;
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    // Horizontal bias: control points offset along X
-    const signX = dx >= 0 ? 1 : -1;
-    cp1 = { x: from.x + signX * offset, y: from.y };
-    cp2 = { x: to.x - signX * offset, y: to.y };
-  } else {
-    // Vertical bias: control points offset along Y
-    const signY = dy >= 0 ? 1 : -1;
-    cp1 = { x: from.x, y: from.y + signY * offset };
-    cp2 = { x: to.x, y: to.y - signY * offset };
-  }
-
-  return {
-    type: 'bezier',
-    controlPoints: [
-      {
-        cp1,
-        cp2,
-        end: to,
-      },
-    ],
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -558,10 +619,46 @@ function computeLabelPosition(
       return getPolylineMidpoint(fullPoints);
     }
     case 'bezier': {
-      const seg = path.controlPoints[0];
-      return getBezierMidpoint(fromAnchor, seg.cp1, seg.cp2, seg.end);
+      // 다중 segment bezier (SmoothStep 등): 중간 segment의 midpoint 사용
+      const n = path.controlPoints.length;
+      const midIdx = Math.floor(n / 2);
+      const seg = path.controlPoints[midIdx];
+      const start = midIdx === 0
+        ? fromAnchor
+        : path.controlPoints[midIdx - 1].end;
+      return getBezierMidpoint(start, seg.cp1, seg.cp2, seg.end);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Arrival gap
+// ---------------------------------------------------------------------------
+
+/**
+ * Retract both anchor points inward by `gap` units along the from→to axis.
+ * This creates a small visual separation between the edge endpoint and the
+ * shape boundary, so arrows "float" near the shape rather than touching it.
+ *
+ * Mutates the anchors object in place.
+ */
+function applyArrivalGap(
+  anchors: { from: IRPoint; to: IRPoint },
+  gap: number,
+): void {
+  const dx = anchors.to.x - anchors.from.x;
+  const dy = anchors.to.y - anchors.from.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  // Skip if anchors are too close — gap would invert the edge
+  if (len < gap * 3) return;
+
+  const ux = dx / len;
+  const uy = dy / len;
+
+  anchors.from.x += ux * gap;
+  anchors.from.y += uy * gap;
+  anchors.to.x -= ux * gap;
+  anchors.to.y -= uy * gap;
 }
 
 // ---------------------------------------------------------------------------
@@ -574,33 +671,54 @@ function computeLabelPosition(
  * Computes anchor points, path, labels, and produces a complete IREdge.
  */
 export function routeEdge(input: RouteEdgeInput): IREdge {
-  const pathType = input.pathType ?? 'bezier';
+  const pathType = input.pathType ?? 'smooth-step';
 
   // 1. Compute anchor points
-  const anchors = getAutoAnchors(
-    input.fromBounds,
-    input.toBounds,
-    input.fromShape,
-    input.toShape,
-  );
+  let anchors: { from: IRPoint; to: IRPoint };
 
-  // 2. Compute path
-  let path: IREdgePath;
   if (input.isBackEdge) {
-    path = createBackEdgePath(anchors.from, anchors.to);
+    // 백엣지: 호의 우회 방향에 맞는 면 중심을 앵커로 사용.
+    // 중심→중심 직선 교차(getAutoAnchors)는 넓은 호와 방향이 불일치하므로
+    // detour 방향을 먼저 결정하고 해당 면의 중심을 앵커로 잡는다.
+    const fromCenter = getBoundsCenter(input.fromBounds);
+    const toCenter = getBoundsCenter(input.toBounds);
+    const { isVertical, side } = computeBackEdgeDetour(
+      fromCenter, toCenter, input.siblingBounds,
+    );
+    const face: Face = isVertical
+      ? (side > 0 ? 'right' : 'left')
+      : (side > 0 ? 'bottom' : 'top');
+    anchors = {
+      from: getFaceCenter(input.fromBounds, face),
+      to: getFaceCenter(input.toBounds, face),
+    };
   } else {
-    switch (pathType) {
-      case 'straight':
-        path = createStraightPath();
-        break;
-      case 'polyline':
-        path = createPolylinePath(anchors.from, anchors.to);
-        break;
-      case 'bezier':
-        path = createBezierPath(anchors.from, anchors.to);
-        break;
-    }
+    // 정상 엣지: 중심→중심 직선 교차 + port offset 분산
+    const fromPortOffset = input.fromPortOffset ?? 0;
+    const toPortOffset = input.toPortOffset ?? 0;
+    anchors = getAutoAnchors(
+      input.fromBounds,
+      input.toBounds,
+      input.fromShape,
+      input.toShape,
+      fromPortOffset,
+      toPortOffset,
+    );
   }
+
+  // 1b. Apply arrival gap — retract endpoints away from shapes so arrows
+  //     don't touch the shape boundary. 0.6 = gap in IR-coord units (0–100 space).
+  applyArrivalGap(anchors, 0.6);
+
+  // 2. Delegate path creation to edge-paths/ strategy
+  const ctx: PathContext = {
+    fromBounds: input.fromBounds,
+    toBounds: input.toBounds,
+    fromShape: input.fromShape,
+    toShape: input.toShape,
+    siblingBounds: input.siblingBounds,
+  };
+  const path = createEdgePath(pathType, anchors.from, anchors.to, ctx, input.isBackEdge);
 
   // 3. Map edge style to arrows and visual style
   const { arrowStart, arrowEnd, style } = mapEdgeStyle(input.edgeStyle);

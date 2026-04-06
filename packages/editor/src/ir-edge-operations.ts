@@ -19,7 +19,7 @@ import {
   walkElements,
   routeEdge,
 } from '@depix/core';
-import type { RouteEdgeInput } from '@depix/core';
+import type { RouteEdgeInput, EdgePathType } from '@depix/core';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -45,7 +45,7 @@ function inferEdgeStyle(edge: IREdge): '->' | '-->' | '--' | '<->' {
  */
 function inferPathType(
   edge: IREdge,
-): 'straight' | 'polyline' | 'bezier' {
+): EdgePathType {
   return edge.path.type;
 }
 

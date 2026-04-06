@@ -286,9 +286,25 @@ export function emitInlineBlock(
     }
   }
 
+  // 백엣지를 제외하고 port offset 계산 — 백엣지가 정상 엣지의 앵커를 오염시키지 않도록
+  const normalEdges = childEdges.filter(e => !backEdgeSet.has(`${e.fromId}->${e.toId}`));
+  const portOffsets = computePortOffsets(normalEdges);
+
   for (const edge of childEdges) {
     const isBack = backEdgeSet.has(`${edge.fromId}->${edge.toId}`);
-    const irEdge = routeASTEdge(edge, boundsMap, shapeMap, isBack);
+    const key = `${edge.fromId}->${edge.toId}`;
+    const offsets = portOffsets.get(key);
+
+    // 백엣지: from/to를 제외한 형제 노드 bounds를 수집하여 노드 회피에 사용
+    let siblingBounds: IRBounds[] | undefined;
+    if (isBack) {
+      siblingBounds = [];
+      for (const [id, b] of boundsMap) {
+        if (id !== edge.fromId && id !== edge.toId) siblingBounds.push(b);
+      }
+    }
+
+    const irEdge = routeASTEdge(edge, boundsMap, shapeMap, isBack, offsets, siblingBounds);
     if (irEdge) irChildren.push(irEdge);
   }
 
@@ -720,6 +736,8 @@ function routeASTEdge(
   boundsMap: Map<string, IRBounds>,
   shapeMap?: Map<string, IRShapeType>,
   isBackEdge = false,
+  portOffsets?: { fromPortOffset: number; toPortOffset: number },
+  siblingBounds?: IRBounds[],
 ): IREdgeType | null {
   const fromBounds = boundsMap.get(edge.fromId);
   const toBounds = boundsMap.get(edge.toId);
@@ -736,9 +754,68 @@ function routeASTEdge(
     edgeStyle: edge.edgeStyle,
     label: edge.label,
     isBackEdge,
+    fromPortOffset: portOffsets?.fromPortOffset,
+    toPortOffset: portOffsets?.toPortOffset,
+    siblingBounds,
   };
 
   return routeEdge(input);
+}
+
+/**
+ * Compute port offsets for edges sharing the same source or target node.
+ *
+ * When N edges share a node, they are spread evenly across [-1, 1].
+ * For a single edge, offset = 0 (centered). For 2: [-0.5, 0.5]. For 3: [-0.67, 0, 0.67].
+ *
+ * Returns a Map keyed by "fromId->toId" with both from and to offsets.
+ */
+function computePortOffsets(
+  edges: ASTEdge[],
+): Map<string, { fromPortOffset: number; toPortOffset: number }> {
+  // Group edges by source node and by target node
+  const fromGroups = new Map<string, ASTEdge[]>();
+  const toGroups = new Map<string, ASTEdge[]>();
+
+  for (const edge of edges) {
+    if (!fromGroups.has(edge.fromId)) fromGroups.set(edge.fromId, []);
+    fromGroups.get(edge.fromId)!.push(edge);
+    if (!toGroups.has(edge.toId)) toGroups.set(edge.toId, []);
+    toGroups.get(edge.toId)!.push(edge);
+  }
+
+  const result = new Map<string, { fromPortOffset: number; toPortOffset: number }>();
+
+  // Assign from-port offsets: spread edges leaving the same node
+  for (const [, group] of fromGroups) {
+    const n = group.length;
+    for (let i = 0; i < n; i++) {
+      const key = `${group[i].fromId}->${group[i].toId}`;
+      // Spread evenly: for n edges, offset_i = (2i/(n-1) - 1) when n>1, else 0
+      const fromOffset = n > 1 ? (2 * i) / (n - 1) - 1 : 0;
+      const existing = result.get(key);
+      result.set(key, {
+        fromPortOffset: fromOffset,
+        toPortOffset: existing?.toPortOffset ?? 0,
+      });
+    }
+  }
+
+  // Assign to-port offsets: spread edges arriving at the same node
+  for (const [, group] of toGroups) {
+    const n = group.length;
+    for (let i = 0; i < n; i++) {
+      const key = `${group[i].fromId}->${group[i].toId}`;
+      const toOffset = n > 1 ? (2 * i) / (n - 1) - 1 : 0;
+      const existing = result.get(key);
+      result.set(key, {
+        fromPortOffset: existing?.fromPortOffset ?? 0,
+        toPortOffset: toOffset,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
