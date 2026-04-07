@@ -10,7 +10,8 @@ import Konva from 'konva';
 import type { IREdge, IREdgePathPolyline, IREdgePathBezier } from '@depix/core';
 import type { CoordinateTransform } from '../coordinate-transform.js';
 import { resolveStyleAttrs } from './style.js';
-import { createArrowMarker, getArrowLength, getEdgePenultimatePoint, getEdgeSecondPoint } from './helpers.js';
+import { getArrowLength, getEdgePenultimatePoint, getEdgeSecondPoint } from './helpers.js';
+import { createArrowMarker } from './arrow-markers/index.js';
 
 export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.Group {
   const group = new Konva.Group({ id: edge.id });
@@ -62,13 +63,39 @@ export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.
     const bezier = edge.path as IREdgePathBezier;
     const lastIdx = bezier.controlPoints.length - 1;
     let d = `M ${lineStart.x} ${lineStart.y}`;
+    let segStart = lineStart;
     for (let i = 0; i < bezier.controlPoints.length; i++) {
       const seg = bezier.controlPoints[i];
-      const cp1 = transform.toAbsolutePoint(seg.cp1);
-      const cp2 = transform.toAbsolutePoint(seg.cp2);
-      // Retract only the final segment's endpoint
-      const end = i === lastIdx ? lineEnd : transform.toAbsolutePoint(seg.end);
-      d += ` C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${end.x} ${end.y}`;
+      const isLast = i === lastIdx;
+      const segEnd = isLast ? lineEnd : transform.toAbsolutePoint(seg.end);
+
+      let cp1 = transform.toAbsolutePoint(seg.cp1);
+      let cp2 = transform.toAbsolutePoint(seg.cp2);
+
+      // smooth-step 라우터는 첫/마지막 segment를 '직선 cubic'(cp1 = from + 1/3 × (to-from),
+      // cp2 = from + 2/3 × (to-from))으로 생성한다. arrowStart/arrowEnd 때문에
+      // lineStart/lineEnd가 retract되면 원본 cp1/cp2가 새 끝점과 어긋나 t=0/t=1에서
+      // 탄젠트가 역방향이 되고, 곡선이 화살촉 너머로 hook처럼 튀어나온다
+      // (양방향 `<->` 엣지에서 왼쪽 화살촉 라인 돌출의 원인).
+      // 첫/마지막 segment의 cp1/cp2를 새 양끝 기준으로 재계산해 직선 cubic을 유지한다.
+      // 1/3, 2/3 = straightSegment의 직선 cubic 파라미터화 공식 (smooth-step.ts와 동일).
+      // NOTE: 현재 bezier path는 smooth-step만 생성하며 첫/마지막 segment는 항상 직선 cubic이다.
+      //       향후 곡선 bezier 라우터가 추가되면 이 분기의 전제(직선 cubic 가정)를 재검토할 것.
+      const firstNeedsRecalc = i === 0 && hasArrowStart;
+      const lastNeedsRecalc = isLast && hasArrowEnd;
+      if (firstNeedsRecalc || lastNeedsRecalc) {
+        cp1 = {
+          x: segStart.x + (segEnd.x - segStart.x) / 3,
+          y: segStart.y + (segEnd.y - segStart.y) / 3,
+        };
+        cp2 = {
+          x: segStart.x + (segEnd.x - segStart.x) * 2 / 3,
+          y: segStart.y + (segEnd.y - segStart.y) * 2 / 3,
+        };
+      }
+
+      d += ` C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${segEnd.x} ${segEnd.y}`;
+      segStart = segEnd;
     }
 
     const pathNode = new Konva.Path({
@@ -80,18 +107,16 @@ export function renderEdge(edge: IREdge, transform: CoordinateTransform): Konva.
     group.add(pathNode);
   }
 
-  // Arrow markers
-  if (edge.arrowEnd && edge.arrowEnd !== 'none') {
-    const lastPoint = absTo;
+  // Arrow markers — dispatch by IR arrow type to the pluggable registry.
+  if (hasArrowEnd) {
     const prevPoint = getEdgePenultimatePoint(edge, absFrom, transform);
-    const arrow = createArrowMarker(prevPoint, lastPoint, edge.style, transform);
+    const arrow = createArrowMarker(edge.arrowEnd, prevPoint, absTo, edge.style, arrowLen, transform);
     if (arrow) group.add(arrow);
   }
 
-  if (edge.arrowStart && edge.arrowStart !== 'none') {
-    const firstPoint = absFrom;
+  if (hasArrowStart) {
     const nextPoint = getEdgeSecondPoint(edge, absTo, transform);
-    const arrow = createArrowMarker(nextPoint, firstPoint, edge.style, transform);
+    const arrow = createArrowMarker(edge.arrowStart, nextPoint, absFrom, edge.style, arrowLen, transform);
     if (arrow) group.add(arrow);
   }
 

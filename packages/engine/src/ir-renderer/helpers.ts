@@ -1,77 +1,40 @@
 /**
- * Edge & Arrow Helpers
+ * Edge Geometry Helpers
  *
- * Geometric utilities for edge rendering:
- * - Arrow marker creation (filled triangle at line endpoint)
- * - Penultimate/second point extraction for arrow direction
+ * - Arrow length computation (strokeWidth-based sizing)
+ * - Second/penultimate point extraction for arrow direction
+ *
+ * Arrow marker rendering (shape) lives in `./arrow-markers/`.
  */
 
-import Konva from 'konva';
 import type { IREdge, IRStyle, IREdgePathPolyline, IREdgePathBezier } from '@depix/core';
 import type { CoordinateTransform } from '../coordinate-transform.js';
 
 // ---------------------------------------------------------------------------
-// Arrow marker
+// Arrow length
 // ---------------------------------------------------------------------------
+
+// 5.25 = visual multiplier (기존 3.5 대비 50% 상향 — 화살촉 가독성 강화).
+// 1.2 / 3.0 = IR 0-100 좌표계 기준 clamp min/max (기존 0.8/2.0에서 1.5배 확대).
+//             너무 작으면 시인성 저하, 너무 크면 엣지 압도.
+const ARROW_LEN_MULTIPLIER = 5.25;
+const ARROW_LEN_MIN_IR = 1.2;
+const ARROW_LEN_MAX_IR = 3.0;
 
 /**
  * Arrow length in absolute pixels.
  *
- * strokeWidth × 3.5, clamped to [0.8, 2.0] IR units, then converted to pixels.
- * Used by both arrow marker rendering and line endpoint retraction.
+ * strokeWidth × ARROW_LEN_MULTIPLIER, clamped to [MIN, MAX] IR units,
+ * then converted via transform. Used by both arrow marker rendering and
+ * line endpoint retraction.
  */
 export function getArrowLength(style: IRStyle, transform: CoordinateTransform): number {
-  // 3.5 = visual multiplier; 0.8–2.0 = IR-coord min/max for readability
   const sw = typeof style.strokeWidth === 'number' ? style.strokeWidth : 0.3;
-  return transform.toAbsoluteSize(Math.min(Math.max(sw * 3.5, 0.8), 2.0));
-}
-
-/**
- * Create a filled triangle arrow marker at the `to` endpoint,
- * pointing in the direction from→to.
- *
- * Arrow half-width = length × 0.35 (narrower than equilateral for a sharper look).
- *
- * Returns null if from === to (zero-length segment).
- */
-export function createArrowMarker(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  style: IRStyle,
-  transform: CoordinateTransform,
-): Konva.Line | null {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return null;
-
-  const arrowLen = getArrowLength(style, transform);
-  // 0.35 = half-width ratio — narrower triangle for a sleek arrow head
-  const arrowHalfW = arrowLen * 0.35;
-
-  // Unit vector along the edge direction
-  const ux = dx / len;
-  const uy = dy / len;
-  // Perpendicular unit vector (for arrow width)
-  const px = -uy;
-  const py = ux;
-
-  const tipX = to.x;
-  const tipY = to.y;
-  const baseX = to.x - ux * arrowLen;
-  const baseY = to.y - uy * arrowLen;
-
-  return new Konva.Line({
-    points: [
-      baseX + px * arrowHalfW,
-      baseY + py * arrowHalfW,
-      tipX, tipY,
-      baseX - px * arrowHalfW,
-      baseY - py * arrowHalfW,
-    ],
-    closed: true,
-    fill: typeof style.stroke === 'string' ? style.stroke : '#000000',
-  });
+  const irLen = Math.min(
+    Math.max(sw * ARROW_LEN_MULTIPLIER, ARROW_LEN_MIN_IR),
+    ARROW_LEN_MAX_IR,
+  );
+  return transform.toAbsoluteSize(irLen);
 }
 
 // ---------------------------------------------------------------------------

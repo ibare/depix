@@ -9,7 +9,8 @@
  *   shape-renderer.ts — renderShape (9 shape types)
  *   edge-renderer.ts  — renderEdge (straight, polyline, bezier + arrows + labels)
  *   style.ts          — style attribute resolution helpers
- *   helpers.ts        — arrow marker and edge direction geometry
+ *   helpers.ts        — arrow length + edge direction geometry
+ *   arrow-markers/    — pluggable arrow marker renderers (chevron, …)
  */
 
 import Konva from 'konva';
@@ -25,7 +26,8 @@ import type {
 import type { CoordinateTransform } from '../coordinate-transform.js';
 import { ShapeRegistry } from '../registry/shape-registry.js';
 import { resolveStyleAttrs, buildFontStyle, applyTransform } from './style.js';
-import { createArrowMarker } from './helpers.js';
+import { getArrowLength } from './helpers.js';
+import { createArrowMarker } from './arrow-markers/index.js';
 import { renderShape } from './shape-renderer.js';
 import { renderEdge } from './edge-renderer.js';
 import { renderShapeAsset } from './shape-asset-renderer.js';
@@ -172,7 +174,8 @@ function renderLine(line: IRLine, transform: CoordinateTransform): Konva.Group {
   group.add(lineNode);
 
   if (line.arrowEnd && line.arrowEnd !== 'none') {
-    const arrow = createArrowMarker(absFrom, absTo, line.style, transform);
+    const arrowLen = getArrowLength(line.style, transform);
+    const arrow = createArrowMarker(line.arrowEnd, absFrom, absTo, line.style, arrowLen, transform);
     if (arrow) group.add(arrow);
   }
 
