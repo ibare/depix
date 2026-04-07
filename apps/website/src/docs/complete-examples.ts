@@ -1,4 +1,4 @@
-// synced_with: 'complete-examples@f9b8fe92'
+// synced_with: 'complete-examples@c8eb48e9'
 
 export const completeExamples = {
   id: 'complete-examples',
@@ -41,7 +41,7 @@ scene "Details" {
 
 ## Flowchart
 
-A complete process flow with decision branching, error handling, database storage, and a retry loop. Demonstrates **flow blocks**, **diverse shapes**, **edge labels**, **back-edges**, and **inline styles**.
+A complete **Binary Search** algorithm flowchart with three decision branches, two return paths, and two retry loops. Demonstrates **flow blocks**, **multi-way branching**, **edge labels**, **back-edges**, and **inline styles**.
 
 \`\`\`depix
 @page 4:3
@@ -50,25 +50,37 @@ scene {
   layout: full
   body: flow {
     pill "Start" #start { background: primary }
-    parallelogram "Get Input" #input
-    diamond "Valid?" #check
-    rect "Process" #process
-    cylinder "Save to DB" #db
-    rect "Show Error" #error { background: #ff4444, color: white }
+    parallelogram "Input A, T" #input
+    rect "low = 0, high = n-1" #init
+    diamond "low <= high?" #loop
+    rect "mid = (low+high)/2" #mid
+    diamond "A[mid] == T?" #eq
+    diamond "A[mid] < T?" #lt
+    rect "low = mid + 1" #incr
+    rect "high = mid - 1" #decr
+    parallelogram "Return mid" #found { background: #4ade80, color: white }
+    parallelogram "Return -1" #notfound { background: #ff4444, color: white }
     pill "End" #end { background: primary }
 
     #start -> #input
-    #input -> #check
-    #check -> #process "Yes"
-    #check -> #error "No"
-    #error --> #input "Retry"
-    #process -> #db
-    #db -> #end
+    #input -> #init
+    #init -> #loop
+    #loop -> #notfound "No"
+    #loop -> #mid "Yes"
+    #mid -> #eq
+    #eq -> #found "Yes"
+    #eq -> #lt "No"
+    #lt -> #incr "Yes"
+    #lt -> #decr "No"
+    #incr --> #loop "Retry"
+    #decr --> #loop "Retry"
+    #found -> #end
+    #notfound -> #end
   }
 }
 \`\`\`
 
-**Concepts used:** Six shape types (\`pill\`, \`parallelogram\`, \`diamond\`, \`rect\`, \`cylinder\`), solid and dashed arrows, edge labels, back-edge (retry loop), hex color styling.
+**Concepts used:** Four shape types (\`pill\`, \`parallelogram\`, \`diamond\`, \`rect\`), three nested decisions (loop guard, equality, comparison), two back-edges that converge on the loop head, two terminating return paths, dashed arrows for retry semantics, hex color styling for success/failure states.
 
 ---
 
@@ -189,7 +201,7 @@ scene "Details" {
 
 ## 플로차트
 
-의사결정 분기, 에러 처리, 데이터베이스 저장, 재시도 루프가 포함된 완전한 프로세스 흐름입니다. **flow 블록**, **다양한 도형**, **엣지 라벨**, **백엣지**, **인라인 스타일**을 보여줍니다.
+세 단계 의사결정 분기, 두 개의 반환 경로, 두 개의 재시도 루프가 포함된 완전한 **이진 탐색(Binary Search)** 알고리즘 플로우차트입니다. **flow 블록**, **다중 분기**, **엣지 라벨**, **백엣지**, **인라인 스타일**을 보여줍니다.
 
 \`\`\`depix
 @page 4:3
@@ -198,25 +210,37 @@ scene {
   layout: full
   body: flow {
     pill "Start" #start { background: primary }
-    parallelogram "Get Input" #input
-    diamond "Valid?" #check
-    rect "Process" #process
-    cylinder "Save to DB" #db
-    rect "Show Error" #error { background: #ff4444, color: white }
+    parallelogram "Input A, T" #input
+    rect "low = 0, high = n-1" #init
+    diamond "low <= high?" #loop
+    rect "mid = (low+high)/2" #mid
+    diamond "A[mid] == T?" #eq
+    diamond "A[mid] < T?" #lt
+    rect "low = mid + 1" #incr
+    rect "high = mid - 1" #decr
+    parallelogram "Return mid" #found { background: #4ade80, color: white }
+    parallelogram "Return -1" #notfound { background: #ff4444, color: white }
     pill "End" #end { background: primary }
 
     #start -> #input
-    #input -> #check
-    #check -> #process "Yes"
-    #check -> #error "No"
-    #error --> #input "Retry"
-    #process -> #db
-    #db -> #end
+    #input -> #init
+    #init -> #loop
+    #loop -> #notfound "No"
+    #loop -> #mid "Yes"
+    #mid -> #eq
+    #eq -> #found "Yes"
+    #eq -> #lt "No"
+    #lt -> #incr "Yes"
+    #lt -> #decr "No"
+    #incr --> #loop "Retry"
+    #decr --> #loop "Retry"
+    #found -> #end
+    #notfound -> #end
   }
 }
 \`\`\`
 
-**사용된 개념:** 6가지 도형(\`pill\`, \`parallelogram\`, \`diamond\`, \`rect\`, \`cylinder\`), 실선/점선 화살표, 엣지 라벨, 백엣지(재시도 루프), 헥스 컬러 스타일링.
+**사용된 개념:** 4가지 도형(\`pill\`, \`parallelogram\`, \`diamond\`, \`rect\`), 세 단계 중첩 의사결정(루프 가드, 동등성, 비교), 루프 머리로 수렴하는 두 개의 백엣지, 두 개의 종료 반환 경로, 재시도 의미를 표현하는 점선 화살표, 성공/실패 상태를 위한 헥스 컬러 스타일링.
 
 ---
 
