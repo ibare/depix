@@ -660,7 +660,7 @@ describe('Style mapping', () => {
 
     expect(edge.arrowEnd).toBe('triangle');
     expect(edge.arrowStart).toBeUndefined();
-    expect(edge.style.dashPattern).toEqual([1.2, 0.9]);
+    expect(edge.style.dashPattern).toEqual([0.6, 0.6]);
   });
 
   it('-- produces solid, no arrows', () => {
@@ -819,7 +819,7 @@ describe('routeEdges', () => {
     expect(edges[1].fromId).toBe('b');
     expect(edges[1].toId).toBe('c');
     expect(edges[1].arrowEnd).toBe('triangle');
-    expect(edges[1].style.dashPattern).toEqual([1.2, 0.9]);
+    expect(edges[1].style.dashPattern).toEqual([0.6, 0.6]);
     expect(edges[1].labels).toHaveLength(1);
     expect(edges[1].labels![0].text).toBe('next');
   });

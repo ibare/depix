@@ -509,11 +509,13 @@ function mapEdgeStyle(edgeStyle: '->' | '-->' | '--' | '<->'): {
         style: baseStyle,
       };
     case '-->':
-      // [1.2, 0.9] = dash on/off length (IR 0-100 단위).
-      // 기존 [4, 3]은 IR 좌표계에서 너무 굵게 보여(1920×1080 캔버스 기준 ~76px/57px) 약 1/3 스케일로 축소.
+      // [0.6, 0.6] = dash on/off length (IR 0-100 단위).
+      // 레퍼런스 Arrow 2.svg(viewBox 88×15, strokeWidth 2)에서 측정:
+      //   dash ≈ 3.91, gap ≈ 3.91 → 각각 2×strokeWidth (2:2 비율).
+      //   baseStyle.strokeWidth=0.3 기준 2×0.3 = 0.6 IR 단위.
       return {
         arrowEnd: 'triangle',
-        style: { ...baseStyle, dashPattern: [1.2, 0.9] },
+        style: { ...baseStyle, dashPattern: [0.6, 0.6] },
       };
     case '--':
       return {
