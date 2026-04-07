@@ -40,8 +40,9 @@ export function createEdgePath(
   isBackEdge = false,
 ): IREdgePath {
   // 백엣지도 smooth-step으로 통일 (직교 엣지와 시각적 일관성).
-  // 2.5 = 백엣지는 일반 엣지보다 넓은 우회가 필요하므로 extension을 2.5배 확장
-  if (isBackEdge) return createSmoothStepPath(from, to, ctx, { extensionScale: 2.5 });
+  // 1.5 = 백엣지는 일반 엣지보다 약간 넓은 우회만 필요 (무차원, extension 배율).
+  //       기존 2.5는 우회가 과도해 캔버스를 가로질렀으므로 1.5로 컴팩트화.
+  if (isBackEdge) return createSmoothStepPath(from, to, ctx, { extensionScale: 1.5 });
 
   switch (pathType) {
     case 'smooth-step':

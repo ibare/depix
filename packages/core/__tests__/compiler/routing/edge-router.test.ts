@@ -428,13 +428,13 @@ describe('routeEdge — straight connection', () => {
     expect(edge.path.type).toBe('straight');
 
     // fromAnchor should be near the right face of fromBounds (x=30),
-    // retracted inward by arrival gap (0.6 IR units)
-    expect(edge.fromAnchor.x).toBeCloseTo(30.6, 1);
+    // retracted inward by arrival gap (0.9 IR units)
+    expect(edge.fromAnchor.x).toBeCloseTo(30.9, 1);
     expect(edge.fromAnchor.y).toBeCloseTo(45, 1);
 
     // toAnchor should be near the left face of toBounds (x=60),
-    // retracted inward by arrival gap (0.6 IR units)
-    expect(edge.toAnchor.x).toBeCloseTo(59.4, 1);
+    // retracted inward by arrival gap (0.9 IR units)
+    expect(edge.toAnchor.x).toBeCloseTo(59.1, 1);
     expect(edge.toAnchor.y).toBeCloseTo(45, 1);
   });
 
@@ -660,7 +660,7 @@ describe('Style mapping', () => {
 
     expect(edge.arrowEnd).toBe('triangle');
     expect(edge.arrowStart).toBeUndefined();
-    expect(edge.style.dashPattern).toEqual([4, 3]);
+    expect(edge.style.dashPattern).toEqual([1.2, 0.9]);
   });
 
   it('-- produces solid, no arrows', () => {
@@ -819,7 +819,7 @@ describe('routeEdges', () => {
     expect(edges[1].fromId).toBe('b');
     expect(edges[1].toId).toBe('c');
     expect(edges[1].arrowEnd).toBe('triangle');
-    expect(edges[1].style.dashPattern).toEqual([4, 3]);
+    expect(edges[1].style.dashPattern).toEqual([1.2, 0.9]);
     expect(edges[1].labels).toHaveLength(1);
     expect(edges[1].labels![0].text).toBe('next');
   });

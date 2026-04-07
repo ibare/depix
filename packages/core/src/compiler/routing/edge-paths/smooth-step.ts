@@ -18,8 +18,9 @@ import { FACE_DIR, detectFace } from './types.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-// 1.5 = 꺾임 라운딩 반지름 (IR 단위). 너무 크면 직선 구간이 줄고, 작으면 각진다.
-const BORDER_RADIUS = 1.5;
+// 2.0 = 꺾임 라운딩 반지름 (IR 0-100 단위). 더 부드러운 코너를 위해 1.5→2.0 상향.
+//       너무 크면 직선 구간이 줄고, 작으면 각진다.
+const BORDER_RADIUS = 2.0;
 // 2.0 = face에서 첫 번째 꺾임까지의 최소 직선 연장 (IR 단위)
 const MIN_EXTENSION = 2.0;
 // 0.12 = from→to 거리 대비 연장 비율. 가까운 노드는 짧게, 먼 노드는 길게.
@@ -160,8 +161,9 @@ function pathToRoundedBezier(
     // 세그먼트 길이 기반으로 radius 제한 (짧은 세그먼트 보호)
     const dPrev = vecLen(bend.x - prev.x, bend.y - prev.y);
     const dNext = vecLen(next.x - bend.x, next.y - bend.y);
-    // 0.4 = 한 세그먼트의 최대 40%까지만 라운딩에 사용
-    const r = Math.min(radius, dPrev * 0.4, dNext * 0.4);
+    // 0.45 = 한 세그먼트의 최대 45%까지만 라운딩에 사용 (반지름 상한 비율, 무차원).
+    //        BORDER_RADIUS 상향(1.5→2.0)에 맞춰 짧은 세그먼트의 라운딩 손실을 줄이기 위해 0.4→0.45 상향.
+    const r = Math.min(radius, dPrev * 0.45, dNext * 0.45);
 
     if (r < 0.01 || isCollinear(prev, bend, next)) {
       // 라운딩 불필요 (직선 구간)

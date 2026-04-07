@@ -509,9 +509,11 @@ function mapEdgeStyle(edgeStyle: '->' | '-->' | '--' | '<->'): {
         style: baseStyle,
       };
     case '-->':
+      // [1.2, 0.9] = dash on/off length (IR 0-100 단위).
+      // 기존 [4, 3]은 IR 좌표계에서 너무 굵게 보여(1920×1080 캔버스 기준 ~76px/57px) 약 1/3 스케일로 축소.
       return {
         arrowEnd: 'triangle',
-        style: { ...baseStyle, dashPattern: [4, 3] },
+        style: { ...baseStyle, dashPattern: [1.2, 0.9] },
       };
     case '--':
       return {
@@ -573,7 +575,9 @@ function computeEdgeBounds(
 // Label placement
 // ---------------------------------------------------------------------------
 
-const LABEL_OFFSET = 1.2;
+// 1.8 = 라벨↔엣지 수직 거리 (IR 0-100 단위).
+//       기존 1.2는 라벨이 도형 또는 화살표와 겹치는 케이스가 발생해 1.8로 상향.
+const LABEL_OFFSET = 1.8;
 
 /**
  * Offset a label position perpendicular to the edge direction,
@@ -688,10 +692,31 @@ export function routeEdge(input: RouteEdgeInput): IREdge {
     const face: Face = isVertical
       ? (side > 0 ? 'right' : 'left')
       : (side > 0 ? 'bottom' : 'top');
-    anchors = {
-      from: getFaceCenter(input.fromBounds, face),
-      to: getFaceCenter(input.toBounds, face),
-    };
+    const fromAnchor = getFaceCenter(input.fromBounds, face);
+    const toAnchor = getFaceCenter(input.toBounds, face);
+
+    // Port offset: 같은 노드로 모이는 다중 백엣지(예: incr/decr→loop)를 lane 분리.
+    // face 법선과 수직인 축으로 shift한다 (left/right face → y축, top/bottom face → x축).
+    // 0.25 = port offset shift 비율 (무차원). shift = portOffset * min(w,h) * 0.25 (IR 0-100 단위).
+    //        getAutoAnchors의 spread factor와 동일 값을 사용해 정상 엣지와 시각적 일관성 유지.
+    const fromOffset = input.fromPortOffset ?? 0;
+    const toOffset = input.toPortOffset ?? 0;
+    if (fromOffset !== 0 || toOffset !== 0) {
+      const isVerticalFace = face === 'top' || face === 'bottom';
+      const fromSpread = Math.min(input.fromBounds.w, input.fromBounds.h) * 0.25;
+      const toSpread = Math.min(input.toBounds.w, input.toBounds.h) * 0.25;
+      if (isVerticalFace) {
+        // top/bottom face → 법선이 y축이므로 x축으로 shift
+        fromAnchor.x += fromOffset * fromSpread;
+        toAnchor.x += toOffset * toSpread;
+      } else {
+        // left/right face → 법선이 x축이므로 y축으로 shift
+        fromAnchor.y += fromOffset * fromSpread;
+        toAnchor.y += toOffset * toSpread;
+      }
+    }
+
+    anchors = { from: fromAnchor, to: toAnchor };
   } else {
     // 정상 엣지: 중심→중심 직선 교차 + port offset 분산
     const fromPortOffset = input.fromPortOffset ?? 0;
@@ -707,8 +732,9 @@ export function routeEdge(input: RouteEdgeInput): IREdge {
   }
 
   // 1b. Apply arrival gap — retract endpoints away from shapes so arrows
-  //     don't touch the shape boundary. 0.6 = gap in IR-coord units (0–100 space).
-  applyArrivalGap(anchors, 0.6);
+  //     don't touch the shape boundary.
+  //     0.9 = gap in IR-coord units (0-100 space). 화살촉이 도형 경계에 닿지 않도록 0.6→0.9 상향.
+  applyArrivalGap(anchors, 0.9);
 
   // 2. Delegate path creation to edge-paths/ strategy
   const ctx: PathContext = {
