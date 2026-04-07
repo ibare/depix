@@ -31,10 +31,6 @@ import type { ConstraintMap } from './budget-types.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo } from './layout-analysis.js';
-import {
-  analyzeFlowRoles, roleWeight,
-  distributeByWeights, applyAccentPattern,
-} from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -458,41 +454,24 @@ export function computeLayoutChildren(
       const layerCount = Math.max(layerInfo.layerCount, 1);
       const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
 
-      // Role-based layer sizing: entry(S) / transform(M) / terminal(S) / junction(M)
-      const roles = analyzeFlowRoles(nodeIds, plan.edges);
-      const rawWeights = plan.children.map(c => roleWeight(roles.get(c.id) ?? 'leaf', c));
-      const accentedWeights = applyAccentPattern(rawWeights);
-      const layerWeights: number[] = new Array(layerCount).fill(0);
-      plan.children.forEach((c, i) => {
-        const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
-        layerWeights[layer] = Math.max(layerWeights[layer], accentedWeights[i]);
-      });
-      const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
-
-      // Cross-axis: per-layer golden-ratio cap (orientation-aware)
+      // 균등 분할: flow 노드는 모두 동일한 main/cross 크기를 가짐.
+      // role-based weight 시스템(entry/junction/terminal 차등)을 제거하여
+      // 시각적 일관성과 텍스트 폰트 통일을 확보한다.
+      const layerMainSize = mainUsable / layerCount;
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
       const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
+      const idealCross = isHorizontal ? (layerMainSize / PHI) : (layerMainSize * PHI);
+      const uniformCross = Math.min(referenceCross, idealCross);
 
       return plan.children.map(c => {
-        const layer = layerInfo.nodeLayer.get(c.id) ?? 0;
-        const layerMain = layerMainSizes[layer];
-
-        // Shape-specific preferred ratio (circle=1:1, diamond=1.6:1); default = PHI
-        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
-        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
-        const idealCross = isHorizontal
-          ? (layerMain / preferredRatio)
-          : (layerMain * preferredRatio);
-        const cappedCross = Math.min(referenceCross, idealCross);
-
         const cc = constraintMap?.get(c.id);
         const maxW = cc?.maxWidth ?? Infinity;
         const maxH = cc?.maxHeight ?? Infinity;
 
         if (isHorizontal) {
-          return { id: c.id, width: Math.min(Math.max(layerMain, 4), maxW), height: Math.min(Math.max(cappedCross, 3), maxH) };
+          return { id: c.id, width: Math.min(Math.max(layerMainSize, 4), maxW), height: Math.min(Math.max(uniformCross, 3), maxH) };
         }
-        return { id: c.id, width: Math.min(Math.max(cappedCross, 4), maxW), height: Math.min(Math.max(layerMain, 3), maxH) };
+        return { id: c.id, width: Math.min(Math.max(uniformCross, 4), maxW), height: Math.min(Math.max(layerMainSize, 3), maxH) };
       });
     }
 

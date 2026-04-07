@@ -15,10 +15,6 @@ import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums, TREE_LEVEL_GAP_SCALE } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
-import {
-  analyzeFlowRoles, roleWeight,
-  distributeByWeights, applyAccentPattern,
-} from './structural-roles.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -372,25 +368,15 @@ function allocateTreeFlowBudgets(
       }
     }
   } else {
-    // Flow — content-aware layer sizing using constraints
+    // Flow — 균등 분할로 모든 노드 동일 budget. role-based weight 시스템 제거.
+    // allocate-bounds.ts와 일관성 유지하여 budget→bounds 단계 사이 텍스트 폰트 동일성 보장.
     const layerInfo = computeFlowLayerInfo(nodeIds, edges);
     const layerCount = Math.max(layerInfo.layerCount, 1);
     const mainUsable = mainAvail - gap * Math.max(layerCount - 1, 0);
-
-    // Role-based layer sizing: entry(S) / transform(M) / terminal(S) / junction(M)
-    const roles = analyzeFlowRoles(nodeIds, edges);
-    const rawWeights = node.children.map(c => roleWeight(roles.get(c.id) ?? 'leaf', c));
-    const accentedWeights = applyAccentPattern(rawWeights);
-    const layerWeights: number[] = new Array(layerCount).fill(0);
-    node.children.forEach((child, i) => {
-      const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
-      layerWeights[layer] = Math.max(layerWeights[layer], accentedWeights[i]);
-    });
-    const layerMainSizes = distributeByWeights(layerWeights, mainUsable);
+    const layerMainSize = mainUsable / layerCount;
 
     for (const child of node.children) {
       const layer = layerInfo.nodeLayer.get(child.id) ?? 0;
-      const layerMain = layerMainSizes[layer];
       const nodesInLayer = layerInfo.nodesPerLayer[layer] ?? 1;
       const nodeCross = (crossAvail - gap * Math.max(nodesInLayer - 1, 0)) / Math.max(nodesInLayer, 1);
       // Cap for single-node layers to prevent excessive size
@@ -401,9 +387,9 @@ function allocateTreeFlowBudgets(
       const maxCross = cc ? (isHorizontal ? cc.maxHeight : cc.maxWidth) : Infinity;
 
       if (isHorizontal) {
-        budgetMap.set(child.id, { width: Math.min(layerMain, maxMain), height: Math.min(cappedCross, maxCross) });
+        budgetMap.set(child.id, { width: Math.min(layerMainSize, maxMain), height: Math.min(cappedCross, maxCross) });
       } else {
-        budgetMap.set(child.id, { width: Math.min(cappedCross, maxCross), height: Math.min(layerMain, maxMain) });
+        budgetMap.set(child.id, { width: Math.min(cappedCross, maxCross), height: Math.min(layerMainSize, maxMain) });
       }
     }
   }

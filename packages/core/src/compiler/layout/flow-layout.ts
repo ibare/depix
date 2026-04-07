@@ -66,7 +66,50 @@ export function layoutFlow(
 
   // 2. Layer assignment (longest path from sources)
   const layers = assignLayers(order, dagAdj, children.length);
-  const maxLayer = Math.max(...layers);
+
+  // 2b. Real entry/terminal 단독 레이어 분리.
+  //     cycle break 후 가짜 terminal(예: 백엣지를 가진 incr/decr)이 진짜 terminal과
+  //     같은 layer에 묶이는 것을 방지하기 위해 원본 adj 기준으로 in/out-degree를 계산.
+  //     real entry/terminal이 다른 노드와 같은 layer에 있으면 단독 layer로 분리한다.
+  const realInDeg: number[] = new Array(children.length).fill(0);
+  const realOutDeg: number[] = new Array(children.length).fill(0);
+  for (let i = 0; i < children.length; i++) {
+    for (const to of adj[i]) {
+      realOutDeg[i]++;
+      realInDeg[to]++;
+    }
+  }
+  let curMaxLayer = Math.max(...layers, 0);
+  // Real terminal: 새 layer로 분리 (다른 노드가 같은 max layer에 있을 때)
+  const terminalsAtMax: number[] = [];
+  let nonTerminalAtMax = 0;
+  for (let i = 0; i < children.length; i++) {
+    if (layers[i] === curMaxLayer) {
+      if (realOutDeg[i] === 0) terminalsAtMax.push(i);
+      else nonTerminalAtMax++;
+    }
+  }
+  if (terminalsAtMax.length > 0 && nonTerminalAtMax > 0) {
+    curMaxLayer++;
+    for (const i of terminalsAtMax) layers[i] = curMaxLayer;
+  }
+  // Real entry: layer 0 단독 (다른 노드가 layer 0에 있을 때 모든 비-entry +1)
+  const entriesAt0: number[] = [];
+  let nonEntryAt0 = 0;
+  for (let i = 0; i < children.length; i++) {
+    if (layers[i] === 0) {
+      if (realInDeg[i] === 0) entriesAt0.push(i);
+      else nonEntryAt0++;
+    }
+  }
+  if (entriesAt0.length > 0 && nonEntryAt0 > 0) {
+    for (let i = 0; i < children.length; i++) {
+      if (realInDeg[i] !== 0) layers[i]++;
+    }
+    curMaxLayer++;
+  }
+
+  const maxLayer = curMaxLayer;
   const layerCount = maxLayer + 1;
 
   // Group nodes by layer
