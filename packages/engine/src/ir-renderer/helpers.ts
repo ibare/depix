@@ -14,10 +14,16 @@ import type { CoordinateTransform } from '../coordinate-transform.js';
 // Arrow length
 // ---------------------------------------------------------------------------
 
-// 5.25 = visual multiplier (기존 3.5 대비 50% 상향 — 화살촉 가독성 강화).
-// 1.2 / 3.0 = IR 0-100 좌표계 기준 clamp min/max (기존 0.8/2.0에서 1.5배 확대).
-//             너무 작으면 시인성 저하, 너무 크면 엣지 압도.
-const ARROW_LEN_MULTIPLIER = 5.25;
+// 3.89 = arrow length / 본체 stroke 두께 비율.
+//   레퍼런스 Arrow 1.svg(viewBox 88×15, fill path) 정확 측정:
+//     chevron 축방향 길이 = |87.7071 − 79.9289| = 7.7782
+//     본체 stroke 두께    = 2.0  (y ∈ [6.36401, 8.36401])
+//     ratio = 7.7782 / 2.0 = 3.889 → 상수 3.89
+//   (이전 값 5.25는 화살촉을 레퍼런스 대비 31% 과대 표시하던 오류)
+// 1.2 / 3.0 = IR 0-100 좌표계 기준 clamp min/max.
+//   base strokeWidth 0.3 × 3.89 = 1.167 → MIN 1.2에 가볍게 걸려 최저 시인성 보장.
+//   MAX 3.0은 큰 strokeWidth에서 화살촉이 엣지를 압도하지 않도록 제한.
+const ARROW_LEN_MULTIPLIER = 3.89;
 const ARROW_LEN_MIN_IR = 1.2;
 const ARROW_LEN_MAX_IR = 3.0;
 
