@@ -15,16 +15,27 @@ import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums, TREE_LEVEL_GAP_SCALE } from './allocate-bounds.js';
 import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from './layout-analysis.js';
+import type { MeasureMap } from './measure.js';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Top-down budget allocation.
+ *
+ * When `measure` is provided (fixed-point 2nd iteration onwards), the col/row
+ * distribution uses `Math.max(constraint.min, measure.min)` as the floor for
+ * each child in `redistributeWithMinimums`. This feeds back a child's measured
+ * needs into the budget so fontSize↔space cycles can converge. See
+ * `runBudgetMeasureFixpoint` in `compiler.ts` and S-pipeline MUST carveout.
+ */
 export function allocateBudgets(
   plan: PlanNode,
   canvasBounds: IRBounds,
   constraints: ConstraintMap,
   scaleCtx: ScaleContext,
+  measure?: MeasureMap,
 ): BudgetMap {
   const budgetMap: BudgetMap = new Map();
 
@@ -40,6 +51,8 @@ export function allocateBudgets(
     gap,
     constraints,
     budgetMap,
+    0,
+    measure,
   );
 
   // BFS to propagate budgets to descendants
@@ -72,6 +85,7 @@ export function allocateBudgets(
         constraints,
         budgetMap,
         info.padding,
+        measure,
       );
     }
 
@@ -98,6 +112,7 @@ function allocateChildBudgets(
   constraints: ConstraintMap,
   budgetMap: BudgetMap,
   padding: number = 0,
+  measure?: MeasureMap,
 ): void {
   const n = children.length;
   if (n === 0) return;
@@ -130,9 +145,15 @@ function allocateChildBudgets(
         if (pinnedH[i] !== null) return pinnedH[i]!;
         return unpinnedWeight > 0 ? remainder * (c.weight / unpinnedWeight) : remainder / Math.max(n - pinnedH.filter(p => p !== null).length, 1);
       });
+      // Fixed-point feedback: 2nd iteration 이후 measure의 minHeight를 바닥값으로 사용.
+      // Why: 1st iteration에서 측정된 자식의 실제 텍스트 크기가 다음 예산 배분의 minimum이
+      // 되어야 fontSize↔space 순환이 수렴한다. 순수 constraint.minHeight만으로는
+      // 초기값에 갇혀 피드백이 전달되지 않는다. (S-pipeline runBudgetMeasureFixpoint 참조)
       const minHeights = children.map(c => {
         const cc = constraints.get(c.id);
-        return cc ? cc.minHeight : 0;
+        const constraintMin = cc ? cc.minHeight : 0;
+        const measureMin = measure?.get(c.id)?.minHeight ?? 0;
+        return Math.max(constraintMin, measureMin);
       });
       const finalHeights = redistributeWithMinimums(rawHeights, minHeights, usableH);
 
@@ -170,9 +191,13 @@ function allocateChildBudgets(
         if (pinnedW[i] !== null) return pinnedW[i]!;
         return unpinnedWeight > 0 ? remainder * (c.weight / unpinnedWeight) : remainder / Math.max(n - pinnedW.filter(p => p !== null).length, 1);
       });
+      // Fixed-point feedback: 2nd iteration 이후 measure의 minWidth를 바닥값으로 사용.
+      // See minHeights comment above.
       const minWidths = children.map(c => {
         const cc = constraints.get(c.id);
-        return cc ? cc.minWidth : 0;
+        const constraintMin = cc ? cc.minWidth : 0;
+        const measureMin = measure?.get(c.id)?.minWidth ?? 0;
+        return Math.max(constraintMin, measureMin);
       });
       const finalWidths = redistributeWithMinimums(rawWidths, minWidths, usableW);
 

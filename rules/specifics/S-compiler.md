@@ -1,6 +1,6 @@
 ---
-version: 2
-last_verified: 2026-04-07
+version: 3
+last_verified: 2026-04-08
 ---
 
 # 컴파일러 S-compiler
@@ -14,8 +14,9 @@ last_verified: 2026-04-07
 ## MUST
 
 - `compile()` 본문은 다음 순서로 각 패스를 _루트에서 1회씩_ 호출한다:
-  `tokenize → parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → planAll → createScaleContext → computeConstraints → allocateBudgets → measureDiagram → allocateBounds → routeEdges → emit → applyOverridesToIR`
+  `tokenize → parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → planAll → createScaleContext → computeConstraints → runBudgetMeasureFixpoint → allocateBounds → routeEdges → emit → applyOverridesToIR`
   각 패스는 이전 패스의 출력만을 입력으로 받는다. 순서를 바꾸거나 패스를 건너뛰지 않는다.
+  `runBudgetMeasureFixpoint`는 내부적으로 `allocateBudgets`↔`measureDiagram`을 fixed-point 수렴 루프로 호출하는 단일 헬퍼이다. 루프 경계 제약(MAX_ITER ≤ 5, EPS 수렴 조건, 루트 스코프 한정)은 `S-pipeline.md`의 carveout 조항을 참조한다.
   `flattenHierarchy`는 connection 계열 레이아웃(tree, flow)의 nested element를 flat children + implicit edges로 정규화하는 AST 변환 패스이다.
   `planAll`은 AST를 단일 `PlanNode` 트리로 변환한다. scene / layout slot / container / element를 모두 하나의 트리로 표현한다. 비-scene 블록(flow, stack 등)은 `planAll` 내부에서 implicit scene (`layout: full`, `body` slot)으로 감싸진다.
   `computeConstraints`는 plan 트리를 bottom-up(후위순회)으로 순회하며 각 노드의 최소/최대 크기 제약을 수집하는 패스이다.
@@ -31,7 +32,7 @@ last_verified: 2026-04-07
 
 - `ScaleContext`의 `baseUnit`은 `sqrt(canvasArea / elementCount) * DENSITY_FACTOR(0.55)` 공식으로 산출한다. 임의의 고정값을 사용하지 않는다.
 
-- `computeConstraints`(bottom-up)와 `allocateBudgets`(top-down)의 2-pass 구조로 fontSize↔공간의 순환 의존을 해결한다. 제약 수집이 예산 배분보다 먼저 실행되어야 한다.
+- `computeConstraints`(bottom-up)와 `allocateBudgets`(top-down)의 2-pass 구조로 크기 제약의 기본 해소를 수행한다. 제약 수집이 예산 배분보다 먼저 실행되어야 한다. fontSize↔공간의 순환 의존은 이 2-pass 구조에 더해 루트 스코프 `runBudgetMeasureFixpoint` 수렴 루프로 보강된다 (S-pipeline.md carveout 참조).
 
 - tree 블록의 cross-axis 예산은 `subtreeSpan`(리프 노드 수) 비례로 배분한다. 균등 분배가 아닌 서브트리 크기 비례 분배를 사용한다.
 

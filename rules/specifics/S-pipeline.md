@@ -1,6 +1,6 @@
 ---
-version: 1
-last_verified: 2026-04-07
+version: 2
+last_verified: 2026-04-08
 ---
 
 # 컴파일러 파이프라인 S-pipeline
@@ -13,10 +13,18 @@ last_verified: 2026-04-07
 
 ## MUST
 
-- `compile()`은 _각 scene PlanNode 루트마다_ `measureDiagram` / `allocateBudgets` / `computeConstraints` / `allocateBounds`를 정확히 1회씩 호출한다.
+- `compile()`은 _각 scene PlanNode 루트마다_ `computeConstraints` / `allocateBounds`를 정확히 1회씩 호출한다.
+  `allocateBudgets`와 `measureDiagram`은 budget↔fontSize 상호 의존을 해소하기 위해 루트 스코프 fixed-point 수렴 루프로 호출되며, 단일 헬퍼(`runBudgetMeasureFixpoint` in `compiler/compiler.ts`)로 캡슐화되어 `compile()` 본문에서는 1회 호출로 나타난다. 루프 경계 제약은 아래의 별도 MUST 항목을 참조.
   각 패스는 `PlanNode` 루트 하나를 받고 _그 트리 전체를 자체 재귀로 순회_ 한다. container별 자체 호출 금지.
   Document는 scene PlanNode의 컬렉션이며 (`planDocument: ASTDocument → PlanNode[]`), 별도의 document-level 레이아웃 루트를 두지 않는다.
   scene별 호출은 "루트 1회 핑퐁"의 _위반이 아니다_ — 각 scene 트리가 독립 파이프라인 단위이기 때문이다. 금지 대상은 같은 트리 안에서 파이프라인이 재진입하는 container별 핑퐁이다.
+
+- Root-scope `runBudgetMeasureFixpoint` 헬퍼는 다음 경계 제약을 모두 만족해야 한다:
+  (1) 단일 exported helper로 `packages/core/src/compiler/compiler.ts`에 정의하고, `compile()`은 이를 1회만 호출한다.
+  (2) `MAX_ITER` 상한 ≤ 5. 초기 1회 + 루프 본체 최대 MAX_ITER회 = 총 MAX_ITER+1회의 `allocateBudgets`/`measureDiagram` 호출만 허용한다.
+  (3) `EPS` 수렴 조건 필수. `MeasureMap`의 `minWidth`/`minHeight` 필드에 대한 최대 절댓값 차가 `EPS` 미만이면 조기 종료한다.
+  (4) 루프 본체는 `allocateBudgets` → `measureDiagram` 순서만 반복한다. `computeConstraints` / `allocateBounds` / 기타 패스는 루프 외부에서 1회 호출된다.
+  (5) 루프는 PlanNode 루트 범위에서만 동작한다. container 내부에서의 재진입은 S-pipeline MUST NOT "container별 자체 핑퐁"에 여전히 해당하며 금지된다.
 
 - `emit` walker (`compiler/emit.ts` 및 그 분할 파일들)는 `BoundsMap` 조회와 IR 요소 생성만 수행한다.
   walker 내부에서는 크기 분배, 좌표 계산, measure/allocate 호출, 색상 해석을 수행하지 않는다. 모든 계산은 walker 호출 전에 완료되어 있어야 한다.
