@@ -9,7 +9,7 @@
  *   - Accent Pattern (Musical rhythm): prevent monotone size sequences
  */
 
-import type { LayoutPlanNode } from './plan-layout.js';
+import type { PlanNode } from '../layout/plan-types.js';
 import type { TreeLevelInfo } from './layout-analysis.js';
 import { computeFlowLayerInfo } from './layout-analysis.js';
 
@@ -149,10 +149,10 @@ export function analyzeTreeRoles(
  * Convert structural role to a numeric size weight (relative, dimensionless).
  * Minor adjustment: leaf with long label (>15 chars) gets one step up.
  */
-export function roleWeight(role: StructuralRole, node: LayoutPlanNode): number {
+export function roleWeight(role: StructuralRole, node: PlanNode): number {
   let step = ROLE_TO_STEP[role];
   // 긴 라벨 leaf → 한 단계 상승 (S→M): 텍스트 공간 확보
-  if (role === 'leaf' && (node.astNode.label?.length ?? 0) > 15) step = stepUp(step);
+  if (role === 'leaf' && (node.label?.length ?? 0) > 15) step = stepUp(step);
   return SIZE_PALETTE[step];
 }
 
@@ -162,7 +162,7 @@ export function roleWeight(role: StructuralRole, node: LayoutPlanNode): number {
  */
 export function computeLevelWeights(
   levelInfo: TreeLevelInfo,
-  children: LayoutPlanNode[],
+  children: PlanNode[],
   roles: Map<string, StructuralRole>,
 ): number[] {
   const weights = new Array<number>(levelInfo.numLevels).fill(SIZE_PALETTE.S);

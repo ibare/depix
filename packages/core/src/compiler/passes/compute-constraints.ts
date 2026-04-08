@@ -6,11 +6,11 @@
  * minimums; container nodes aggregate children's constraints
  * based on their layout intent.
  *
- * Pipeline: DiagramLayoutPlan + ScaleContext → ConstraintMap
+ * Pipeline: PlanNode + ScaleContext → ConstraintMap
  */
 
 import type { NodeConstraint, ConstraintMap } from './budget-types.js';
-import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
+import type { PlanNode } from '../layout/plan-types.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding } from './scale-system.js';
 import { getElementConfig } from '../element-type-registry.js';
@@ -35,7 +35,7 @@ const TEXT_MAX_H_FACTOR = 0.5;
 // ---------------------------------------------------------------------------
 
 export function computeConstraints(
-  plan: DiagramLayoutPlan,
+  plan: PlanNode,
   scaleCtx: ScaleContext,
 ): ConstraintMap {
   const constraints: ConstraintMap = new Map();
@@ -52,14 +52,14 @@ export function computeConstraints(
 // ---------------------------------------------------------------------------
 
 function computeNodeConstraints(
-  root: LayoutPlanNode,
+  root: PlanNode,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
 ): void {
   // 2-stack iterative post-order: push to stack1, pop to stack2,
   // then process stack2 in reverse (guarantees children before parents)
-  const stack1: LayoutPlanNode[] = [root];
-  const stack2: LayoutPlanNode[] = [];
+  const stack1: PlanNode[] = [root];
+  const stack2: PlanNode[] = [];
 
   while (stack1.length > 0) {
     const node = stack1.pop()!;
@@ -82,25 +82,23 @@ function computeNodeConstraints(
 // ---------------------------------------------------------------------------
 
 function computeSingleConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
 ): NodeConstraint {
-  const astNode = node.astNode;
-
   // Leaf element (no children or element kind)
-  if (astNode.kind === 'element' && node.children.length === 0) {
+  if (node.blockType.startsWith('element-') && node.children.length === 0) {
     return computeLeafConstraint(node, scaleCtx);
   }
 
   // Element with children (e.g. shape with nested elements)
-  if (astNode.kind === 'element' && node.children.length > 0) {
+  if (node.blockType.startsWith('element-') && node.children.length > 0) {
     return computeBoxConstraint(node, scaleCtx, constraints);
   }
 
   // Block node — dispatch by block type
-  if (astNode.kind === 'block') {
-    return computeBlockConstraint(node, astNode.blockType, scaleCtx, constraints);
+  if (!node.blockType.startsWith('element-')) {
+    return computeBlockConstraint(node, node.blockType, scaleCtx, constraints);
   }
 
   return computeLeafConstraint(node, scaleCtx);
@@ -110,18 +108,17 @@ function computeSingleConstraint(
 // Leaf constraints
 // ---------------------------------------------------------------------------
 
-function computeLeafConstraint(node: LayoutPlanNode, scaleCtx: ScaleContext): NodeConstraint {
-  const astNode = node.astNode;
-  const hasExplicitW = astNode.kind === 'element' && typeof astNode.props.width === 'number';
-  const hasExplicitH = astNode.kind === 'element' && typeof astNode.props.height === 'number';
+function computeLeafConstraint(node: PlanNode, scaleCtx: ScaleContext): NodeConstraint {
+  const hasExplicitW = node.blockType.startsWith('element-') && typeof node.props.width === 'number';
+  const hasExplicitH = node.blockType.startsWith('element-') && typeof node.props.height === 'number';
 
   let minW: number;
   let minH: number;
   let maxW: number;
   let maxH: number;
 
-  if (astNode.kind === 'element') {
-    const config = getElementConfig(astNode.elementType);
+  if (node.blockType.startsWith('element-')) {
+    const config = getElementConfig(node.props.elementType as string);
     minW = config.constraint.minW;
     minH = config.constraint.minH;
 
@@ -151,8 +148,8 @@ function computeLeafConstraint(node: LayoutPlanNode, scaleCtx: ScaleContext): No
     maxH = Infinity;
   }
 
-  const explicitW = hasExplicitW ? (astNode.props.width as number) : undefined;
-  const explicitH = hasExplicitH ? (astNode.props.height as number) : undefined;
+  const explicitW = hasExplicitW ? (node.props.width as number) : undefined;
+  const explicitH = hasExplicitH ? (node.props.height as number) : undefined;
 
   return {
     minWidth: explicitW ?? minW,
@@ -169,7 +166,7 @@ function computeLeafConstraint(node: LayoutPlanNode, scaleCtx: ScaleContext): No
 // ---------------------------------------------------------------------------
 
 function computeBoxConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
 ): NodeConstraint {
@@ -202,7 +199,7 @@ function computeBoxConstraint(
 // ---------------------------------------------------------------------------
 
 function computeBlockConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   blockType: string,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
@@ -212,7 +209,7 @@ function computeBlockConstraint(
     return { minWidth: 0, maxWidth: Infinity, minHeight: 0, maxHeight: Infinity };
   }
 
-  const props = node.astNode.kind === 'block' ? node.astNode.props : {};
+  const props = node.props;
   const defaultGap = computeGap(scaleCtx.baseUnit, 'siblingGap');
   const gap = typeof props.gap === 'number' ? props.gap : defaultGap;
 
@@ -246,7 +243,7 @@ function computeBlockConstraint(
 // ---------------------------------------------------------------------------
 
 function computeStackColConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   constraints: ConstraintMap,
 ): NodeConstraint {
@@ -271,7 +268,7 @@ function computeStackColConstraint(
 // ---------------------------------------------------------------------------
 
 function computeStackRowConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   constraints: ConstraintMap,
 ): NodeConstraint {
@@ -296,9 +293,9 @@ function computeStackRowConstraint(
 // ---------------------------------------------------------------------------
 
 function computeGridConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
-  props: Record<string, string | number>,
+  props: Record<string, unknown>,
   constraints: ConstraintMap,
 ): NodeConstraint {
   const cols = typeof props.cols === 'number' ? props.cols : 2;
@@ -329,7 +326,7 @@ function computeGridConstraint(
 // ---------------------------------------------------------------------------
 
 function computeLayersConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   constraints: ConstraintMap,
 ): NodeConstraint {
@@ -354,10 +351,10 @@ function computeLayersConstraint(
 // ---------------------------------------------------------------------------
 
 function computeGroupConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   scaleCtx: ScaleContext,
-  props: Record<string, string | number>,
+  props: Record<string, unknown>,
   constraints: ConstraintMap,
 ): NodeConstraint {
   const n = node.children.length;
@@ -389,7 +386,7 @@ function computeGroupConstraint(
 // ---------------------------------------------------------------------------
 
 function computeTreeConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
@@ -397,11 +394,11 @@ function computeTreeConstraint(
   const n = node.children.length;
   if (n === 0) return { minWidth: 0, maxWidth: Infinity, minHeight: 0, maxHeight: Infinity };
 
-  const props = node.astNode.kind === 'block' ? node.astNode.props : {};
+  const props = node.props;
   const dir = (props.direction as string) ?? 'down';
   const isHorizontal = dir === 'right' || dir === 'left';
 
-  const edges = node.edges;
+  const edges = node.edges ?? [];
   const nodeIds = node.children.map(c => c.id);
   const levelInfo = computeTreeLevelInfo(nodeIds, edges);
 
@@ -441,7 +438,7 @@ function computeTreeConstraint(
 // ---------------------------------------------------------------------------
 
 function computeFlowConstraint(
-  node: LayoutPlanNode,
+  node: PlanNode,
   gap: number,
   scaleCtx: ScaleContext,
   constraints: ConstraintMap,
@@ -449,11 +446,11 @@ function computeFlowConstraint(
   const n = node.children.length;
   if (n === 0) return { minWidth: 0, maxWidth: Infinity, minHeight: 0, maxHeight: Infinity };
 
-  const props = node.astNode.kind === 'block' ? node.astNode.props : {};
+  const props = node.props;
   const dir = (props.direction as string) ?? 'right';
   const isHorizontal = dir === 'right' || dir === 'left';
 
-  const edges = node.edges;
+  const edges = node.edges ?? [];
   const nodeIds = node.children.map(c => c.id);
   const layerInfo = computeFlowLayerInfo(nodeIds, edges);
 

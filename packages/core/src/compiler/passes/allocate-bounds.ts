@@ -6,12 +6,11 @@
  * laid out using the existing layout algorithms; leaf elements receive
  * the allocated space (filling the parent's allocation).
  *
- * Pipeline: DiagramLayoutPlan + canvasBounds → BoundsMap
+ * Pipeline: PlanNode + canvasBounds → BoundsMap
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { DepixTheme } from '../../theme/types.js';
-import type { ASTEdge } from '../ast.js';
+import type { SceneTheme } from '../../theme/scene-theme.js';
 import { layoutStack } from '../layout/stack-layout.js';
 import { layoutGrid } from '../layout/grid-layout.js';
 import { layoutFlow } from '../layout/flow-layout.js';
@@ -20,12 +19,14 @@ import { layoutGroup } from '../layout/group-layout.js';
 import { layoutLayers } from '../layout/layers-layout.js';
 import { layoutTable } from '../layout/table-layout.js';
 import { layoutChart } from '../layout/chart-layout.js';
+import { layoutScene } from '../layout/scene-layout.js';
 import type {
   LayoutChild,
   LayoutResult,
+  SceneLayoutConfig,
   TreeNode,
 } from '../layout/types.js';
-import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
+import type { PlanNode, PlanEdge } from '../layout/plan-types.js';
 import type { MeasureMap } from './measure.js';
 import type { ConstraintMap } from './budget-types.js';
 import type { ScaleContext } from './scale-system.js';
@@ -76,20 +77,27 @@ export type BoundsMap = Map<string, IRBounds>;
 // ---------------------------------------------------------------------------
 
 /**
- * Allocate bounds for every node in a scene plan.
+ * Allocate bounds for every node in a plan.
  *
  * Returns a BoundsMap keyed by node id containing computed IRBounds.
  * Also stores container bounds under each block's id.
+ *
+ * When plan.blockType === 'scene', delegates to allocateScene (slot-based layout).
  */
-export function allocateDiagram(
-  plan: DiagramLayoutPlan,
+export function allocateBounds(
+  plan: PlanNode,
   canvasBounds: IRBounds,
-  _theme: DepixTheme,
+  sceneTheme: SceneTheme,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
   constraintMap?: ConstraintMap,
 ): BoundsMap {
   const boundsMap: BoundsMap = new Map();
+
+  if (plan.blockType === 'scene') {
+    allocateScene(plan, canvasBounds, boundsMap, sceneTheme, scaleCtx, measureMap, constraintMap);
+    return boundsMap;
+  }
 
   if (plan.children.length === 0) return boundsMap;
 
@@ -100,8 +108,9 @@ export function allocateDiagram(
   // First pass: compute weight-based heights, then clamp to minHeight.
   const rawHeights: number[] = [];
   const minHeights: number[] = [];
+  const totalWeight = plan.children.reduce((s, c) => s + c.weight, 0);
   for (const child of plan.children) {
-    const fraction = plan.totalWeight > 0 ? child.weight / plan.totalWeight : 1 / plan.children.length;
+    const fraction = totalWeight > 0 ? child.weight / totalWeight : 1 / plan.children.length;
     rawHeights.push(usableHeight * fraction);
     const m = measureMap?.get(child.id);
     minHeights.push(m ? m.minHeight : 0);
@@ -128,18 +137,67 @@ export function allocateDiagram(
 }
 
 // ---------------------------------------------------------------------------
+// Internal: scene slot allocation
+// ---------------------------------------------------------------------------
+
+function allocateScene(
+  plan: PlanNode,
+  canvasBounds: IRBounds,
+  boundsMap: BoundsMap,
+  sceneTheme: SceneTheme,
+  scaleCtx?: ScaleContext,
+  measureMap?: MeasureMap,
+  constraintMap?: ConstraintMap,
+): void {
+  const config: SceneLayoutConfig = {
+    bounds: canvasBounds,
+    padding: sceneTheme.layout.scenePadding,
+    headerHeight: sceneTheme.layout.headingHeight,
+    gap: sceneTheme.layout.columnGap,
+    ratio: typeof plan.props.ratio === 'number' ? (plan.props.ratio as number) : undefined,
+    direction: typeof plan.props.direction === 'string' ? (plan.props.direction as string) : undefined,
+  };
+  const preset = plan.layout?.preset ?? 'full';
+  const cellCount = plan.children.filter(c => c.slot === 'cell').length;
+  const result = layoutScene(preset, config, cellCount);
+  const cellChildren = plan.children.filter(c => c.slot === 'cell');
+
+  for (const child of plan.children) {
+    if (!child.slot) continue;
+    const slotArr = result.slotBounds.get(child.slot);
+    if (!slotArr) continue;
+    const slotBounds = child.slot === 'cell'
+      ? slotArr[cellChildren.indexOf(child)]
+      : slotArr[0];
+    if (!slotBounds) continue;
+    boundsMap.set(child.id, slotBounds);
+    allocateNode(child, slotBounds, boundsMap, scaleCtx, measureMap, constraintMap);
+  }
+
+  // 미채워진 슬롯을 placeholder 키로 BoundsMap에 등록 (walker가 조회하여 placeholder IRContainer 생성).
+  const filledSlots = new Set(plan.children.map(c => c.slot).filter(Boolean));
+  for (const [slotName, boundsArr] of result.slotBounds) {
+    if (slotName === 'cell') continue;
+    if (filledSlots.has(slotName)) continue;
+    const bounds = boundsArr[0];
+    if (!bounds) continue;
+    boundsMap.set(`${plan.id}-placeholder-${slotName}`, bounds);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal: recursive allocation
 // ---------------------------------------------------------------------------
 
 function allocateNode(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
   constraintMap?: ConstraintMap,
 ): void {
-  if (plan.astNode.kind === 'block') {
+  if (!plan.blockType.startsWith('element-')) {
     allocateBlock(plan, availBounds, boundsMap, scaleCtx, measureMap, constraintMap);
   } else {
     allocateLeaf(plan, availBounds, boundsMap, scaleCtx, measureMap);
@@ -153,15 +211,14 @@ function allocateNode(
  * Elements with explicit size props (width/height) honour those values.
  */
 function allocateLeaf(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
 ): void {
-  const node = plan.astNode;
-  const hasExplicitW = node.kind === 'element' && typeof node.props.width === 'number';
-  const hasExplicitH = node.kind === 'element' && typeof node.props.height === 'number';
+  const hasExplicitW = typeof plan.props.width === 'number';
+  const hasExplicitH = typeof plan.props.height === 'number';
 
   // Use measure minimums as lower bounds
   const m = measureMap?.get(plan.id);
@@ -230,18 +287,15 @@ function allocateLeaf(
 }
 
 function allocateBlock(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   availBounds: IRBounds,
   boundsMap: BoundsMap,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
   constraintMap?: ConstraintMap,
 ): void {
-  const block = plan.astNode;
-  if (block.kind !== 'block') return;
-
-  const blockType = block.blockType;
-  const props = block.props;
+  const blockType = plan.blockType;
+  const props = plan.props;
 
   // Build LayoutChild[] with sizes proportional to available bounds
   const layoutChildren = computeLayoutChildren(plan, availBounds, scaleCtx, measureMap, constraintMap);
@@ -252,7 +306,7 @@ function allocateBlock(
     layoutChildren,
     props,
     availBounds,
-    plan.edges,
+    plan.edges ?? [],
     scaleCtx,
   );
 
@@ -264,7 +318,7 @@ function allocateBlock(
     const childPlan = plan.children[i];
     const childBounds = layoutResult.childBounds[i];
 
-    if (childPlan.astNode.kind === 'block') {
+    if (!childPlan.blockType.startsWith('element-')) {
       allocateNode(childPlan, childBounds, boundsMap, scaleCtx, measureMap, constraintMap);
     } else {
       // For flow/tree blocks, apply shape aspect ratio to leaf elements
@@ -344,16 +398,15 @@ function allocateBlock(
  * - group: stacked vertically with padding, proportional height
  */
 export function computeLayoutChildren(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   bounds: IRBounds,
   scaleCtx?: ScaleContext,
   measureMap?: MeasureMap,
   constraintMap?: ConstraintMap,
 ): LayoutChild[] {
-  const block = plan.astNode;
-  if (block.kind !== 'block') return [];
+  if (plan.blockType.startsWith('element-')) return [];
 
-  const props = block.props;
+  const props = plan.props;
   const n = plan.children.length;
   if (n === 0) return [];
 
@@ -361,13 +414,13 @@ export function computeLayoutChildren(
   const defaultGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
   const gap = typeof props.gap === 'number' ? props.gap : defaultGap;
 
-  switch (block.blockType) {
+  switch (plan.blockType) {
     case 'stack': {
       const dir = (props.direction as string) ?? 'col';
       if (dir === 'row') {
         const usable = bounds.w - gap * Math.max(n - 1, 0);
         const rawWidths = plan.children.map(c => {
-          const hasExplicitW = c.astNode.kind === 'element' && typeof c.astNode.props.width === 'number';
+          const hasExplicitW = typeof c.props.width === 'number';
           return hasExplicitW ? c.intrinsicSize.width : (totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n);
         });
         const minWidths = plan.children.map(c => {
@@ -400,7 +453,7 @@ export function computeLayoutChildren(
         const naturalHeights: (number | null)[] = plan.children.map(c => {
           const m = measureMap?.get(c.id);
           if (m) return m.minHeight; // measured minHeight takes priority
-          if (c.nodeType === 'element-text' || c.nodeType === 'element-divider') {
+          if (c.blockType === 'element-text' || c.blockType === 'element-divider') {
             return textNaturalH; // text leaf → natural content height
           }
           return null; // block or shape → flex (share of remaining)
@@ -420,7 +473,7 @@ export function computeLayoutChildren(
           const h = Math.min(rawH, maxH);
 
           // Shape 요소: height 기반 preferred ratio로 width 계산 (flow/tree와 동일 원칙)
-          const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+          const elementType = c.elementType ?? '';
           const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
           const w = preferredRatio ? Math.min(h * preferredRatio, bounds.w) : bounds.w;
 
@@ -450,7 +503,7 @@ export function computeLayoutChildren(
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
       const nodeIds = plan.children.map(c => c.id);
-      const layerInfo = computeFlowLayerInfo(nodeIds, plan.edges);
+      const layerInfo = computeFlowLayerInfo(nodeIds, plan.edges ?? []);
       const layerCount = Math.max(layerInfo.layerCount, 1);
       const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
 
@@ -485,7 +538,7 @@ export function computeLayoutChildren(
       const crossAxis = isHorizontal ? bounds.h : bounds.w;
 
       const nodeIds = plan.children.map(c => c.id);
-      const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges);
+      const levelInfo = computeTreeLevelInfo(nodeIds, plan.edges ?? []);
       const numLevels = Math.max(levelInfo.numLevels, 1);
 
       // Uniform level heights — hierarchy conveyed by position, not size
@@ -508,7 +561,7 @@ export function computeLayoutChildren(
         const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
         const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
         const levelCrossAvail = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
-        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+        const elementType = c.elementType ?? '';
         const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
         const idealCross = isHorizontal
           ? (nodeMain / preferredRatio)
@@ -550,7 +603,7 @@ export function computeLayoutChildren(
         const h = Math.min(rawH, maxH);
 
         // Shape 요소: height 기반 preferred ratio로 width 계산 (flow/tree와 동일 원칙)
-        const elementType = c.astNode.kind === 'element' ? c.astNode.elementType : '';
+        const elementType = c.elementType ?? '';
         const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
         const w = preferredRatio ? Math.min(h * preferredRatio, innerW) : innerW;
 
@@ -576,13 +629,7 @@ export function computeLayoutChildren(
       const chartGap = gap * 0.5;
       const barW = (bounds.w - chartGap * Math.max(n - 1, 0)) / n;
       return plan.children.map(c => {
-        // Extract numeric value from row element (first non-header numeric cell)
-        const ast = c.astNode;
-        let value = 1;
-        if (ast.kind === 'element' && ast.values) {
-          const numericVal = ast.values.find(v => typeof v === 'number');
-          if (typeof numericVal === 'number') value = numericVal;
-        }
+        const value = typeof c.props.value === 'number' ? (c.props.value as number) : 1;
         return { id: c.id, width: barW, height: value };
       });
     }
@@ -591,16 +638,15 @@ export function computeLayoutChildren(
     case 'layer': {
       // Visual containers: compact stacking — each child gets its min height, no surplus redistribution
       return plan.children.map(c => {
-        const hasExplicitH = c.astNode.kind === 'element' && typeof c.astNode.props.height === 'number';
+        const hasExplicitH = typeof c.props.height === 'number';
         const m = measureMap?.get(c.id);
         const h = hasExplicitH ? c.intrinsicSize.height : (m ? m.minHeight : c.intrinsicSize.height || 4);
         return { id: c.id, width: bounds.w, height: h };
       });
     }
 
-    case 'canvas':
     default: {
-      // canvas/default: stack col behaviour
+      // default: stack col behaviour
       const usable = bounds.h - gap * Math.max(n - 1, 0);
       return plan.children.map(c => ({
         id: c.id,
@@ -618,9 +664,9 @@ export function computeLayoutChildren(
 export function runLayout(
   blockType: string,
   children: LayoutChild[],
-  props: Record<string, string | number>,
+  props: Record<string, unknown>,
   bounds: IRBounds,
-  edges: ASTEdge[],
+  edges: PlanEdge[],
   scaleCtx?: ScaleContext,
 ): LayoutResult {
   const defaultGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
@@ -724,7 +770,6 @@ export function runLayout(
         wrap: false,
       });
 
-    case 'canvas':
     default:
       return layoutStack(children, {
         bounds,
@@ -742,7 +787,7 @@ export function runLayout(
 
 export function buildTreeNodes(
   children: LayoutChild[],
-  edges: ASTEdge[],
+  edges: PlanEdge[],
 ): TreeNode[] {
   if (children.length === 0) return [];
 
@@ -862,15 +907,13 @@ export function redistributeWithMinimums(
  * Text, list, divider, and other flow elements keep full parent width.
  */
 function applyShapeAspect(
-  child: LayoutPlanNode,
+  child: PlanNode,
   innerBounds: IRBounds,
   height: number,
 ): { w: number; x: number } {
-  const ast = child.astNode;
   if (
-    ast.kind === 'element' &&
-    SHAPE_ELEMENT_TYPES.has(ast.elementType) &&
-    !('width' in ast.props && typeof ast.props.width === 'number')
+    SHAPE_ELEMENT_TYPES.has(child.elementType ?? '') &&
+    typeof child.props.width !== 'number'
   ) {
     const maxW = height * MAX_SHAPE_ASPECT;
     if (maxW < innerBounds.w) {
@@ -888,21 +931,19 @@ function applyShapeAspect(
  * both axes. Other shapes use the generic MAX_SHAPE_ASPECT width-only cap.
  */
 function applyShapeAspectToBounds(
-  child: LayoutPlanNode,
+  child: PlanNode,
   bounds: IRBounds,
 ): IRBounds {
-  const ast = child.astNode;
   if (
-    ast.kind !== 'element' ||
-    !SHAPE_ELEMENT_TYPES.has(ast.elementType) ||
-    typeof ast.props.width === 'number' ||
-    typeof ast.props.height === 'number'
+    !SHAPE_ELEMENT_TYPES.has(child.elementType ?? '') ||
+    typeof child.props.width === 'number' ||
+    typeof child.props.height === 'number'
   ) {
     return bounds;
   }
 
   let { x, y, w, h } = bounds;
-  const preferredRatio = SHAPE_PREFERRED_RATIO[ast.elementType];
+  const preferredRatio = SHAPE_PREFERRED_RATIO[child.elementType ?? ''];
 
   if (preferredRatio) {
     // Strict ratio: fit within bounds maintaining preferred w:h

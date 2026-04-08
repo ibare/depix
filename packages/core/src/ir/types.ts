@@ -109,7 +109,6 @@ export interface IROrigin {
     | 'tree'
     | 'group'
     | 'layers'
-    | 'canvas'
     | 'scene'
     | 'table'
     | 'chart'

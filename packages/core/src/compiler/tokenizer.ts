@@ -66,7 +66,6 @@ export const BLOCK_TYPES = new Set([
   'tree',
   'group',
   'layers',
-  'canvas',
   'scene',
   'column',
   'table',

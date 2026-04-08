@@ -5,7 +5,7 @@
  * with a single lookup table. Adding a new element type requires one table entry.
  */
 
-import type { PlanNodeType } from './passes/plan-layout.js';
+import type { PlanBlockType } from './layout/plan-types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,7 +20,7 @@ export type ShapeKind =
 
 export interface ElementTypeConfig {
   /** Plan-layout classification. */
-  classify: PlanNodeType;
+  classify: PlanBlockType;
   /** Default intrinsic size (0-100 space). Overridden by explicit width/height props. */
   intrinsicSize: { width: number; height: number };
   /** Minimum constraint for leaf elements. */

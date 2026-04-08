@@ -12,7 +12,7 @@
  */
 
 import type { IRBounds } from '../../ir/types.js';
-import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
+import type { PlanNode } from '../layout/plan-types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,7 +74,7 @@ const FONT_SIZE_MIN = 0.6;
  * Create a ScaleContext from a scene layout plan and canvas bounds.
  */
 export function createScaleContext(
-  plan: DiagramLayoutPlan,
+  plan: PlanNode,
   canvasBounds: IRBounds,
 ): ScaleContext {
   const canvasArea = canvasBounds.w * canvasBounds.h;
@@ -132,23 +132,19 @@ export function computePadding(baseUnit: number): number {
  * Count leaf elements in a plan (non-block nodes without children).
  * Returns at least 1 to avoid division by zero.
  */
-export function countElements(plan: DiagramLayoutPlan): number {
-  let count = 0;
-  for (const child of plan.children) {
-    count += countNodeLeaves(child);
-  }
-  return Math.max(count, 1);
+export function countElements(plan: PlanNode): number {
+  return Math.max(countNodeLeaves(plan), 1);
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function countNodeLeaves(node: LayoutPlanNode): number {
+function countNodeLeaves(node: PlanNode): number {
   if (node.children.length === 0) {
     // List items are visually distinct elements that contribute to density
-    if (node.astNode.kind === 'element' && node.astNode.elementType === 'list') {
-      return Math.max(node.astNode.items?.length ?? 1, 1);
+    if (node.elementType === 'list' || node.elementType === 'bullet') {
+      return Math.max(node.items?.length ?? 1, 1);
     }
     return 1;
   }

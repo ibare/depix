@@ -166,7 +166,6 @@ const ORIGIN_SOURCE_TYPES: ReadonlySet<string> = new Set([
   'tree',
   'group',
   'layers',
-  'canvas',
   'scene',
   'table',
   'chart',

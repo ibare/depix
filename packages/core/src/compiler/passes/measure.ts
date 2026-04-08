@@ -5,12 +5,11 @@
  * Resolves fontSize, lineHeight, padding, and computes minimum dimensions
  * that the subsequent allocate-bounds pass uses as constraints.
  *
- * Pipeline: DiagramLayoutPlan + ScaleContext + Theme → MeasureMap
+ * Pipeline: PlanNode + ScaleContext + Theme → MeasureMap
  */
 
 import type { DepixTheme } from '../../theme/types.js';
-import type { ASTBlock, ASTElement } from '../ast.js';
-import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
+import type { PlanNode } from '../layout/plan-types.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeFontSize, computePadding, computeGap } from './scale-system.js';
 import type { BudgetMap } from './budget-types.js';
@@ -63,7 +62,7 @@ const TEXT_BLOCK_MULTIPLIER = 1.8; // height = fontSize * multiplier (accounts f
  * Returns a MeasureMap keyed by plan node id.
  */
 export function measureDiagram(
-  plan: DiagramLayoutPlan,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx?: ScaleContext,
   budgetMap?: BudgetMap,
@@ -82,7 +81,7 @@ export function measureDiagram(
 // ---------------------------------------------------------------------------
 
 function measureNode(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
@@ -93,13 +92,12 @@ function measureNode(
     measureNode(child, theme, scaleCtx, measureMap, budgetMap);
   }
 
-  const node = plan.astNode;
   let result: MeasureResult;
 
-  if (node.kind === 'block') {
+  if (!plan.blockType.startsWith('element-')) {
     result = measureBlock(plan, theme, scaleCtx, measureMap);
   } else {
-    result = measureElement(node, plan, theme, scaleCtx, measureMap, budgetMap);
+    result = measureElement(plan, theme, scaleCtx, measureMap, budgetMap);
   }
 
   measureMap.set(plan.id, result);
@@ -111,7 +109,7 @@ function measureNode(
 // ---------------------------------------------------------------------------
 
 function measureBlock(
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
@@ -153,27 +151,26 @@ function measureBlock(
 // ---------------------------------------------------------------------------
 
 function measureElement(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   measureMap: MeasureMap,
   budgetMap?: BudgetMap,
 ): MeasureResult {
-  const config = getElementConfig(element.elementType);
+  const config = getElementConfig(plan.elementType!);
   switch (config.measure) {
     case 'text':
-      return measureText(element, plan, theme, scaleCtx, budgetMap, config.fontScale);
+      return measureText(plan, theme, scaleCtx, budgetMap, config.fontScale);
     case 'shape':
-      return measureShape(element, plan, theme, scaleCtx, budgetMap);
+      return measureShape(plan, theme, scaleCtx, budgetMap);
     case 'list':
-      return measureList(element, plan, theme, scaleCtx, budgetMap);
+      return measureList(plan, theme, scaleCtx, budgetMap);
     case 'divider':
       return measureDivider();
     case 'image':
-      return measureImage(element);
+      return measureImage(plan);
     case 'row':
-      return measureShape(element, plan, theme, scaleCtx, budgetMap);
+      return measureShape(plan, theme, scaleCtx, budgetMap);
   }
 }
 
@@ -182,14 +179,13 @@ function measureElement(
 // ---------------------------------------------------------------------------
 
 function measureText(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   budgetMap?: BudgetMap,
   fontScale = 1,
 ): MeasureResult {
-  const baseFontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'standaloneText', budgetMap);
+  const baseFontSize = resolveElementFontSize(plan, theme, scaleCtx, 'standaloneText', budgetMap);
   const fontSize = baseFontSize * fontScale;
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const textHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
@@ -205,17 +201,16 @@ function measureText(
 }
 
 function measureShape(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(element, plan, theme, scaleCtx, 'innerLabel', budgetMap);
+  const fontSize = resolveElementFontSize(plan, theme, scaleCtx, 'innerLabel', budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
-  const labelHeight = element.label ? fontSize * TEXT_BLOCK_MULTIPLIER : 0;
-  const minW = typeof element.props.width === 'number' ? element.props.width : theme.node.minWidth;
-  const minH = typeof element.props.height === 'number' ? element.props.height : Math.max(theme.node.minHeight, labelHeight);
+  const labelHeight = plan.label ? fontSize * TEXT_BLOCK_MULTIPLIER : 0;
+  const minW = typeof plan.props.width === 'number' ? plan.props.width : theme.node.minWidth;
+  const minH = typeof plan.props.height === 'number' ? plan.props.height : Math.max(theme.node.minHeight, labelHeight);
 
   return {
     fontSize,
@@ -228,17 +223,16 @@ function measureShape(
 }
 
 function measureList(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   budgetMap?: BudgetMap,
 ): MeasureResult {
-  const items = element.items ?? [];
+  const items = plan.items ?? [];
   const itemCount = Math.max(items.length, 1);
 
   // Use per-item effective height so fontSize scales with item count
-  const fontSize = resolveListFontSize(element, plan, theme, scaleCtx, itemCount, budgetMap);
+  const fontSize = resolveListFontSize(plan, theme, scaleCtx, itemCount, budgetMap);
   const lineHeight = DEFAULT_LINE_HEIGHT;
   const itemHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
   const itemGap = fontSize * 0.3; // 항목 간격 = 폰트 크기의 30% (텍스트 행 간격 기준)
@@ -261,16 +255,15 @@ function measureList(
  * Uses per-item height as the effective short side so that more items → smaller font.
  */
 function resolveListFontSize(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   itemCount: number,
   budgetMap?: BudgetMap,
 ): number {
   // Priority 1: user-specified
-  if (typeof element.style['font-size'] === 'number') {
-    return element.style['font-size'];
+  if (typeof plan.style['font-size'] === 'number') {
+    return plan.style['font-size'];
   }
 
   // Priority 2: budget-aware with per-item height
@@ -300,9 +293,9 @@ function measureDivider(): MeasureResult {
   };
 }
 
-function measureImage(element: ASTElement): MeasureResult {
-  const w = typeof element.props.width === 'number' ? element.props.width : 20;  // 기본 이미지 너비 (0–100 기준 20%)
-  const h = typeof element.props.height === 'number' ? element.props.height : 15; // 기본 이미지 높이 (0–100 기준 15%)
+function measureImage(plan: PlanNode): MeasureResult {
+  const w = typeof plan.props.width === 'number' ? plan.props.width : 20;  // 기본 이미지 너비 (0–100 기준 20%)
+  const h = typeof plan.props.height === 'number' ? plan.props.height : 15; // 기본 이미지 높이 (0–100 기준 15%)
   return {
     fontSize: 0,
     lineHeight: 1,
@@ -361,16 +354,15 @@ function applyTextLengthPenalty(fontSize: number, label?: string): number {
  * 3. Theme fallback
  */
 function resolveElementFontSize(
-  element: ASTElement,
-  plan: LayoutPlanNode,
+  plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
   role: TextRole,
   budgetMap?: BudgetMap,
 ): number {
   // Priority 1: user-specified
-  if (typeof element.style['font-size'] === 'number') {
-    return element.style['font-size'];
+  if (typeof plan.style['font-size'] === 'number') {
+    return plan.style['font-size'];
   }
 
   // Priority 2: scale system (budget-aware) with text length correction
@@ -381,9 +373,9 @@ function resolveElementFontSize(
       : Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
     if (shortSide > 0) {
       const base = computeFontSize(shortSide, role);
-      const adjusted = applyTextLengthPenalty(base, element.label);
+      const adjusted = applyTextLengthPenalty(base, plan.label);
       const nodeWidth = budget ? budget.width : plan.intrinsicSize.width;
-      return clampFontToFit(adjusted, element.label, nodeWidth);
+      return clampFontToFit(adjusted, plan.label, nodeWidth);
     }
   }
 

@@ -4,24 +4,36 @@
  * Orchestrates the full DSL → DepixIR pipeline:
  *   1. Parse (tokenize + parse → AST)
  *   2. Resolve data, flatten hierarchy, resolve theme
- *   3. Normalize scenes (all blocks → slotted scene AST)
- *   4. Emit IR via unified scene pipeline (planScene → emitScene)
- *
- * @presentation directive is a no-op and no longer gates compilation mode.
+ *   3. Plan (AST → PlanNode tree, one per scene)
+ *   4. Per-scene: scale → constraints → budgets → measure → allocate-bounds
+ *   5. Emit IR via unified walker pipeline
+ *   6. Apply @overrides
  */
 
-import type { DepixIR } from '../ir/types.js';
+import type { DepixIR, IRBounds } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
 import type { SceneTheme } from '../theme/scene-theme.js';
 import { defaultSceneTheme } from '../theme/scene-theme.js';
-import type { ASTBlock, ASTDocument, ASTNode, ParseError } from './ast.js';
+import type { ASTDocument } from './ast.js';
+import type { ParseError } from './ast.js';
 import { parse } from './parser.js';
 import { resolveData } from './data/resolve-data.js';
 import { flattenHierarchy } from './passes/flatten-hierarchy.js';
 import { resolveTheme } from './passes/resolve-theme.js';
-import { emitSceneIR } from './scene/emit-scene.js';
 import { lightTheme } from '../theme/builtin-themes.js';
 import { extractOverrides, applyOverridesToIR } from './passes/apply-overrides.js';
+import { planDocument } from './layout/plan-all.js';
+import { createScaleContext } from './passes/scale-system.js';
+import { computeConstraints } from './passes/compute-constraints.js';
+import { allocateBudgets } from './passes/allocate-budgets.js';
+import { measureDiagram } from './passes/measure.js';
+import { allocateBounds } from './passes/allocate-bounds.js';
+import type { BoundsMap } from './passes/allocate-bounds.js';
+import type { MeasureMap } from './passes/measure.js';
+import { emit } from './emit.js';
+import { computeAllChartPositions } from './passes/compute-chart-positions.js';
+import { buildSceneMeta, buildSceneTransitions } from './scene/scene-meta.js';
+import { computeSceneNaturalHeight } from './scene/scene-measure.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -55,11 +67,10 @@ export interface CompileResult {
  * Compile a DSL source string into a DepixIR document.
  *
  * This is the main entry point for the Depix compiler. It runs the full
- * pipeline: parse → resolve → normalizeScenes → emitSceneIR.
+ * pipeline: parse → resolve → planDocument → per-scene allocation → emit.
  *
- * All DSL compiles through the unified scene pipeline. Non-scene blocks
- * (flow, stack, etc.) are normalized to `scene { layout: full; body: <block> }`
- * at the AST level before emission.
+ * All DSL compiles through the unified PlanNode pipeline.
+ * Non-scene blocks are implicitly wrapped to a scene by planDocument.
  *
  * @param dsl     - The DSL source string.
  * @param options - Optional compiler configuration.
@@ -72,23 +83,46 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 1. Parse DSL → AST
   const { ast, errors } = parse(dsl);
 
-  // 2. Resolve @data directives (inject rows into table/chart blocks)
-  const dataResolvedAST = resolveData(ast);
+  // 2. Resolve @data, flatten hierarchy (tree/flow nested → edges), resolve theme
+  const resolvedAST = resolveTheme(flattenHierarchy(resolveData(ast)), theme);
 
-  // 3. Flatten hierarchy (nested elements → flat + edges for tree/flow)
-  const flatAST = flattenHierarchy(dataResolvedAST);
-
-  // 4. Resolve theme (semantic tokens → concrete values)
-  const resolvedAST = resolveTheme(flatAST, theme);
-
-  // 5. Extract @overrides from AST (applied after IR emission)
+  // 3. Extract @overrides (applied after IR emission)
   const overrides = extractOverrides(resolvedAST);
 
-  // 6. Normalize scenes — all blocks become slotted scene blocks
-  const normalizedAST = normalizeScenes(resolvedAST);
+  // 4. @page * → content-driven height per scene
+  const isAutoHeight = resolvedAST.directives.some(d => d.key === 'page' && d.value === '*');
 
-  // 7. Unified scene pipeline — all blocks go through planScene → emitScene
-  let ir = emitSceneIR(normalizedAST, theme, sceneTheme);
+  // 5. Plan — AST → PlanNode[] (one root PlanNode per scene)
+  const plans = planDocument(resolvedAST, theme);
+
+  // 6. Per-scene allocation pass
+  const allBoundsMap: BoundsMap = new Map();
+  const allMeasureMap: MeasureMap = new Map();
+
+  for (let i = 0; i < plans.length; i++) {
+    const plan = plans[i];
+    const h = isAutoHeight ? computeSceneNaturalHeight(resolvedAST.scenes[i], sceneTheme) : 100;
+    const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h };
+
+    const scaleCtx = createScaleContext(plan, canvasBounds);
+    const constraints = computeConstraints(plan, scaleCtx);
+    const budgets = allocateBudgets(plan, canvasBounds, constraints, scaleCtx);
+    const measure = measureDiagram(plan, theme, scaleCtx, budgets);
+    const bounds = allocateBounds(plan, canvasBounds, sceneTheme, scaleCtx, measure, constraints);
+
+    for (const [k, v] of bounds) allBoundsMap.set(k, v);
+    for (const [k, v] of measure) allMeasureMap.set(k, v);
+  }
+
+  // 7. Emit IR — walk PlanNode trees using BoundsMap + MeasureMap
+  const chartPositionsMap = computeAllChartPositions(plans, allBoundsMap);
+  const meta = buildSceneMeta(resolvedAST.directives, theme, sceneTheme);
+  let ir: DepixIR = {
+    meta,
+    scenes: emit(plans, allBoundsMap, theme, sceneTheme, allMeasureMap, chartPositionsMap),
+    transitions: [],
+  };
+  ir = { ...ir, transitions: buildSceneTransitions(resolvedAST.directives, ir.scenes) };
 
   // 8. Post-processing: apply @overrides to IR bounds
   if (overrides.size > 0) {
@@ -96,79 +130,4 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   }
 
   return { ir, errors };
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Normalize all top-level blocks into slotted scene blocks.
- *
- * Three cases:
- * - Already slotted scene → no change
- * - Non-scene block (flow, stack, etc.) → wrap in scene { layout: full; body: <block> }
- * - Scene without slots → assign children to body slot
- */
-function normalizeScenes(ast: ASTDocument): ASTDocument {
-  return { ...ast, scenes: ast.scenes.map(normalizeScene) };
-}
-
-function normalizeScene(block: ASTBlock): ASTBlock {
-  // Case A: already a properly slotted scene → pass through
-  if (block.blockType === 'scene' && hasSlottedContent(block)) {
-    return block;
-  }
-
-  // Case B: non-scene block (flow, stack, grid, tree, group, layers, canvas, table, chart)
-  //         → wrap in scene { layout: full; body: <block> }
-  if (block.blockType !== 'scene') {
-    const wrappedChild: ASTBlock = { ...block, slot: 'body' };
-    return {
-      kind: 'block',
-      blockType: 'scene',
-      props: { layout: 'full' },
-      children: [wrappedChild],
-      label: block.label,
-      id: block.id,
-      style: {},
-      loc: block.loc,
-    };
-  }
-
-  // Case C: scene block without slot assignments
-  const nonEdge = block.children.filter((c) => c.kind !== 'edge');
-  const edges = block.children.filter((c) => c.kind === 'edge');
-
-  if (nonEdge.length <= 1 && nonEdge.length > 0) {
-    // Single child → assign directly to body slot
-    const child = { ...nonEdge[0], slot: 'body' } as ASTNode;
-    return {
-      ...block,
-      props: { ...block.props, layout: block.props.layout ?? 'full' },
-      children: [child, ...edges],
-    };
-  }
-
-  // Multiple children → wrap in stack block, assign to body
-  const stackBlock: ASTBlock = {
-    kind: 'block',
-    blockType: 'stack',
-    props: { align: 'center' },
-    children: [...nonEdge, ...edges],
-    style: {},
-    slot: 'body',
-    loc: block.loc,
-  };
-  return {
-    ...block,
-    props: { ...block.props, layout: block.props.layout ?? 'full' },
-    children: [stackBlock],
-  };
-}
-
-function hasSlottedContent(block: ASTBlock): boolean {
-  return block.children.some(
-    c => (c.kind === 'element' || c.kind === 'block') && c.slot !== undefined,
-  );
 }

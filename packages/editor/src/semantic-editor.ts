@@ -310,11 +310,6 @@ function relayoutContainerInPlace(
       break;
     }
 
-    case 'canvas': {
-      // Canvas = free positioning, no relayout
-      return clone;
-    }
-
     default:
       return clone;
   }

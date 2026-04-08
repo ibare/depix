@@ -5,12 +5,12 @@
  * using BFS traversal. Each node receives a budget (width, height) that
  * the measure pass uses to determine fontSize and other size-dependent values.
  *
- * Pipeline: DiagramLayoutPlan + canvasBounds + ConstraintMap + ScaleContext → BudgetMap
+ * Pipeline: PlanNode + canvasBounds + ConstraintMap + ScaleContext → BudgetMap
  */
 
 import type { IRBounds } from '../../ir/types.js';
 import type { NodeBudget, BudgetMap, ConstraintMap } from './budget-types.js';
-import type { LayoutPlanNode, DiagramLayoutPlan } from './plan-layout.js';
+import type { PlanNode } from '../layout/plan-types.js';
 import type { ScaleContext } from './scale-system.js';
 import { computeGap, computePadding, computeFontSize } from './scale-system.js';
 import { redistributeWithMinimums, TREE_LEVEL_GAP_SCALE } from './allocate-bounds.js';
@@ -21,7 +21,7 @@ import { computeTreeLevelInfo, computeFlowLayerInfo, computeSubtreeSpans } from 
 // ---------------------------------------------------------------------------
 
 export function allocateBudgets(
-  plan: DiagramLayoutPlan,
+  plan: PlanNode,
   canvasBounds: IRBounds,
   constraints: ConstraintMap,
   scaleCtx: ScaleContext,
@@ -34,7 +34,7 @@ export function allocateBudgets(
   const gap = computeGap(scaleCtx.baseUnit, 'sectionGap');
   allocateChildBudgets(
     plan.children,
-    plan.totalWeight,
+    plan.children.reduce((s, c) => s + c.weight, 0),
     { width: canvasBounds.w, height: canvasBounds.h },
     'col',
     gap,
@@ -43,7 +43,7 @@ export function allocateBudgets(
   );
 
   // BFS to propagate budgets to descendants
-  const queue: LayoutPlanNode[] = [...plan.children];
+  const queue: PlanNode[] = [...plan.children];
   while (queue.length > 0) {
     const node = queue.shift()!;
     if (node.children.length === 0) continue;
@@ -51,7 +51,7 @@ export function allocateBudgets(
     const parentBudget = budgetMap.get(node.id);
     if (!parentBudget) continue;
 
-    const blockType = node.astNode.kind === 'block' ? node.astNode.blockType : '';
+    const blockType = node.blockType;
     if (blockType === 'tree' || blockType === 'flow') {
       allocateTreeFlowBudgets(node, parentBudget, constraints, scaleCtx, budgetMap);
     } else {
@@ -90,7 +90,7 @@ export function allocateBudgets(
 type Direction = 'col' | 'row' | 'grid' | 'uniform';
 
 function allocateChildBudgets(
-  children: LayoutPlanNode[],
+  children: PlanNode[],
   totalWeight: number,
   parentBudget: NodeBudget,
   direction: Direction,
@@ -188,7 +188,7 @@ function allocateChildBudgets(
 
     case 'grid': {
       // Grid: uniform cells — computed from parent
-      const props = children[0]?.astNode.kind === 'block' ? {} : {};
+      const props = {};
       // Grid cols come from parent block props, but we don't have parent block here.
       // For grid, each child gets (innerW / cols) x (innerH / rows)
       // This is handled by the getNodeLayoutInfo returning 'grid' with pre-computed cell sizes
@@ -221,13 +221,12 @@ function allocateChildBudgets(
 const TEXT_BLOCK_MULTIPLIER = 1.8;
 
 function estimateTitleReservation(
-  node: LayoutPlanNode,
+  node: PlanNode,
   parentBudget: NodeBudget,
   padding: number,
   gap: number,
 ): number {
-  const astNode = node.astNode;
-  if (astNode.kind !== 'element') return 0;
+  if (!node.blockType.startsWith('element-')) return 0;
 
   const innerShort = Math.min(
     parentBudget.width - padding * 2,
@@ -238,13 +237,13 @@ function estimateTitleReservation(
   let reservation = 0;
 
   // Title
-  if (astNode.label) {
+  if (node.label) {
     const titleFontSize = computeFontSize(innerShort, 'innerLabel');
     reservation += titleFontSize * TEXT_BLOCK_MULTIPLIER + gap;
   }
 
   // Subtitle
-  if (typeof astNode.props.subtitle === 'string') {
+  if (typeof node.props.subtitle === 'string') {
     const subtitleFontSize = computeFontSize(innerShort, 'listItem');
     reservation += subtitleFontSize * TEXT_BLOCK_MULTIPLIER + gap;
   }
@@ -263,25 +262,23 @@ interface NodeLayoutInfo {
 }
 
 function getNodeLayoutInfo(
-  node: LayoutPlanNode,
+  node: PlanNode,
   scaleCtx: ScaleContext,
 ): NodeLayoutInfo {
-  const astNode = node.astNode;
-
   // Element with children (box/layer) — vertical stack with padding
-  if (astNode.kind === 'element') {
+  if (node.blockType.startsWith('element-')) {
     const padding = computePadding(scaleCtx.baseUnit);
     const gap = computeGap(scaleCtx.baseUnit, 'childGap');
     return { direction: 'col', gap, padding };
   }
 
   // Block node
-  if (astNode.kind === 'block') {
-    const props = astNode.props;
+  if (!node.blockType.startsWith('element-')) {
+    const props = node.props;
     const defaultGap = computeGap(scaleCtx.baseUnit, 'siblingGap');
     const gap = typeof props.gap === 'number' ? props.gap : defaultGap;
 
-    switch (astNode.blockType) {
+    switch (node.blockType) {
       case 'stack': {
         const dir = (props.direction as string) ?? 'col';
         return { direction: dir === 'row' ? 'row' : 'col', gap, padding: 0 };
@@ -314,29 +311,28 @@ function getNodeLayoutInfo(
 // ---------------------------------------------------------------------------
 
 function allocateTreeFlowBudgets(
-  node: LayoutPlanNode,
+  node: PlanNode,
   parentBudget: NodeBudget,
   constraints: ConstraintMap,
   scaleCtx: ScaleContext,
   budgetMap: BudgetMap,
 ): void {
-  const astNode = node.astNode;
-  if (astNode.kind !== 'block') return;
+  if (node.blockType.startsWith('element-')) return;
 
-  const props = astNode.props;
-  const dir = (props.direction as string) ?? (astNode.blockType === 'tree' ? 'down' : 'right');
+  const props = node.props;
+  const dir = (props.direction as string) ?? (node.blockType === 'tree' ? 'down' : 'right');
   const isHorizontal = dir === 'right' || dir === 'left';
   const defaultGap = computeGap(scaleCtx.baseUnit, 'connectorGap');
   const gap = typeof props.gap === 'number' ? props.gap : defaultGap;
   const siblingGap = computeGap(scaleCtx.baseUnit, 'siblingGap');
 
   const nodeIds = node.children.map(c => c.id);
-  const edges = node.edges;
+  const edges = node.edges ?? [];
 
   const mainAvail = isHorizontal ? parentBudget.width : parentBudget.height;
   const crossAvail = isHorizontal ? parentBudget.height : parentBudget.width;
 
-  if (astNode.blockType === 'tree') {
+  if (node.blockType === 'tree') {
     const levelInfo = computeTreeLevelInfo(nodeIds, edges);
     const numLevels = Math.max(levelInfo.numLevels, 1);
 
