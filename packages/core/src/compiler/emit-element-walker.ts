@@ -8,12 +8,20 @@
  *   - bounds를 **조회만** 한다. measure/allocate를 호출하지 않는다.
  *   - dispatch는 `config.sceneEmit` (11채널) 기준.
  *   - baseFontSize: measureMap?.get(plan.id)?.fontSize 우선, 폴백 Math.min(bounds.h,100)*0.07.
- *   - stat/quote/step: 단일 IR 요소로 단순화 (자식 bounds 계산 없음).
- *     → PR-N에서 planAll이 자식 PlanNode를 생성하면 multi-child 컨테이너로 승격.
- *   - bullet/list: plan.items (string[]) 인라인 분배 허용
- *     (string item은 PlanNode ID가 없어 BoundsMap 진입 불가).
  *
-
+ * S-pipeline MUST NOT carveout (PR-6 post-cleanup까지 한시적):
+ *   - `walkStat`, `walkQuote`, `walkBullet`은 `bounds.h`에 대한 비율 분배
+ *     (예: `valueH = bounds.h * 0.65`)와 item별 y 계산을 수행한다.
+ *   - 이는 `planAll`이 stat/quote/bullet/step을 leaf PlanNode로만 펼치고
+ *     sub-child PlanNode를 만들지 않기 때문이며, BoundsMap 조회만으로는
+ *     내부 레이아웃을 결정할 수 없어서 발생한 한시적 예외다.
+ *   - 근본 해소: PR-6에서 `plan-all-element.ts`를 확장하여 compound element를
+ *     자식 PlanNode를 갖는 컨테이너성 노드로 펼친다. 그 후 이 walker의
+ *     비율 분배 로직은 제거되고 S-pipeline MUST를 예외 없이 만족한다.
+ *   - carveout 대상: walkStat / walkQuote / walkBullet 3개 함수만.
+ *     그 외 walker 케이스는 MUST를 그대로 준수해야 한다.
+ *   - bullet/list: plan.items (string[]) 인라인 분배는 item이 PlanNode ID를
+ *     갖지 않아 BoundsMap 진입이 불가능하다는 동일한 사유에서 carveout에 포함된다.
  */
 
 import type {

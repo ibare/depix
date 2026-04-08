@@ -244,14 +244,26 @@ export interface SceneLayoutSpec {
 
 ```ts
 // packages/core/src/compiler/layout/plan-all.ts
-export function planAll(ast: ASTRoot, theme: DepixTheme): PlanNode {
-  // 1. ast.children이 단일 scene이면 그대로 root
-  // 2. 아니면 implicit scene { layout: full, body: ... }로 감싸기
-  //    (현재 normalizeScenes 로직을 PlanNode 직접 생성으로 이전)
+//
+// depix에서 scene = 독립 파이프라인 루트. document는 scene들의 컬렉션이다.
+// 따라서 진입점은 두 단계로 분리된다:
+//   - planAll(block, theme): 단일 ASTBlock → 단일 scene PlanNode (파이프라인 단위)
+//   - planDocument(ast, theme): ASTDocument → PlanNode[] (scene별로 planAll 호출)
+//
+// 비-scene 블록(`flow { ... }`)은 implicit scene(`layout: full`, `body` slot)으로 감싸져서
+// 여전히 "scene 루트"가 된다. compile()은 각 scene 루트마다 파이프라인을 1회씩 돌린다.
+
+export function planAll(block: ASTBlock, _theme: DepixTheme, rootId = 'scene'): PlanNode {
+  // 1. blockType === 'scene'이면 그대로 scene 루트 PlanNode 생성
+  // 2. 아니면 implicit scene { layout: full, body: <block> }로 감싼다
   // 3. 재귀적으로 ASTBlock/ASTElement → PlanNode 변환
-  //    - scene 자식은 slot 이름과 함께 wrapper 없이 children에 직접
+  //    - scene 자식은 slot 이름과 함께 children에 직접
   //    - container 자식은 그대로 children
   //    - element는 leaf PlanNode
+}
+
+export function planDocument(ast: ASTDocument, theme: DepixTheme): PlanNode[] {
+  return ast.scenes.map((block, i) => planAll(block, theme, `scene-${i}`));
 }
 ```
 
@@ -747,20 +759,33 @@ Step C 직후 빌드는 통과하나 _테스트가 잠시 깨진다_. 이는 com
 ```ts
 // packages/core/src/compiler/compiler.ts
 export function compile(source: string, theme: DepixTheme = defaultTheme): IRRoot {
-  const ast       = parse(tokenize(source));
-  const plan      = planAll(ast, theme);                              // L1
-  const canvas    = resolveCanvas(plan, theme);                       // @page → bounds
-  const scaleCtx  = createScaleContext(plan, canvas);
-  const constr    = computeConstraints(plan, scaleCtx);
-  const budgets   = allocateBudgets(plan, canvas, constr, scaleCtx);
-  const measure   = measureDiagram(plan, theme, scaleCtx, budgets);
-  const bounds    = allocateBounds(plan, canvas, measure, budgets, constr, scaleCtx);
-  const edges     = routeEdges(plan, bounds);
-  return emit(plan, bounds, edges, theme);                            // walker only
+  const ast      = parse(tokenize(source));
+  const plans    = planDocument(ast, theme);                          // L1 — scene별 PlanNode[]
+
+  const allBounds: BoundsMap = new Map();
+  const allMeasure: MeasureMap = new Map();
+
+  for (const plan of plans) {
+    // scene = 독립 파이프라인 루트. 각 루트마다 패스를 정확히 1회씩 호출한다.
+    // "@page *" auto-height는 single-scene 전제 기능이므로 scene-local canvas를 가진다.
+    const canvas   = resolveSceneCanvas(plan, theme);                  // @page / auto-height
+    const scaleCtx = createScaleContext(plan, canvas);
+    const constr   = computeConstraints(plan, scaleCtx);               // scene 루트 1회
+    const budgets  = allocateBudgets(plan, canvas, constr, scaleCtx);  // scene 루트 1회
+    const measure  = measureDiagram(plan, theme, scaleCtx, budgets);   // scene 루트 1회
+    const bounds   = allocateBounds(plan, canvas, measure, budgets, constr, scaleCtx); // scene 루트 1회
+    for (const [k, v] of bounds)  allBounds.set(k, v);
+    for (const [k, v] of measure) allMeasure.set(k, v);
+  }
+
+  const edges = routeEdges(plans, allBounds);
+  return emit(plans, allBounds, edges, theme, allMeasure);             // walker only
 }
 ```
 
-핵심: **measure/allocate/constraints/bounds 호출은 정확히 1회씩**. 트리 walker(`emit`)는 어떤 핑퐁도 돌리지 않는다.
+핵심: **각 scene PlanNode 루트마다 measure/allocate/constraints/bounds를 정확히 1회씩** 호출한다. 트리 walker(`emit`)는 어떤 핑퐁도 돌리지 않는다.
+
+"루트 1회 핑퐁"의 _루트_ 는 파이프라인 트리의 루트(= scene PlanNode)이지 document 전체가 아니다. 여러 scene이 있어도 scene 간에는 공간/배치 관계가 없으므로, 이들을 facade wrapper로 묶어 단일 document-level 루트를 만들지 않는다 (S-pipeline MUST NOT).
 
 ### 4.3 새 `emit(plan, bounds, edges, theme): IRRoot`
 
@@ -979,6 +1004,51 @@ allocateBudgets(plan, canvas, constr, scaleCtx, measure?: MeasureMap): BudgetMap
 
 ---
 
+## 8.6 PR-6 — Post-cleanup (compound element 원자화 + drift 정리)
+
+**목표**: PR-5까지 남아 있는 한시적 carveout 및 누적 drift를 최종 정리하여, S-pipeline MUST/MUST NOT을 **예외 없이** 만족하는 상태로 수렴시킨다.
+
+### 주요 작업
+
+**1. Compound element 원자화** — `planAll`의 `plan-all-element.ts` 확장
+   - `stat`, `quote`, `bullet`, `step` 등 compound element를 leaf PlanNode가 아니라 **자식 PlanNode를 갖는 컨테이너성 PlanNode**로 펼친다.
+   - `walkStat` / `walkQuote` / `walkBullet`의 sub-bounds 분배 로직(`valueH = bounds.h * 0.65` 등)을 제거하고 BoundsMap 조회 전용으로 단순화한다.
+   - S-pipeline MUST NOT compound carveout 항목을 **삭제**한다.
+   - `measureDiagram` / `allocateBounds`가 이들 compound 자식 PlanNode를 처리하도록 각 패스에 케이스 추가.
+
+**2. S-pipeline carveout 해소**
+   - `rules/specifics/S-pipeline.md` MUST NOT compound carveout 항목 제거.
+   - 버전을 bump하여 변경을 명시.
+
+**3. 누적 drift 정리 + C1 모듈 분할**
+   - PR-1 ~ PR-5 진행 중 남은 자잘한 불일치(주석 ↔ 코드, 테스트 naming, 삭제 누락 등) 일괄 정리.
+   - 중복 헬퍼 제거, 사용되지 않는 export 제거.
+   - `compiler/emit-element-walker.ts` (459줄) 분할 — C1 MUST 300줄 초과. PR-6에서 compound element 원자화와 동시에 진행:
+     - `emit-element-text.ts` — heading/label/text 계열
+     - `emit-element-compound.ts` — stat/quote/bullet/step (carveout 해소 후 단순 BoundsMap 조회)
+     - `emit-element-shape.ts` — node/circle/image/divider/step/shapeAsset 계열
+     - `emit-element-walker.ts` — dispatch 진입점만 (~50줄 이내)
+
+**4. 최종 전면 점검**
+   - `compile()` 파이프라인 전체 경로 재검증: 모든 DSL 패턴 × auto-height × multi-scene × @overrides 조합.
+   - S-pipeline / S-compiler / C1 규칙 전체 항목에 대해 rule-guard 전수 스캔.
+
+### 위험
+
+- `planAll`의 compound 확장은 BoundsMap 키 스키마 변경을 유발할 수 있음 → 기존 테스트 재작성 필요.
+- `measureDiagram`의 compound 케이스 추가는 PR-2(L3)에서 확정된 measureMap 사용 편중 설계를 건드릴 수 있으므로, PR-2 ~ PR-5 완료 후 측정값을 근거로 재점검.
+
+### 도입 시점
+
+PR-5 (L6) 머지 이후. PR-5까지는 compound carveout 상태로 운영.
+
+**왜 PR-1~5에 넣지 않는가:**
+- `planAll`의 compound 확장은 본 계획 §3.3 원본에 없던 신규 작업이며, PR-2~5 설계에 영향을 주지 않으므로 분리 가능.
+- PR-5까지의 실측을 봐야 compound element가 실제로 문제가 되는지, 아니면 heuristic 분배로도 충분한지 판단이 선다.
+- 잔여 drift는 대규모 작업 중 계속 발생하므로, 마지막에 일괄 정리하는 편이 효율적.
+
+---
+
 ## 9. L7 — 테스트 / 문서 / 규칙
 
 ### 9.1 테스트
@@ -1089,6 +1159,11 @@ PR-1의 _첫 commit_ 이 S-compiler.md 갱신이어야 한다. 그래야 동일 
 | `compiler/scene/plan-scene.ts` | PR-1 |
 | `compiler/layout/plan-layout.ts` | PR-1 |
 | `compiler/scene/scene-measure.ts` | PR-3 |
+| `compiler/scene/scene-blocks.ts` (orphan — emit-scene 삭제 후 미사용) | PR-3 |
+| `compiler/scene/scene-elements.ts` (orphan) | PR-3 |
+| `compiler/scene/scene-elements-compound.ts` (orphan) | PR-3 |
+| `compiler/scene/scene-charts.ts` (orphan) | PR-3 |
+| `compiler/scene/scene-helpers.ts` (orphan) | PR-3 |
 | `compiler/scene/` 디렉터리 자체 | PR-3 (모든 파일 삭제 후) |
 
 ### 10.3 수정

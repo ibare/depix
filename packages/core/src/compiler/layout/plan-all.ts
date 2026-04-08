@@ -1,19 +1,21 @@
 /**
- * `planAll` — AST를 단일 `PlanNode` 트리로 변환하는 진입점.
+ * `planAll` — 단일 AST scene 블록을 `PlanNode` 트리로 변환하는 진입점.
+ *
+ * depix 구조: **scene = 독립 파이프라인 루트**, document = scene들의 컬렉션.
+ * `compile()`은 각 scene PlanNode 루트에서 파이프라인을 1회씩 돌린다.
+ * 이 모듈은 두 진입점을 제공한다:
+ *   - `planAll(block, theme, rootId?)`  — 단일 scene 블록 → 단일 scene PlanNode
+ *   - `planDocument(ast, theme)`        — ASTDocument → PlanNode[] (scene별 planAll)
+ *
+ * "document-level 단일 루트"가 아닌 것은 설계 결정이다 (S-pipeline.md MUST NOT 참조):
+ * depix의 여러 scene 사이에는 공간/배치 관계가 없으며, `@page *` auto-height는
+ * single-scene 전제 기능이다. scene들을 wrapper PlanNode로 묶는 facade는
+ * 의미 없는 구조적 기만이다.
  *
  * 이 함수는 옛 파이프라인의 세 함수를 **하나로 합친** 결과다:
  *   - `compiler.ts::normalizeScenes` — Scene 정규화
  *   - `scene/plan-scene.ts::planScene` — Scene → SceneNode (삭제)
  *   - `layout/plan-layout.ts::planLayout` — Block → DiagramLayoutPlan (삭제)
- *
- * 입력은 `ASTDocument`(전체 문서)이며, 출력은 단일 `PlanNode`다.
- * 문서에 여러 scene이 있으면 각 scene이 트리의 루트 PlanNode가 되는 것이 아니라,
- * **문서 레벨의 scene 배열 전체를 갖는 단일 PlanNode 트리**를 반환한다. 단,
- * 현재 `compile()`은 scene별로 loop하므로 이 함수는 scene 하나당 한 번 호출된다.
- * (본 파일의 `planAll`은 단일 scene 블록을 받는 시그니처를 제공한다.)
- *
-
- * PR-1 Step C에서 `compiler.ts::compile()`이 이 함수를 호출하도록 교체된다.
  */
 
 import type { ASTBlock, ASTDocument } from '../ast.js';

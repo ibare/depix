@@ -13,8 +13,10 @@ last_verified: 2026-04-07
 
 ## MUST
 
-- `compile()`은 `measureDiagram` / `allocateBudgets` / `computeConstraints` / `allocateBounds`를 _루트에서 정확히 1회씩_ 호출한다.
-  각 패스는 `PlanNode` 루트 하나를 받고 트리 전체를 자체 재귀로 순회한다. container별 자체 호출 금지.
+- `compile()`은 _각 scene PlanNode 루트마다_ `measureDiagram` / `allocateBudgets` / `computeConstraints` / `allocateBounds`를 정확히 1회씩 호출한다.
+  각 패스는 `PlanNode` 루트 하나를 받고 _그 트리 전체를 자체 재귀로 순회_ 한다. container별 자체 호출 금지.
+  Document는 scene PlanNode의 컬렉션이며 (`planDocument: ASTDocument → PlanNode[]`), 별도의 document-level 레이아웃 루트를 두지 않는다.
+  scene별 호출은 "루트 1회 핑퐁"의 _위반이 아니다_ — 각 scene 트리가 독립 파이프라인 단위이기 때문이다. 금지 대상은 같은 트리 안에서 파이프라인이 재진입하는 container별 핑퐁이다.
 
 - `emit` walker (`compiler/emit.ts` 및 그 분할 파일들)는 `BoundsMap` 조회와 IR 요소 생성만 수행한다.
   walker 내부에서는 크기 분배, 좌표 계산, measure/allocate 호출, 색상 해석을 수행하지 않는다. 모든 계산은 walker 호출 전에 완료되어 있어야 한다.
@@ -35,6 +37,12 @@ last_verified: 2026-04-07
 
 - 옛+새 경로 공존 금지. 한 PR 안에서 옛 파이프라인(`emitSceneIR`, `emitInlineBlock`, `normalizeScenes`, `planLayout`, `planScene` 등)과 새 파이프라인(`planAll`, `emit`)이 동시에 존재하는 중간 상태를 만들지 않는다.
   옛 함수·옛 타입은 _삭제_ 하고 호출부를 새 시그니처로 직접 교체한다. deprecated 표시나 호환 shim은 허용하지 않는다.
+
+- Document-level 단일 레이아웃 루트 facade 도입 금지. scene들을 wrapper PlanNode의 자식으로 묶어 "진짜 단일 루트"를 흉내 내는 구조를 만들지 않는다.
+  이유: depix의 scene은 독립 다이어그램 단위다. 여러 scene 사이에는 공간/배치 관계가 없고, `@page *` auto-height는 single-scene 전제 기능이다. 의미 없는 wrapper는 구조적 기만이며 auto-height·scene-local canvas와 지속적으로 충돌한다.
+
+- Compound element walker(`walkStat`, `walkQuote`, `walkBullet`)의 sub-bounds 분배는 PR-6 post-cleanup까지 위 MUST로부터 한시적으로 carveout된다.
+  현재 이 3개 walker는 `bounds.h`에 대한 비율 분배(예: `valueH = bounds.h * 0.65`)와 item별 y 계산을 수행한다. 이는 `planAll`이 compound element를 자식 PlanNode로 펼치는 설계를 포함하지 않았기 때문이며, PR-6에서 `plan-all-element.ts`를 확장하여 해소한다. 그 외 walker는 carveout 대상이 아니며 MUST를 그대로 준수한다.
 
 ## PREFER
 
