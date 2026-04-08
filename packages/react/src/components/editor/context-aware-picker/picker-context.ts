@@ -78,7 +78,7 @@ function inferDSLType(element: IRElement): string {
       return origin.sourceProps.blockType;
     }
     // Direct layout/content containers (not scene-slot wrapped)
-    if (origin?.sourceType && PICKER_BLOCK_TYPES.has(origin.sourceType)) {
+    if (origin?.sourceType && (PICKER_BLOCK_TYPES as Set<string>).has(origin.sourceType)) {
       return origin.sourceType;
     }
     return 'flow';
@@ -146,7 +146,7 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
   if (!element) return NONE;
 
   const dslType = inferDSLType(element);
-  const isBlock = PICKER_BLOCK_TYPES.has(dslType);
+  const isBlock = (PICKER_BLOCK_TYPES as Set<string>).has(dslType);
   const isBoxContainer = dslType === 'box' || dslType === 'layer';
   const slotName = element.origin?.sourceType === 'scene-slot'
     ? element.origin.slotName
@@ -159,7 +159,7 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
       elementId: id,
       elementType: dslType,
       elementBounds: element.bounds,
-      containerCategory: LAYOUT_TYPES.has(dslType) ? 'layout' : 'content',
+      containerCategory: (LAYOUT_TYPES as Set<string>).has(dslType) ? 'layout' : 'content',
       suggestions: [],
       actions: getActionsForElement(dslType),
       label: capitalize(dslType),
@@ -178,7 +178,7 @@ export function resolvePickerContext(input: ResolvePickerInput): PickerContext {
       const pc = parent as IRContainer;
       if (pc.origin?.sourceType === 'scene-slot') {
         const blockType = pc.origin.sourceProps?.blockType;
-        if (typeof blockType === 'string' && PICKER_BLOCK_TYPES.has(blockType)) {
+        if (typeof blockType === 'string' && (PICKER_BLOCK_TYPES as Set<string>).has(blockType)) {
           parentContainerType = blockType;
         } else {
           parentIsSlot = true;

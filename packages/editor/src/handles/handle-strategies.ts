@@ -131,5 +131,7 @@ export function getHandleDefinition(element: IRElement): HandleDefinition {
       return edgeStrategy();
     case 'container':
       return containerStrategy();
+    default:
+      return containerStrategy();
   }
 }
