@@ -709,72 +709,6 @@ PNG 내보내기, IR 입력으로 적응.
 
 ---
 
-### T-32: CONTRIBUTING 가이드 [N]
-
-- [ ] `CONTRIBUTING.md`: 개발 환경 설정, 코딩 표준, PR 프로세스, 커밋 컨벤션
-- [ ] `CODE_OF_CONDUCT.md`
-- [ ] Issue 템플릿 (버그 리포트, 기능 요청)
-- [ ] PR 템플릿
-
-**depends**: T-31
-
----
-
-### T-33: 예제 & 데모 앱 [N/P] ✅
-
-- [x] `apps/demo/` Vite 앱:
-  - DSL 예제 갤러리 (8개 예제, 카테고리 필터)
-  - 라이브 DSL 에디터 (textarea + 프리뷰)
-  - 테마 스위처 (light/dark)
-  - Export 버튼 (PNG 다운로드)
-  - 편집 캔버스 데모 (도구 선택, undo/redo, delete)
-  - 씬 네비게이션
-  - 3탭 구조 (Gallery | Editor | Editable)
-  - CSS custom properties 기반 light/dark 테마
-- [x] `examples/` 디렉토리 (독립 사용 예제):
-  - `01-basic-react.tsx` — DepixCanvas로 DSL 렌더링
-  - `02-tiptap-integration.ts` — serializeDepixBlock/parseDepixBlock 사용
-  - `03-programmatic-ir.ts` — 코드로 DepixIR 직접 생성
-  - `04-custom-theme.ts` — lightTheme 기반 커스텀 테마 + compile
-
-**depends**: T-14, T-24
-**ref**: `original/demo/`
-
----
-
-### T-34: CI/CD 파이프라인 [N]
-
-- [ ] GitHub Actions 워크플로우:
-  - Lint (ESLint)
-  - Type check (tsc --noEmit)
-  - 단위 테스트 (Vitest)
-  - 전체 패키지 빌드
-- [ ] 릴리스 태그 시 npm 자동 배포
-- [ ] main 푸시 시 데모 앱 배포 (GitHub Pages / Vercel)
-- [ ] PR 프리뷰 배포
-
-**depends**: T-01
-
----
-
-### T-35: npm 배포 준비 [N]
-
-- [ ] 패키지명 확정: `@depix/core`, `@depix/engine`, `@depix/editor`, `@depix/react`, `@depix/tiptap`
-- [ ] 각 패키지 `package.json`:
-  - `exports` (ESM + types)
-  - `files` (dist only)
-  - `peerDependencies` (react, konva, tiptap 선택적)
-  - `engines` (node >= 18)
-  - `repository`, `homepage`, `bugs` URL
-  - `keywords`, `description`
-- [ ] changesets 버전 관리 설정
-- [ ] `npm pack` 출력 검증 (불필요한 파일 제외)
-- [ ] 신규 프로젝트에서 설치 테스트
-
-**depends**: T-31, T-34
-
----
-
 ## 의존성 그래프
 
 ```
@@ -810,10 +744,7 @@ Phase 3:
   T-14 → T-30 (Export)
 
 Phase 4:
-  T-15 + T-24 → T-31 (문서) → T-32 (CONTRIBUTING)
-  T-14 + T-24 → T-33 (데모)
-  T-01 → T-34 (CI/CD)
-  T-31 + T-34 → T-35 (npm 배포)
+  T-15 + T-24 → T-31 (문서)
 ```
 
 ---
