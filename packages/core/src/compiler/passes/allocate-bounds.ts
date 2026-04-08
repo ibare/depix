@@ -487,11 +487,15 @@ export function computeLayoutChildren(
       const rows = Math.ceil(n / cols);
       const cellW = (bounds.w - gap * Math.max(cols - 1, 0)) / cols;
       const cellH = (bounds.h - gap * Math.max(rows - 1, 0)) / rows;
-      return plan.children.map(c => ({
-        id: c.id,
-        width: cellW,
-        height: cellH,
-      }));
+      return plan.children.map(c => {
+        const m = measureMap?.get(c.id);
+        const cc = constraintMap?.get(c.id);
+        const maxW = cc?.maxWidth ?? Infinity;
+        const maxH = cc?.maxHeight ?? Infinity;
+        const w = Math.min(Math.max(cellW, m?.minWidth ?? 0), maxW);
+        const h = Math.min(Math.max(cellH, m?.minHeight ?? 0), maxH);
+        return { id: c.id, width: w, height: h };
+      });
     }
 
     case 'flow': {
@@ -517,14 +521,21 @@ export function computeLayoutChildren(
       const uniformCross = Math.min(referenceCross, idealCross);
 
       return plan.children.map(c => {
+        const m = measureMap?.get(c.id);
+        const measuredW = m?.minWidth ?? 0;
+        const measuredH = m?.minHeight ?? 0;
         const cc = constraintMap?.get(c.id);
         const maxW = cc?.maxWidth ?? Infinity;
         const maxH = cc?.maxHeight ?? Infinity;
 
         if (isHorizontal) {
-          return { id: c.id, width: Math.min(Math.max(layerMainSize, 4), maxW), height: Math.min(Math.max(uniformCross, 3), maxH) };
+          const finalW = Math.max(layerMainSize, measuredW, 4);
+          const finalH = Math.max(uniformCross, measuredH, 3);
+          return { id: c.id, width: Math.min(finalW, maxW), height: Math.min(finalH, maxH) };
         }
-        return { id: c.id, width: Math.min(Math.max(uniformCross, 4), maxW), height: Math.min(Math.max(layerMainSize, 3), maxH) };
+        const finalW = Math.max(uniformCross, measuredW, 4);
+        const finalH = Math.max(layerMainSize, measuredH, 3);
+        return { id: c.id, width: Math.min(finalW, maxW), height: Math.min(finalH, maxH) };
       });
     }
 
@@ -568,14 +579,21 @@ export function computeLayoutChildren(
           : (nodeMain * preferredRatio);
         const nodeCross = Math.min(levelCrossAvail, idealCross);
 
+        const m = measureMap?.get(c.id);
+        const measuredW = m?.minWidth ?? 0;
+        const measuredH = m?.minHeight ?? 0;
         const cc = constraintMap?.get(c.id);
         const maxW = cc?.maxWidth ?? Infinity;
         const maxH = cc?.maxHeight ?? Infinity;
 
         if (isHorizontal) {
-          return { id: c.id, width: Math.min(Math.max(nodeMain, 4), maxW), height: Math.min(Math.max(nodeCross, 3), maxH) };
+          const finalW = Math.max(nodeMain, measuredW, 4);
+          const finalH = Math.max(nodeCross, measuredH, 3);
+          return { id: c.id, width: Math.min(finalW, maxW), height: Math.min(finalH, maxH) };
         }
-        return { id: c.id, width: Math.min(Math.max(nodeCross, 4), maxW), height: Math.min(Math.max(nodeMain, 3), maxH) };
+        const finalW = Math.max(nodeCross, measuredW, 4);
+        const finalH = Math.max(nodeMain, measuredH, 3);
+        return { id: c.id, width: Math.min(finalW, maxW), height: Math.min(finalH, maxH) };
       });
     }
 
@@ -584,9 +602,13 @@ export function computeLayoutChildren(
       const layerGap = typeof props.gap === 'number' ? props.gap : defaultLayerGap;
       const layerH = (bounds.h - layerGap * Math.max(n - 1, 0)) / n;
       return plan.children.map(c => {
+        const m = measureMap?.get(c.id);
         const cc = constraintMap?.get(c.id);
+        const maxW = cc?.maxWidth ?? Infinity;
         const maxH = cc?.maxHeight ?? Infinity;
-        return { id: c.id, width: bounds.w, height: Math.min(layerH, maxH) };
+        const w = Math.min(Math.max(bounds.w, m?.minWidth ?? 0), maxW);
+        const h = Math.min(Math.max(layerH, m?.minHeight ?? 0), maxH);
+        return { id: c.id, width: w, height: h };
       });
     }
 
@@ -597,15 +619,20 @@ export function computeLayoutChildren(
       const innerW = bounds.w - padding * 2;
       const usable = innerH - gap * Math.max(n - 1, 0);
       return plan.children.map(c => {
+        const m = measureMap?.get(c.id);
+        const measuredW = m?.minWidth ?? 0;
+        const measuredH = m?.minHeight ?? 0;
         const cc = constraintMap?.get(c.id);
+        const maxW = cc?.maxWidth ?? Infinity;
         const maxH = cc?.maxHeight ?? Infinity;
         const rawH = totalWeight > 0 ? usable * (c.weight / totalWeight) : usable / n;
-        const h = Math.min(rawH, maxH);
+        const h = Math.min(Math.max(rawH, measuredH), maxH);
 
         // Shape 요소: height 기반 preferred ratio로 width 계산 (flow/tree와 동일 원칙)
         const elementType = c.elementType ?? '';
         const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
-        const w = preferredRatio ? Math.min(h * preferredRatio, innerW) : innerW;
+        const idealW = preferredRatio ? Math.min(h * preferredRatio, innerW) : innerW;
+        const w = Math.min(Math.max(idealW, measuredW), maxW);
 
         return { id: c.id, width: Math.max(w, 4), height: Math.max(h, 3) };
       });
@@ -636,12 +663,14 @@ export function computeLayoutChildren(
 
     case 'box':
     case 'layer': {
-      // Visual containers: compact stacking — each child gets its min height, no surplus redistribution
+      // Visual containers: compact stacking — each child gets its min height, no surplus redistribution.
+      // Width takes the parent stretch width but is widened if the child's measured min exceeds it.
       return plan.children.map(c => {
         const hasExplicitH = typeof c.props.height === 'number';
         const m = measureMap?.get(c.id);
         const h = hasExplicitH ? c.intrinsicSize.height : (m ? m.minHeight : c.intrinsicSize.height || 4);
-        return { id: c.id, width: bounds.w, height: h };
+        const w = Math.max(bounds.w, m?.minWidth ?? 0);
+        return { id: c.id, width: w, height: h };
       });
     }
 
