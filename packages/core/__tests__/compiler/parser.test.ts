@@ -328,24 +328,8 @@ describe('Group and layers blocks', () => {
 });
 
 // ===========================================================================
-// Canvas fallback
+// Canvas fallback (canvas 토큰은 PR-1에서 삭제됨 — 테스트 제거)
 // ===========================================================================
-
-describe('Canvas fallback', () => {
-  it('parses canvas with low-level elements', () => {
-    const input = `canvas {
-  rect { x:10 y:10 w:30 h:20 fill:#3b82f6 }
-  circle { x:50 y:50 r:15 fill:#ef4444 }
-}`;
-    noErrors(input);
-    const block = firstChild(input) as ASTBlock;
-    expect(block.blockType).toBe('canvas');
-    expect(block.children).toHaveLength(2);
-    const rectEl = block.children[0] as ASTElement;
-    expect(rectEl.elementType).toBe('rect');
-    expect(rectEl.props.x).toBe(10);
-  });
-});
 
 // ===========================================================================
 // Visual elements

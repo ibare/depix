@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import Konva from 'konva';
 import { compile, lightTheme, darkTheme } from '@depix/core';
-import type { IRContainer, IRShape, IREdge as IREdgeType, IRText, DepixIR } from '@depix/core';
+import type { IRContainer, IRShape, IREdge as IREdgeType, IRText, IRScene, IRElement, DepixIR } from '@depix/core';
 import { renderElement, renderElements } from '../src/ir-renderer/index.js';
 import { CoordinateTransform } from '../src/coordinate-transform.js';
 
@@ -43,6 +43,26 @@ function collectNodes(group: Konva.Group): Konva.Node[] {
   return nodes;
 }
 
+// scene-background를 건너뛰고 첫 번째 실제 컨테이너(slot wrapper) 반환.
+// 새 emit walker 구조: elements[0]=scene-bg, elements[1]=slot container
+function getFirstContainer(scene: IRScene): IRContainer | undefined {
+  return scene.elements.find(
+    el => el.type === 'container',
+  ) as IRContainer | undefined;
+}
+
+// scene.elements 트리에서 id로 재귀 탐색
+function findById(elements: IRElement[], id: string): IRElement | undefined {
+  for (const el of elements) {
+    if (el.id === id) return el;
+    if (el.type === 'container') {
+      const found = findById((el as IRContainer).children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Basic pipeline
 // ---------------------------------------------------------------------------
@@ -62,7 +82,7 @@ describe('E2E — basic pipeline', () => {
   it('produces Konva nodes with correct element structure', () => {
     const { ir, transform } = compileAndRender('node "World" #n1');
     const scene = ir.scenes[0];
-    const el = scene.elements.find(e => e.id === 'n1');
+    const el = findById(scene.elements, 'n1');
 
     expect(el).toBeDefined();
     expect(el!.type).toBe('shape');
@@ -73,7 +93,7 @@ describe('E2E — basic pipeline', () => {
 
   it('renders node with inner text', () => {
     const { ir, transform } = compileAndRender('node "Test Label" #n1');
-    const el = ir.scenes[0].elements.find(e => e.id === 'n1') as IRShape;
+    const el = findById(ir.scenes[0].elements, 'n1') as IRShape;
 
     expect(el.innerText).toBeDefined();
     expect(el.innerText!.content).toBe('Test Label');
@@ -98,10 +118,11 @@ stack direction:col gap:3 {
   node "C" #c
 }`;
     const { ir, transform } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
 
     expect(container.type).toBe('container');
-    expect(container.origin?.sourceType).toBe('stack');
+    expect(container.origin?.sourceType).toBe('scene-slot');
+    expect(container.origin?.sourceProps?.blockType).toBe('stack');
 
     const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
     expect(shapes).toHaveLength(3);
@@ -123,7 +144,7 @@ stack direction:row gap:2 {
   node "Y" #y
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
 
     expect(shapes[0].bounds.x).toBeLessThan(shapes[1].bounds.x);
@@ -140,9 +161,10 @@ grid cols:2 gap:2 {
   node "4" #n4
 }`;
     const { ir, transform } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
 
-    expect(container.origin?.sourceType).toBe('grid');
+    expect(container.origin?.sourceType).toBe('scene-slot');
+    expect(container.origin?.sourceProps?.blockType).toBe('grid');
 
     const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
     expect(shapes).toHaveLength(4);
@@ -173,9 +195,10 @@ flow direction:right gap:5 {
   #process -> #end
 }`;
     const { ir, transform } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
 
-    expect(container.origin?.sourceType).toBe('flow');
+    expect(container.origin?.sourceType).toBe('scene-slot');
+    expect(container.origin?.sourceProps?.blockType).toBe('flow');
 
     const shapes = container.children.filter(c => c.type === 'shape') as IRShape[];
     const edges = container.children.filter(c => c.type === 'edge') as IREdgeType[];
@@ -204,7 +227,7 @@ flow {
   #a -> #b "connects"
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const edges = container.children.filter(c => c.type === 'edge') as IREdgeType[];
 
     expect(edges).toHaveLength(1);
@@ -222,7 +245,7 @@ describe('E2E — theme integration', () => {
     const dsl = 'node "Styled" #s1 {\n  background: primary\n}';
     const { ir } = compileAndRender(dsl);
 
-    const el = ir.scenes[0].elements.find(e => e.id === 's1');
+    const el = findById(ir.scenes[0].elements, 's1');
     expect(el).toBeDefined();
     // 'primary' should be resolved to the light theme primary color
     expect(el!.style.fill).toBe(lightTheme.colors.primary);
@@ -232,7 +255,7 @@ describe('E2E — theme integration', () => {
     const dsl = 'node "Dark" #d1 {\n  background: primary\n}';
     const { ir } = compileAndRender(dsl, darkTheme);
 
-    const el = ir.scenes[0].elements.find(e => e.id === 'd1');
+    const el = findById(ir.scenes[0].elements, 'd1');
     expect(el!.style.fill).toBe(darkTheme.colors.primary);
     expect(ir.meta.background.color).toBe(darkTheme.background);
   });
@@ -317,7 +340,7 @@ stack direction:col gap:2 {
   node "Box" #box
 }`;
     const { ir, transform } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const children = container.children;
 
     // Should have a text and a shape
@@ -395,7 +418,7 @@ flow direction:right gap:5 {
     expect(errors).toHaveLength(0);
     expect(ir.meta.aspectRatio).toEqual({ width: 16, height: 9 });
 
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     expect(container.type).toBe('container');
 
     const shapes = container.children.filter(c => c.type === 'shape');
@@ -429,7 +452,7 @@ stack direction:col gap:3 {
 }`;
     const { ir, transform } = compileAndRender(dsl);
 
-    const outer = ir.scenes[0].elements[0] as IRContainer;
+    const outer = getFirstContainer(ir.scenes[0])!;
     expect(outer.type).toBe('container');
 
     // Should have label + inner container
@@ -459,7 +482,7 @@ flow {
   #a --> #b
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const edge = container.children.find(c => c.type === 'edge') as IREdgeType;
 
     expect(edge).toBeDefined();
@@ -475,7 +498,7 @@ flow {
   #a -- #b
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const edge = container.children.find(c => c.type === 'edge') as IREdgeType;
 
     expect(edge).toBeDefined();
@@ -491,7 +514,7 @@ flow {
   #a <-> #b
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const edge = container.children.find(c => c.type === 'edge') as IREdgeType;
 
     expect(edge).toBeDefined();
@@ -514,7 +537,7 @@ grid cols:2 gap:2 {
   node "D" #d
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
 
     for (const child of container.children) {
       expect(child.bounds).toBeDefined();
@@ -535,7 +558,7 @@ flow {
   #b -> #c
 }`;
     const { ir } = compileAndRender(dsl);
-    const container = ir.scenes[0].elements[0] as IRContainer;
+    const container = getFirstContainer(ir.scenes[0])!;
     const edges = container.children.filter(c => c.type === 'edge') as IREdgeType[];
 
     for (const edge of edges) {

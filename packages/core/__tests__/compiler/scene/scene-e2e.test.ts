@@ -254,20 +254,24 @@ scene "s2" { layout: center body: heading "2" }
     expect(ir.transitions[0].type).toBe('slide-left');
   });
 
-  it('heading fontSize is larger than body fontSize', () => {
+  it('heading fontSize is larger than label fontSize in same slot', () => {
+    // 같은 body 슬롯에 heading + label을 나란히 배치하여 동일한 baseFontSize 환경에서
+    // headingSize(1.0) > bodySize(0.6) 비율을 검증한다.
     const { ir } = compileScene(`
 @presentation
 scene {
-  layout: header
-  header: heading "Title"
-  body: bullet { item "Body text" }
+  layout: center
+  body: stack {
+    heading "Title"
+    label "Body text"
+  }
 }
 `);
     const texts = findTexts(ir.scenes[0]);
     const heading = texts.find(t => t.content === 'Title');
-    const bodyItem = texts.find(t => t.content.includes('Body text'));
-    if (heading && bodyItem) {
-      expect(heading.fontSize).toBeGreaterThan(bodyItem.fontSize);
+    const bodyLabel = texts.find(t => t.content === 'Body text');
+    if (heading && bodyLabel) {
+      expect(heading.fontSize).toBeGreaterThan(bodyLabel.fontSize);
     }
   });
 });

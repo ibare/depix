@@ -8,9 +8,9 @@ import {
   createScaleContext,
 } from '../../../src/compiler/passes/scale-system.js';
 import type { GapType, TextRole } from '../../../src/compiler/passes/scale-system.js';
-import { planDiagram } from '../../../src/compiler/passes/plan-layout.js';
+import { planAll } from '../../../src/compiler/layout/plan-all.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
-import type { ASTBlock, ASTElement, ASTEdge } from '../../../src/compiler/ast.js';
+import type { ASTBlock, ASTElement } from '../../../src/compiler/ast.js';
 import type { IRBounds } from '../../../src/ir/types.js';
 
 // ---------------------------------------------------------------------------
@@ -233,12 +233,12 @@ describe('computePadding', () => {
 
 describe('countElements', () => {
   it('returns 1 for empty plan', () => {
-    const plan = planDiagram(makeScene([]), lightTheme);
+    const plan = planAll(makeScene([]), lightTheme);
     expect(countElements(plan)).toBe(1);
   });
 
   it('counts single leaf', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -246,7 +246,7 @@ describe('countElements', () => {
   });
 
   it('counts multiple leaves', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('node', { id: 'n2' }),
@@ -258,7 +258,7 @@ describe('countElements', () => {
   });
 
   it('counts only leaf elements in blocks (not the block itself)', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'n1' }),
@@ -272,7 +272,7 @@ describe('countElements', () => {
   });
 
   it('counts nested leaves correctly', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([
         makeBlock('stack', [
           makeBlock('flow', [
@@ -296,7 +296,7 @@ describe('countElements', () => {
 
 describe('createScaleContext', () => {
   it('creates context with correct canvasArea', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -306,7 +306,7 @@ describe('createScaleContext', () => {
   });
 
   it('creates context with correct elementCount', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([
         makeElement('node', { id: 'n1' }),
         makeElement('node', { id: 'n2' }),
@@ -319,7 +319,7 @@ describe('createScaleContext', () => {
   });
 
   it('baseUnit is positive', () => {
-    const plan = planDiagram(
+    const plan = planAll(
       makeScene([makeElement('node', { id: 'n1' })]),
       lightTheme,
     );
@@ -329,11 +329,11 @@ describe('createScaleContext', () => {
   });
 
   it('more elements → smaller baseUnit', () => {
-    const planFew = planDiagram(
+    const planFew = planAll(
       makeScene([makeElement('node', { id: 'n1' }), makeElement('node', { id: 'n2' })]),
       lightTheme,
     );
-    const planMany = planDiagram(
+    const planMany = planAll(
       makeScene([
         makeBlock('stack', [
           makeElement('node', { id: 'a' }),

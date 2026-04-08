@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeConstraints } from '../../../src/compiler/passes/compute-constraints.js';
 import { allocateBudgets } from '../../../src/compiler/passes/allocate-budgets.js';
 import { measureDiagram } from '../../../src/compiler/passes/measure.js';
-import { planDiagram } from '../../../src/compiler/passes/plan-layout.js';
+import { planAll } from '../../../src/compiler/layout/plan-all.js';
 import { createScaleContext } from '../../../src/compiler/passes/scale-system.js';
 import { lightTheme } from '../../../src/theme/builtin-themes.js';
 import type { ASTBlock, ASTElement } from '../../../src/compiler/ast.js';
@@ -51,7 +51,7 @@ function makeBlock(type: string, children: ASTBlock['children'], overrides: Part
 const CANVAS: IRBounds = { x: 5, y: 5, w: 90, h: 90 };
 
 function runPipeline(scene: ASTBlock) {
-  const plan = planDiagram(scene, lightTheme);
+  const plan = planAll(scene, lightTheme);
   const scaleCtx = createScaleContext(plan, CANVAS);
   const constraints = computeConstraints(plan, scaleCtx);
   const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -73,7 +73,7 @@ function makeLayersScene(count: number) {
 describe('computeConstraints', () => {
   it('returns constraints for a single leaf element', () => {
     const scene = makeScene([makeElement('node', { id: 'n1', label: 'A' })]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
 
@@ -93,7 +93,7 @@ describe('computeConstraints', () => {
         makeElement('node', { id: 'n2', label: 'B' }),
       ], { id: 's1' }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
 
@@ -114,7 +114,7 @@ describe('computeConstraints', () => {
         makeElement('node', { id: 'n4' }),
       ], { id: 'g1', props: { cols: 2 } }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
 
@@ -128,7 +128,7 @@ describe('computeConstraints', () => {
 
   it('aggregates layers: minH = sum, minW = max', () => {
     const scene = makeLayersScene(3);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
 
@@ -145,7 +145,7 @@ describe('computeConstraints', () => {
 describe('allocateBudgets', () => {
   it('layers 12 — all children get budget.height > 0', () => {
     const scene = makeLayersScene(12);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -161,7 +161,7 @@ describe('allocateBudgets', () => {
 
   it('layers 1 — budget is positive (content-aware max applies)', () => {
     const scene = makeLayersScene(1);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -179,7 +179,7 @@ describe('allocateBudgets', () => {
         makeElement('node', { id: 'n3' }),
       ], { id: 's1' }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -198,7 +198,7 @@ describe('allocateBudgets', () => {
 
   it('overflow: layers 20 — proportional shrink, all budgets > 0', () => {
     const scene = makeLayersScene(20);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -218,7 +218,7 @@ describe('allocateBudgets', () => {
         makeElement('node', { id: 'flex2' }),
       ], { id: 's1' }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -244,7 +244,7 @@ describe('allocateBudgets', () => {
         makeElement('node', { id: 'flex1' }),
       ], { id: 's1', props: { direction: 'row' } }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
     const budgetMap = allocateBudgets(plan, CANVAS, constraints, scaleCtx);
@@ -263,7 +263,7 @@ describe('allocateBudgets', () => {
     const scene = makeScene([
       makeElement('node', { id: 'n1', props: { height: 15 } }),
     ]);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     const constraints = computeConstraints(plan, scaleCtx);
 
@@ -350,7 +350,7 @@ describe('budget system integration', () => {
 
   it('pipeline without budget (backward compat) still works', () => {
     const scene = makeLayersScene(3);
-    const plan = planDiagram(scene, lightTheme);
+    const plan = planAll(scene, lightTheme);
     const scaleCtx = createScaleContext(plan, CANVAS);
     // No budget — old behavior
     const measureMap = measureDiagram(plan, lightTheme, scaleCtx);
@@ -387,10 +387,10 @@ describe('budget system integration', () => {
     const { budgetMap, plan } = runPipeline(scene);
     const treeBlock = plan.children[0];
 
-    // Find budgets by original id matching
-    const ctoBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'cto')!.id)!;
-    const cfoBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'cfo')!.id)!;
-    const leafBudget = budgetMap.get(treeBlock.children.find(c => c.astNode.kind === 'element' && c.astNode.id === 'fe')!.id)!;
+    // DSL IDs are preserved in PlanNode — no need for astNode lookup
+    const ctoBudget = budgetMap.get('cto')!;
+    const cfoBudget = budgetMap.get('cfo')!;
+    const leafBudget = budgetMap.get('fe')!;
 
     // CTO (subtreeSpan=3) gets at least as wide as CFO (may equal when both hit maxWidth)
     expect(ctoBudget.width).toBeGreaterThanOrEqual(cfoBudget.width);
