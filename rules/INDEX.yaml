@@ -84,6 +84,21 @@ specifics:
       paths:
         - "packages/core/src/compiler/**"
 
+  - id: S-pipeline
+    file: specifics/S-pipeline.md
+    description: 컴파일러 파이프라인 조립 — 루트 1회 핑퐁, emit walker 분배 금지, 단일 PlanNode 트리
+    triggers:
+      paths:
+        - "packages/core/src/compiler/compiler.ts"
+        - "packages/core/src/compiler/emit*.ts"
+        - "packages/core/src/compiler/passes/**"
+        - "packages/core/src/compiler/layout/plan-*.ts"
+      patterns:
+        - "planAll"
+        - "PlanNode"
+        - "emitInlineBlock"
+        - "emitSceneIR"
+
   - id: S-renderer
     file: specifics/S-renderer.md
     description: 렌더러 — IR을 그리기만, 좌표 변환, load vs update
