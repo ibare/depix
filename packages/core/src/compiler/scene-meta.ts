@@ -9,10 +9,10 @@ import type {
   IRMeta,
   IRScene,
   IRTransition,
-} from '../../ir/types.js';
-import type { DepixTheme } from '../../theme/types.js';
-import type { SceneTheme } from '../../theme/scene-theme.js';
-import type { ASTDirective } from '../ast.js';
+} from '../ir/types.js';
+import type { DepixTheme } from '../theme/types.js';
+import type { SceneTheme } from '../theme/scene-theme.js';
+import type { ASTDirective } from './ast.js';
 
 // ---------------------------------------------------------------------------
 // Meta

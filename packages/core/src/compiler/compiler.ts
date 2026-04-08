@@ -32,8 +32,7 @@ import type { BoundsMap } from './passes/allocate-bounds.js';
 import type { MeasureMap } from './passes/measure.js';
 import { emit } from './emit.js';
 import { computeAllChartPositions } from './passes/compute-chart-positions.js';
-import { buildSceneMeta, buildSceneTransitions } from './scene/scene-meta.js';
-import { computeSceneNaturalHeight } from './scene/scene-measure.js';
+import { buildSceneMeta, buildSceneTransitions } from './scene-meta.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -89,20 +88,19 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   // 3. Extract @overrides (applied after IR emission)
   const overrides = extractOverrides(resolvedAST);
 
-  // 4. @page * → content-driven height per scene
-  const isAutoHeight = resolvedAST.directives.some(d => d.key === 'page' && d.value === '*');
-
-  // 5. Plan — AST → PlanNode[] (one root PlanNode per scene)
+  // 4. Plan — AST → PlanNode[] (one root PlanNode per scene)
   const plans = planDocument(resolvedAST, theme);
 
-  // 6. Per-scene allocation pass
+  // 5. Per-scene allocation pass
   const allBoundsMap: BoundsMap = new Map();
   const allMeasureMap: MeasureMap = new Map();
 
   for (let i = 0; i < plans.length; i++) {
     const plan = plans[i];
-    const h = isAutoHeight ? computeSceneNaturalHeight(resolvedAST.scenes[i], sceneTheme) : 100;
-    const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h };
+    // TODO(PR-5, L6): @page * auto-height는 measureDiagram 결과 기반 fixpoint 수렴으로 재구현한다.
+    // 현재는 canvas h를 100으로 고정. buildSceneMeta는 여전히 meta.autoHeight=true를 세팅한다
+    // (렌더러에서 meta를 기준으로 표시한다).
+    const canvasBounds: IRBounds = { x: 0, y: 0, w: 100, h: 100 };
 
     const scaleCtx = createScaleContext(plan, canvasBounds);
     const constraints = computeConstraints(plan, scaleCtx);
@@ -114,7 +112,7 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
     for (const [k, v] of measure) allMeasureMap.set(k, v);
   }
 
-  // 7. Emit IR — walk PlanNode trees using BoundsMap + MeasureMap
+  // 6. Emit IR — walk PlanNode trees using BoundsMap + MeasureMap
   const chartPositionsMap = computeAllChartPositions(plans, allBoundsMap);
   const meta = buildSceneMeta(resolvedAST.directives, theme, sceneTheme);
   let ir: DepixIR = {
@@ -124,7 +122,7 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
   };
   ir = { ...ir, transitions: buildSceneTransitions(resolvedAST.directives, ir.scenes) };
 
-  // 8. Post-processing: apply @overrides to IR bounds
+  // 7. Post-processing: apply @overrides to IR bounds
   if (overrides.size > 0) {
     ir = applyOverridesToIR(ir, overrides);
   }

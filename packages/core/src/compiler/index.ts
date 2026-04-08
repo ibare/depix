@@ -26,7 +26,6 @@ export type {
 export * from './routing/index.js';
 export * from './passes/index.js';
 export * from './layout/index.js';
-export * from './scene/index.js';
 
 export { LAYOUT_TYPES, CONTENT_TYPES, VISUAL_CONTAINER_TYPES, PICKER_BLOCK_TYPES, ATOMIC_COMPOUND_TYPES, isOriginSourceType } from './container-meta.js';
 export { ELEMENT_TYPE_REGISTRY, getElementConfig } from './element-type-registry.js';
