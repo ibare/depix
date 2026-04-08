@@ -177,13 +177,21 @@ describe('layoutGroup – multiple children stacked vertically', () => {
     }
   });
 
-  it('container width always equals bounds.w', () => {
-    const config = baseConfig({ bounds: { x: 0, y: 0, w: 80, h: 200 }, padding: 5 });
+  it('container width shrinks to widest child + padding and centers on the cross axis', () => {
+    const bounds = { x: 0, y: 0, w: 80, h: 200 };
+    const padding = 5;
+    const config = baseConfig({ bounds, padding });
     const children = [child('a', 20, 10), child('b', 20, 10)];
 
     const { containerBounds } = layoutGroup(children, config);
 
-    expect(containerBounds.w).toBeCloseTo(80, 1);
+    // Widest child = 20; container width should tightly wrap = 20 + padding * 2 = 30.
+    const maxChildW = 20;
+    expect(containerBounds.w).toBeCloseTo(maxChildW + padding * 2, 1);
+    // Container is horizontally centered within bounds.
+    const leftMargin = containerBounds.x - bounds.x;
+    const rightMargin = (bounds.x + bounds.w) - (containerBounds.x + containerBounds.w);
+    expect(leftMargin).toBeCloseTo(rightMargin, 1);
   });
 });
 
@@ -234,18 +242,22 @@ describe('layoutGroup – padding affects content positioning', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutGroup – container bounds origin', () => {
-  it('container x matches bounds origin, y is centered', () => {
+  it('container x/y are centered on both axes around the children', () => {
     const bounds = { x: 15, y: 25, w: 80, h: 60 };
-    const config = baseConfig({ bounds, padding: 5 });
+    const padding = 5;
+    const config = baseConfig({ bounds, padding });
     const children = [child('a', 20, 10)];
 
     const { containerBounds } = layoutGroup(children, config);
 
-    // contentH = 60-10 = 50, totalH = 10, centerOffset = (50-10)/2 = 20
-    const contentH = bounds.h - 5 * 2;
-    const centerOffset = (contentH - 10) / 2;
-    expect(containerBounds.x).toBeCloseTo(15, 1);
-    expect(containerBounds.y).toBeCloseTo(25 + centerOffset, 1);
+    // Vertical: contentH = 50, totalH = 10, centerOffset = 20.
+    const contentH = bounds.h - padding * 2;
+    const vCenterOffset = (contentH - 10) / 2;
+    expect(containerBounds.y).toBeCloseTo(bounds.y + vCenterOffset, 1);
+    // Horizontal: usedW = 20 + padding*2 = 30, crossCenterOffset = (80-30)/2 = 25.
+    const usedW = 20 + padding * 2;
+    const hCenterOffset = (bounds.w - usedW) / 2;
+    expect(containerBounds.x).toBeCloseTo(bounds.x + hCenterOffset, 1);
   });
 
   it('child x and y are offset by bounds origin with centering', () => {

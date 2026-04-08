@@ -38,6 +38,14 @@ export function layoutGroup(
   const gap = 1; // small default gap
   const totalH = children.reduce((s, c) => s + c.height, 0) + gap * (children.length - 1);
 
+  // Widest child drawn width (clamped to available content width).
+  // Used after the child loop to compute accurate containerBounds.w.
+  // Unit: 0–100 상대 좌표.
+  const maxChildDrawnW = children.reduce(
+    (m, c) => Math.max(m, Math.min(c.width, contentW)),
+    0,
+  );
+
   // Center the group vertically within available space
   const mainCenterOffset = Math.max(0, (contentH - totalH) / 2);
 
@@ -58,14 +66,17 @@ export function layoutGroup(
     yOffset += child.height + gap;
   }
 
-  // Container fits tightly around children + padding (centered)
+  // Container fits tightly around children + padding on both axes (centered).
+  // Unit: 0–100 상대 좌표.
+  const usedW = Math.min(maxChildDrawnW + padding * 2, bounds.w);
   const usedH = Math.min(totalH + padding * 2, bounds.h);
+  const crossCenterOffset = Math.max(0, (bounds.w - usedW) / 2);
 
   return {
     containerBounds: {
-      x: bounds.x,
+      x: bounds.x + crossCenterOffset,
       y: bounds.y + mainCenterOffset,
-      w: bounds.w,
+      w: usedW,
       h: usedH,
     },
     childBounds,

@@ -183,6 +183,11 @@ export function layoutFlow(
 
   const childBounds: IRBounds[] = new Array(children.length);
 
+  // Track the widest layer cross usage. Used after the loop to compute
+  // accurate containerBounds cross size (no more full-bounds hardcoding).
+  // Unit: 0–100 상대 좌표.
+  let maxCrossUsed = 0;
+
   for (let l = 0; l < layerCount; l++) {
     const layer = isReversed ? layerCount - 1 - l : l;
     const nodes = layerGroups[layer];
@@ -195,6 +200,7 @@ export function layoutFlow(
     );
     const totalNodeGap = gap * (nodes.length - 1);
     const nodesCrossTotal = nodeCrossSizes.reduce((s, v) => s + v, 0) + totalNodeGap;
+    if (nodesCrossTotal > maxCrossUsed) maxCrossUsed = nodesCrossTotal;
     const layerCrossStart = (crossAvail - nodesCrossTotal) / 2;
     let crossCursor = Math.max(0, layerCrossStart);
 
@@ -220,14 +226,20 @@ export function layoutFlow(
     }
   }
 
-  // Compute container bounds (centered within allocated space)
-  const usedW = isHorizontal ? totalMainNeeded : bounds.w;
-  const usedH = isHorizontal ? bounds.h : totalMainNeeded;
+  // Compute container bounds — cross-axis shrinks to actual layer cross usage.
+  // Both axes are centered within allocated space so the container tightly
+  // wraps its children on both the main and cross axes.
+  // Unit: 0–100 상대 좌표.
+  const actualCrossUsed = Math.min(maxCrossUsed, crossAvail);
+  const crossCenterOffset = Math.max(0, (crossAvail - actualCrossUsed) / 2);
+
+  const usedW = isHorizontal ? totalMainNeeded : actualCrossUsed;
+  const usedH = isHorizontal ? actualCrossUsed : totalMainNeeded;
 
   return {
     containerBounds: {
-      x: bounds.x + (isHorizontal ? mainCenterOffset : 0),
-      y: bounds.y + (isHorizontal ? 0 : mainCenterOffset),
+      x: bounds.x + (isHorizontal ? mainCenterOffset : crossCenterOffset),
+      y: bounds.y + (isHorizontal ? crossCenterOffset : mainCenterOffset),
       w: Math.min(usedW, bounds.w),
       h: Math.min(usedH, bounds.h),
     },

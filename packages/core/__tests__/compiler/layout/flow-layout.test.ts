@@ -246,18 +246,22 @@ describe('layoutFlow – diamond pattern', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutFlow – container bounds', () => {
-  it('container bounds are centered within the configured bounds', () => {
+  it('container bounds are centered within the configured bounds on both axes', () => {
     const bounds = { x: 20, y: 30, w: 100, h: 80 };
     const children = [child('a'), child('b')];
     const config = baseConfig({ bounds, direction: 'right', gap: 5, edges: [edge('a', 'b')] });
 
     const { containerBounds } = layoutFlow(children, config);
 
-    // Container is horizontally centered within bounds
+    // Container is centered on both axes: cross-axis no longer hardcoded to full bounds.
     const leftMargin = containerBounds.x - bounds.x;
     const rightMargin = (bounds.x + bounds.w) - (containerBounds.x + containerBounds.w);
     expect(leftMargin).toBeCloseTo(rightMargin, 1);
-    expect(containerBounds.y).toBeCloseTo(bounds.y, 1);
+    const topMargin = containerBounds.y - bounds.y;
+    const bottomMargin = (bounds.y + bounds.h) - (containerBounds.y + containerBounds.h);
+    expect(topMargin).toBeCloseTo(bottomMargin, 1);
+    // Container shrinks on the cross axis to reflect actual usage (no full-bounds fill).
+    expect(containerBounds.h).toBeLessThan(bounds.h);
   });
 
   it('container w/h do not exceed the configured bounds', () => {

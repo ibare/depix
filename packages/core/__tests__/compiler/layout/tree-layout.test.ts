@@ -304,15 +304,21 @@ describe('layoutTree – unbalanced tree', () => {
 // ---------------------------------------------------------------------------
 
 describe('layoutTree – container bounds', () => {
-  it('container bounds match the configured origin', () => {
+  it('container bounds are centered within the configured bounds on both axes', () => {
     const bounds = { x: 10, y: 20, w: 80, h: 60 };
     const nodes = [node('root', [1], 10, 10), node('child', [], 10, 10)];
     const config = baseConfig({ bounds, direction: 'down' });
 
     const { containerBounds } = layoutTree(nodes, config);
 
-    expect(containerBounds.x).toBeCloseTo(10, 1);
-    expect(containerBounds.y).toBeCloseTo(20, 1);
+    // Container origin now reflects centering offsets so it encloses the actual
+    // children rather than sitting at slot origin with a spatial mismatch.
+    const leftMargin = containerBounds.x - bounds.x;
+    const rightMargin = (bounds.x + bounds.w) - (containerBounds.x + containerBounds.w);
+    expect(leftMargin).toBeCloseTo(rightMargin, 1);
+    const topMargin = containerBounds.y - bounds.y;
+    const bottomMargin = (bounds.y + bounds.h) - (containerBounds.y + containerBounds.h);
+    expect(topMargin).toBeCloseTo(bottomMargin, 1);
   });
 
   it('container w/h do not exceed configured bounds', () => {

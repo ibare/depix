@@ -71,14 +71,18 @@ export function layoutTree(
     mainScale, crossScale,
   );
 
-  // Center the tree within available space when it doesn't fill the full main axis
-  // (e.g. when max constraints cap node sizes, leaving surplus whitespace)
+  // Center the tree within available space on both axes when it doesn't fill
+  // the full main/cross axis (e.g. when max constraints cap node sizes, leaving
+  // surplus whitespace). Invariant: children are offset by the same main/cross
+  // centering as the containerBounds origin, so the container tightly wraps
+  // them on both axes. Unit: 0–100 상대 좌표.
   const mainCenterOffset = Math.max(0, (mainAvail - totalMainNeeded * mainScale) / 2);
+  const crossCenterOffset = Math.max(0, (crossAvail - totalCrossSpan * crossScale) / 2);
 
   // Build child bounds
   const childBounds: IRBounds[] = nodes.map((node, i) => {
     let mainPos = positions[i].main + mainCenterOffset;
-    let crossPos = positions[i].cross;
+    const crossPos = positions[i].cross;
 
     // Flip for reversed directions
     if (isReversed) {
@@ -86,19 +90,16 @@ export function layoutTree(
       mainPos = totalMain + mainCenterOffset - positions[i].main - (isHorizontal ? node.width : node.height) * mainScale;
     }
 
-    // Center within available bounds
-    const crossOffset = (crossAvail - totalCrossSpan * crossScale) / 2;
-
     if (isHorizontal) {
       return {
         x: bounds.x + mainPos,
-        y: bounds.y + crossPos + Math.max(0, crossOffset),
+        y: bounds.y + crossPos + crossCenterOffset,
         w: node.width * mainScale,
         h: node.height * crossScale,
       };
     } else {
       return {
-        x: bounds.x + crossPos + Math.max(0, crossOffset),
+        x: bounds.x + crossPos + crossCenterOffset,
         y: bounds.y + mainPos,
         w: node.width * crossScale,
         h: node.height * mainScale,
@@ -106,14 +107,16 @@ export function layoutTree(
     }
   });
 
-  // Container bounds
+  // Container bounds — origin includes main/cross centering offsets so it
+  // encloses the actual children (previously x/y sat at slot origin while
+  // children were offset, causing a spatial mismatch).
   const usedMain = totalMainNeeded * mainScale;
   const usedCross = totalCrossSpan * crossScale;
 
   return {
     containerBounds: {
-      x: bounds.x,
-      y: bounds.y,
+      x: bounds.x + (isHorizontal ? mainCenterOffset : crossCenterOffset),
+      y: bounds.y + (isHorizontal ? crossCenterOffset : mainCenterOffset),
       w: isHorizontal ? Math.min(usedMain, bounds.w) : Math.min(usedCross, bounds.w),
       h: isHorizontal ? Math.min(usedCross, bounds.h) : Math.min(usedMain, bounds.h),
     },
