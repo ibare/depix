@@ -1,6 +1,6 @@
 ---
-version: 2
-last_verified: 2026-04-08
+version: 3
+last_verified: 2026-04-09
 ---
 
 # 컴파일러 파이프라인 S-pipeline
@@ -48,9 +48,6 @@ last_verified: 2026-04-08
 
 - Document-level 단일 레이아웃 루트 facade 도입 금지. scene들을 wrapper PlanNode의 자식으로 묶어 "진짜 단일 루트"를 흉내 내는 구조를 만들지 않는다.
   이유: depix의 scene은 독립 다이어그램 단위다. 여러 scene 사이에는 공간/배치 관계가 없고, `@page *` auto-height는 single-scene 전제 기능이다. 의미 없는 wrapper는 구조적 기만이며 auto-height·scene-local canvas와 지속적으로 충돌한다.
-
-- Compound element walker(`walkStat`, `walkQuote`, `walkBullet`)의 sub-bounds 분배는 PR-6 post-cleanup까지 위 MUST로부터 한시적으로 carveout된다.
-  현재 이 3개 walker는 `bounds.h`에 대한 비율 분배(예: `valueH = bounds.h * 0.65`)와 item별 y 계산을 수행한다. 이는 `planAll`이 compound element를 자식 PlanNode로 펼치는 설계를 포함하지 않았기 때문이며, PR-6에서 `plan-all-element.ts`를 확장하여 해소한다. 그 외 walker는 carveout 대상이 아니며 MUST를 그대로 준수한다.
 
 ## PREFER
 

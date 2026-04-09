@@ -83,7 +83,7 @@ export function emitOne(
   // 미니멀 IRScene으로 합성한다. 정상 호출자(planAll 경유)에서는 발생하지 않는다.
   const bounds = boundsMap.get(plan.id) ?? { x: 0, y: 0, w: 100, h: 100 };
   const inner = plan.blockType.startsWith('element-')
-    ? walkElement(plan, bounds, theme, sceneTheme, measureMap)
+    ? walkElement(plan, bounds, theme, sceneTheme, measureMap, boundsMap)
     : walkBlock(plan, boundsMap, theme, sceneTheme, measureMap, chartPositionsMap);
 
   return {

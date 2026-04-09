@@ -8,20 +8,8 @@
  *   - bounds를 **조회만** 한다. measure/allocate를 호출하지 않는다.
  *   - dispatch는 `config.sceneEmit` (11채널) 기준.
  *   - baseFontSize: measureMap?.get(plan.id)?.fontSize 우선, 폴백 Math.min(bounds.h,100)*0.07.
- *
- * S-pipeline MUST NOT carveout (PR-6 post-cleanup까지 한시적):
- *   - `walkStat`, `walkQuote`, `walkBullet`은 `bounds.h`에 대한 비율 분배
- *     (예: `valueH = bounds.h * 0.65`)와 item별 y 계산을 수행한다.
- *   - 이는 `planAll`이 stat/quote/bullet/step을 leaf PlanNode로만 펼치고
- *     sub-child PlanNode를 만들지 않기 때문이며, BoundsMap 조회만으로는
- *     내부 레이아웃을 결정할 수 없어서 발생한 한시적 예외다.
- *   - 근본 해소: PR-6에서 `plan-all-element.ts`를 확장하여 compound element를
- *     자식 PlanNode를 갖는 컨테이너성 노드로 펼친다. 그 후 이 walker의
- *     비율 분배 로직은 제거되고 S-pipeline MUST를 예외 없이 만족한다.
- *   - carveout 대상: walkStat / walkQuote / walkBullet 3개 함수만.
- *     그 외 walker 케이스는 MUST를 그대로 준수해야 한다.
- *   - bullet/list: plan.items (string[]) 인라인 분배는 item이 PlanNode ID를
- *     갖지 않아 BoundsMap 진입이 불가능하다는 동일한 사유에서 carveout에 포함된다.
+ *   - compound element(stat/quote/bullet)의 sub-bounds는 BoundsMap에서 조회한다.
+ *     plan-all-element.ts가 합성한 자식 PlanNode의 ID로 BoundsMap을 lookup.
  */
 
 import type {
@@ -36,6 +24,7 @@ import type {
 } from '../ir/types.js';
 import type { DepixTheme } from '../theme/types.js';
 import type { SceneTheme } from '../theme/scene-theme.js';
+import type { BoundsMap } from './passes/allocate-bounds.js';
 import type { MeasureMap } from './passes/measure.js';
 import type { PlanNode } from './layout/plan-types.js';
 import { buildIRStyle, extractCornerRadius } from './emit-helpers.js';
@@ -58,6 +47,7 @@ export function walkElement(
   _theme: DepixTheme,
   sceneTheme: SceneTheme,
   measureMap?: MeasureMap,
+  boundsMap?: BoundsMap,
 ): IRElement {
   if (!plan.elementType) {
     return walkSceneShape(plan, bounds, sceneTheme, 'rect');
@@ -74,11 +64,11 @@ export function walkElement(
       return walkLabel(plan, bounds, sceneTheme, baseFontSize);
     case 'bullet':
     case 'list':
-      return walkBullet(plan, bounds, sceneTheme, baseFontSize);
+      return walkBullet(plan, bounds, sceneTheme, baseFontSize, boundsMap);
     case 'stat':
-      return walkStat(plan, bounds, sceneTheme, baseFontSize);
+      return walkStat(plan, bounds, sceneTheme, baseFontSize, boundsMap);
     case 'quote':
-      return walkQuote(plan, bounds, sceneTheme, baseFontSize);
+      return walkQuote(plan, bounds, sceneTheme, baseFontSize, boundsMap);
     case 'step':
       return walkStep(plan, bounds, sceneTheme, baseFontSize);
     case 'divider':
@@ -165,38 +155,47 @@ function walkBullet(
   bounds: IRBounds,
   sceneTheme: SceneTheme,
   baseFontSize: number,
+  boundsMap?: BoundsMap,
 ): IRContainer {
-  // bracket 구문 우선, 없으면 { item } block 구문에서 추출
+  // bracket 구문: plan.children에 합성 자식이 있으면 BoundsMap 조회.
+  // block 구문 `bullet { item "A" }`: plan.children에 item PlanNode가 있지만
+  // elementType='item'일 수 있음. 모든 자식을 사용.
   const itemsFromProps = plan.items && plan.items.length > 0 ? plan.items : undefined;
-  const itemsFromChildren = plan.children
-    .filter(c => c.elementType === 'item')
-    .map(c => c.label ?? '');
+  const itemsFromChildren = plan.children.map(c => c.label ?? '');
   const items = itemsFromProps ?? (itemsFromChildren.length > 0 ? itemsFromChildren : []);
   const itemFontSize = baseFontSize * sceneTheme.typography.bodySize;
-  const itemGap = sceneTheme.layout.itemGap;
-  const itemH = itemFontSize * 2.0;
-  const totalNeeded = items.length * itemH + Math.max(items.length - 1, 0) * itemGap;
-  const scale = totalNeeded > bounds.h && totalNeeded > 0 ? bounds.h / totalNeeded : 1;
-  const scaledItemH = itemH * scale;
-  const scaledGap = itemGap * scale;
   const isOrdered = plan.props.ordered === true;
   const color =
     typeof plan.style.color === 'string' ? plan.style.color : sceneTheme.colors.text;
 
+  // BoundsMap에서 자식 bounds를 조회. 없으면 균등 분배 폴백.
+  const hasSynthChildren = plan.children.length > 0 && boundsMap;
   const children: IRElement[] = items.map((item, i) => {
     const prefix = isOrdered ? `${i + 1}.` : '\u2022';
+    const childPlan = plan.children[i];
+    const childBounds = hasSynthChildren && childPlan
+      ? boundsMap.get(childPlan.id)
+      : undefined;
+
+    // BoundsMap 조회 성공 시 그 bounds를 사용, 아니면 균등 분배 폴백.
+    const itemBounds: IRBounds = childBounds ?? {
+      x: bounds.x,
+      y: bounds.y + i * (bounds.h / Math.max(items.length, 1)),
+      w: bounds.w,
+      h: bounds.h / Math.max(items.length, 1),
+    };
+    // 폰트 크기: 자식 bounds 높이에 비례 (itemFontSize가 bounds에 맞게 축소)
+    const scaledFontSize = childBounds
+      ? Math.min(itemFontSize, childBounds.h * 0.45)
+      : itemFontSize;
+
     return {
       id: `${plan.id}-item-${i}`,
       type: 'text',
-      bounds: {
-        x: bounds.x + 2,
-        y: bounds.y + i * (scaledItemH + scaledGap),
-        w: bounds.w - 4,
-        h: Math.max(scaledItemH, 2),
-      },
+      bounds: itemBounds,
       style: {},
       content: `${prefix} ${item}`,
-      fontSize: itemFontSize * scale,
+      fontSize: scaledFontSize,
       color,
       align: 'left',
       valign: 'middle',
@@ -222,19 +221,29 @@ function walkStat(
   bounds: IRBounds,
   sceneTheme: SceneTheme,
   baseFontSize: number,
+  boundsMap?: BoundsMap,
 ): IRContainer {
   const color =
     typeof plan.style.color === 'string' ? plan.style.color : sceneTheme.colors.accent;
-  const labelProp =
-    typeof plan.props.label === 'string' ? (plan.props.label as string) : undefined;
 
-  const valueH = labelProp ? bounds.h * 0.65 : bounds.h;
+  // 합성 자식에서 value/label 텍스트와 bounds를 조회.
+  const valueChild = plan.children[0];
+  const labelChild = plan.children.length > 1 ? plan.children[1] : undefined;
+  const valueLabel = valueChild?.label ?? plan.label ?? '';
+  const labelLabel = labelChild?.label;
+
+  // BoundsMap 조회. 없으면 기존 비율 폴백 (0.65/0.35).
+  // 0.65/0.35: stat value가 시각적 중심, 약 2:1 비율 (0–100 상대 좌표).
+  const valueBounds = (boundsMap && valueChild)
+    ? boundsMap.get(valueChild.id) ?? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h * 0.65 }
+    : { x: bounds.x, y: bounds.y, w: bounds.w, h: labelLabel ? bounds.h * 0.65 : bounds.h };
+
   const valueText: IRText = {
     id: `${plan.id}-value`,
     type: 'text',
-    bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: valueH },
+    bounds: valueBounds,
     style: buildIRStyle(plan.style),
-    content: plan.label ?? '',
+    content: valueLabel,
     fontSize: baseFontSize * sceneTheme.typography.statSize,
     color,
     fontWeight: 'bold',
@@ -245,13 +254,18 @@ function walkStat(
 
   const children: IRElement[] = [valueText];
 
-  if (labelProp) {
+  if (labelChild || typeof plan.props.label === 'string') {
+    const lblContent = labelLabel ?? (plan.props.label as string);
+    const labelBounds = (boundsMap && labelChild)
+      ? boundsMap.get(labelChild.id) ?? { x: bounds.x, y: bounds.y + valueBounds.h, w: bounds.w, h: bounds.h - valueBounds.h }
+      : { x: bounds.x, y: bounds.y + valueBounds.h, w: bounds.w, h: bounds.h - valueBounds.h };
+
     children.push({
       id: `${plan.id}-label`,
       type: 'text',
-      bounds: { x: bounds.x, y: bounds.y + valueH, w: bounds.w, h: bounds.h - valueH },
+      bounds: labelBounds,
       style: {},
-      content: labelProp,
+      content: lblContent,
       fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.9,
       color: sceneTheme.colors.textMuted,
       align: 'center',
@@ -279,19 +293,31 @@ function walkQuote(
   bounds: IRBounds,
   sceneTheme: SceneTheme,
   baseFontSize: number,
+  boundsMap?: BoundsMap,
 ): IRText | IRContainer {
   const color =
     typeof plan.style.color === 'string' ? plan.style.color : sceneTheme.colors.primary;
-  const attribution =
-    typeof plan.props.attribution === 'string' ? (plan.props.attribution as string) : undefined;
 
-  const quoteH = attribution ? bounds.h * 0.75 : bounds.h;
+  // 합성 자식에서 text/attribution 텍스트와 bounds를 조회.
+  const textChild = plan.children[0];
+  const attrChild = plan.children.length > 1 ? plan.children[1] : undefined;
+  const quoteLabel = textChild?.label ?? plan.label ?? '';
+  const attribution = attrChild?.label ?? (
+    typeof plan.props.attribution === 'string' ? (plan.props.attribution as string) : undefined
+  );
+
+  // BoundsMap 조회. 없으면 기존 비율 폴백 (0.75/0.25).
+  // 0.75/0.25: 인용문이 주요 콘텐츠, 약 3:1 비율 (0–100 상대 좌표).
+  const quoteBounds = (boundsMap && textChild)
+    ? boundsMap.get(textChild.id) ?? { x: bounds.x, y: bounds.y, w: bounds.w, h: attribution ? bounds.h * 0.75 : bounds.h }
+    : { x: bounds.x, y: bounds.y, w: bounds.w, h: attribution ? bounds.h * 0.75 : bounds.h };
+
   const quoteText: IRText = {
     id: attribution ? `${plan.id}-text` : plan.id,
     type: 'text',
-    bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: quoteH },
+    bounds: quoteBounds,
     style: buildIRStyle(plan.style),
-    content: `\u201C${plan.label ?? ''}\u201D`,
+    content: `\u201C${quoteLabel}\u201D`,
     fontSize: baseFontSize * sceneTheme.typography.headingSize * 0.8,
     color,
     fontStyle: 'italic',
@@ -302,10 +328,14 @@ function walkQuote(
 
   if (!attribution) return quoteText;
 
+  const attrBounds = (boundsMap && attrChild)
+    ? boundsMap.get(attrChild.id) ?? { x: bounds.x, y: bounds.y + quoteBounds.h, w: bounds.w, h: bounds.h - quoteBounds.h }
+    : { x: bounds.x, y: bounds.y + quoteBounds.h, w: bounds.w, h: bounds.h - quoteBounds.h };
+
   const attrText: IRText = {
     id: `${plan.id}-attribution`,
     type: 'text',
-    bounds: { x: bounds.x, y: bounds.y + quoteH, w: bounds.w, h: bounds.h - quoteH },
+    bounds: attrBounds,
     style: {},
     content: `\u2014 ${attribution}`,
     fontSize: baseFontSize * sceneTheme.typography.bodySize * 0.9,

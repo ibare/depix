@@ -73,7 +73,7 @@ export function walkBlock(
   for (const child of plan.children) {
     const childBounds = boundsMap.get(child.id) ?? zeroBounds();
     const childIR = child.blockType.startsWith('element-')
-      ? walkElement(child, childBounds, theme, sceneTheme, measureMap)
+      ? walkElement(child, childBounds, theme, sceneTheme, measureMap, boundsMap)
       : walkBlock(child, boundsMap, theme, sceneTheme, measureMap, chartPositionsMap);
     children.push(childIR);
 

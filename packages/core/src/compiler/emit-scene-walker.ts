@@ -69,7 +69,7 @@ export function walkScene(
     // element PlanNode가 block-type children을 가지면 walkBlock으로 위임 (e.g. heading flow)
     const hasBlockChildren = child.children.some(c => !c.blockType.startsWith('element-'));
     const inner = (child.blockType.startsWith('element-') && !hasBlockChildren)
-      ? walkElement(child, childBounds, theme, sceneTheme, measureMap)
+      ? walkElement(child, childBounds, theme, sceneTheme, measureMap, boundsMap)
       : walkBlock(child, boundsMap, theme, sceneTheme, measureMap, chartPositionsMap);
 
     elements.push(wrapInSlotContainer(inner, child, childBounds));

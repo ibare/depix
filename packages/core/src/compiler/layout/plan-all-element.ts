@@ -6,8 +6,9 @@
  *   - intrinsicSize 결정 (prop override > registry default)
  *   - leaf용 PlanMetrics 생성
  *   - weight 계산 (`plan-weights.ts::computeWeight`)
- *
-
+ *   - compound element(stat/quote/bullet/list) 원자화 — 내부 구성요소를
+ *     자식 PlanNode로 합성하여 allocate-bounds가 BoundsMap에 bounds를
+ *     채우도록 한다. walker는 bounds 조회만으로 IR을 생성할 수 있다.
  */
 
 import type { ASTElement } from '../ast.js';
@@ -62,6 +63,11 @@ export function planLeaf(element: ASTElement, id: string): PlanNode {
   if (element.elementType === 'row' && element.values) {
     node.values = [...element.values];
   }
+
+  // Compound element atomization: stat/quote/bullet의 내부 구성요소를 자식 PlanNode로 합성.
+  // S-pipeline MUST "walker는 bounds 조회만" 준수를 위해, walker 내부의 비율 분배를
+  // allocate-bounds가 BoundsMap에 미리 채우는 방식으로 대체한다.
+  synthesizeCompoundChildren(node, element);
 
   return node;
 }
@@ -166,5 +172,109 @@ export function makeLeafMetrics(): PlanMetrics {
     maxDepth: 0,
     blockChildCount: 0,
     leafChildCount: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Compound element atomization — stat/quote/bullet 자식 합성
+// ---------------------------------------------------------------------------
+
+/** stat/quote/bullet에 해당하는 compound elementType 집합. */
+const COMPOUND_TYPES = new Set(['stat', 'quote', 'bullet', 'list']);
+
+/**
+ * Compound element(stat, quote, bullet, list)의 내부 구성요소를
+ * 자식 PlanNode로 합성한다.
+ *
+ * 왜: S-pipeline MUST "walker는 bounds 조회만" — walker 내부에서
+ * `bounds.h * 0.65` 같은 비율 분배를 제거하고, allocate-bounds가
+ * 자식 PlanNode의 bounds를 미리 BoundsMap에 채우도록 한다.
+ *
+ * 비율 근거 (모두 0–100 상대 좌표):
+ *   - stat  value/label = 0.65/0.35: 기존 walkStat `valueH = bounds.h * 0.65` 재현.
+ *     value 텍스트가 시각적 중심이므로 약 2:1 비율.
+ *   - quote text/attr   = 0.75/0.25: 기존 walkQuote `quoteH = bounds.h * 0.75` 재현.
+ *     인용문이 주요 콘텐츠이므로 약 3:1 비율.
+ *   - bullet/list items = 균등(weight 1): 모든 항목이 동일 크기.
+ */
+function synthesizeCompoundChildren(
+  parentNode: PlanNode,
+  element: ASTElement,
+): void {
+  const et = element.elementType;
+  if (!COMPOUND_TYPES.has(et)) return;
+
+  const parentId = parentNode.id;
+  const children: PlanNode[] = [];
+
+  if (et === 'stat') {
+    // value 자식 — 부모의 label(value 텍스트)을 이전
+    children.push(makeSynthChild(`${parentId}-value`, 'element-text', parentNode.label, 0.65));
+    // optional label 자식
+    const labelProp = element.props.label;
+    if (typeof labelProp === 'string') {
+      children.push(makeSynthChild(`${parentId}-label`, 'element-text', labelProp, 0.35));
+    }
+    parentNode.label = undefined;
+  } else if (et === 'quote') {
+    // text 자식 — 부모의 label(인용 텍스트)을 이전
+    children.push(makeSynthChild(`${parentId}-text`, 'element-text', parentNode.label, 0.75));
+    // optional attribution 자식
+    const attr = element.props.attribution;
+    if (typeof attr === 'string') {
+      children.push(makeSynthChild(`${parentId}-attribution`, 'element-text', attr, 0.25));
+    }
+    parentNode.label = undefined;
+  } else if (et === 'bullet' || et === 'list') {
+    // items 배열에서 자식 합성 (bracket 구문: `bullet ["A","B"]`)
+    const items = element.items ?? [];
+    for (let i = 0; i < items.length; i++) {
+      children.push(makeSynthChild(`${parentId}-item-${i}`, 'element-text', items[i], 1));
+    }
+    // block 구문 `bullet { item "A" }`는 plan-all-block.ts::planElementWithChildren이 처리.
+    // items가 없으면 children 비어 있음 → 부모는 기존 leaf 동작 유지.
+  }
+
+  if (children.length === 0) return;
+
+  parentNode.children = children;
+  parentNode.metrics = makeCompoundMetrics(children.length);
+  parentNode.weight = computeWeight(parentNode.blockType, parentNode.metrics);
+}
+
+/**
+ * 합성 자식 PlanNode 생성.
+ * 자식은 bounds 결정 전용 — blockType 'element-text', leaf metrics.
+ */
+function makeSynthChild(
+  id: string,
+  blockType: PlanBlockType,
+  label: string | undefined,
+  weight: number,
+): PlanNode {
+  return {
+    id,
+    blockType,
+    children: [],
+    weight,
+    props: {},
+    style: {},
+    // element-text registry 기본 intrinsicSize (0–100 상대 좌표).
+    intrinsicSize: { width: 20, height: 4 },
+    metrics: makeLeafMetrics(),
+    ...(label !== undefined ? { label } : {}),
+  };
+}
+
+/**
+ * compound 부모용 메트릭. 자식이 항상 leaf이므로 간단 계산.
+ */
+function makeCompoundMetrics(childCount: number): PlanMetrics {
+  return {
+    descendantCount: childCount,
+    childCount,
+    maxDepth: 1,
+    blockChildCount: 0,
+    leafChildCount: childCount,
   };
 }
