@@ -340,7 +340,7 @@ describe('edge-aware sizing in flow/tree', () => {
   }
 
   describe('flow', () => {
-    it('nodes are smaller when edges exist vs no edges', () => {
+    it('edges reduce main-axis node width', () => {
       const noEdges = makePlanNode('flow', ['a', 'b', 'c'], []);
       const withEdges = makePlanNode('flow', ['a', 'b', 'c'], [
         makeEdge('a', 'b'), makeEdge('b', 'c'),
@@ -349,13 +349,13 @@ describe('edge-aware sizing in flow/tree', () => {
       const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
       const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
 
-      const areaNoEdge = totalNodeArea(sizesNoEdge);
-      const areaWithEdge = totalNodeArea(sizesWithEdge);
-
-      expect(areaWithEdge).toBeLessThan(areaNoEdge);
+      // More layers → smaller main-axis (width for horizontal flow)
+      for (let i = 0; i < sizesWithEdge.length; i++) {
+        expect(sizesWithEdge[i].width).toBeLessThan(sizesNoEdge[i].width);
+      }
     });
 
-    it('more edges → smaller nodes', () => {
+    it('more edges → smaller main-axis width', () => {
       const oneEdge = makePlanNode('flow', ['a', 'b', 'c'], [
         makeEdge('a', 'b'),
       ]);
@@ -366,7 +366,10 @@ describe('edge-aware sizing in flow/tree', () => {
       const sizes1 = computeLayoutChildren(oneEdge, CANVAS);
       const sizes2 = computeLayoutChildren(twoEdges, CANVAS);
 
-      expect(totalNodeArea(sizes2)).toBeLessThan(totalNodeArea(sizes1));
+      // More layers → each node gets less main-axis width
+      for (let i = 0; i < sizes2.length; i++) {
+        expect(sizes2[i].width).toBeLessThanOrEqual(sizes1[i].width);
+      }
     });
 
     it('vertical flow reduces height axis when edges exist', () => {
@@ -397,7 +400,7 @@ describe('edge-aware sizing in flow/tree', () => {
   });
 
   describe('tree', () => {
-    it('edge structure creates distinct level sizes', () => {
+    it('edge structure creates distinct cross-axis sizes', () => {
       const noEdges = makePlanNode('tree', ['r', 'c1', 'c2'], []);
       const withEdges = makePlanNode('tree', ['r', 'c1', 'c2'], [
         makeEdge('r', 'c1'), makeEdge('r', 'c2'),
@@ -406,10 +409,10 @@ describe('edge-aware sizing in flow/tree', () => {
       const sizesNoEdge = computeLayoutChildren(noEdges, CANVAS);
       const sizesWithEdge = computeLayoutChildren(withEdges, CANVAS);
 
-      // Without edges: all in same level → same height
-      expect(sizesNoEdge[0].height).toBeCloseTo(sizesNoEdge[1].height, 1);
-      // With edges: root gets its own level → different height than children
-      expect(sizesWithEdge[0].height).not.toBeCloseTo(sizesWithEdge[1].height, 0);
+      // Without edges: all in same level → same width (cross-axis for vertical tree)
+      expect(sizesNoEdge[0].width).toBeCloseTo(sizesNoEdge[1].width, 1);
+      // With edges: root alone (full cross) vs children sharing cross → different widths
+      expect(sizesWithEdge[0].width).not.toBeCloseTo(sizesWithEdge[1].width, 0);
     });
 
     it('horizontal tree reduces width axis when edges exist', () => {

@@ -60,6 +60,22 @@ const SHAPE_PREFERRED_RATIO: Readonly<Record<string, number>> = {
   cylinder: 0.8,  // Taller than wide to suggest vertical storage container.
 };
 
+/** Minimum fraction of allocated dimension kept after aspect-ratio fitting.
+ *  Derived from pill(w:h=2:1) in 8-layer horizontal flow (100×75 canvas):
+ *  strict ratio yields h=5.15 out of 23.33 available (22%), losing 78% of cross-axis.
+ *  0.4 caps shrinkage at 60%, giving h≈9.33 — enough for single-line label readability
+ *  while still communicating the shape's wider-than-tall intent.
+ *  Unit: dimensionless ratio (0–1). */
+const MIN_ASPECT_KEEP = 0.4;
+
+/** Flow/tree cross-axis cap expressed as a multiple of baseUnit.
+ *  baseUnit = sqrt(canvasArea / elementCount) × densityFactor — already encodes
+ *  node density: 12 nodes → baseUnit≈15.9, 3 nodes → baseUnit≈31.7.
+ *  Factor 1.0 means cross-axis ≤ baseUnit, giving density-proportional sizing
+ *  that adapts to both dense (Binary Search 12 nodes) and sparse (3 nodes) flows.
+ *  Unit: dimensionless multiplier applied to baseUnit (0–100 coordinate). */
+const FLOW_CROSS_BASEUNIT_FACTOR = 1.0;
+
 const SHAPE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
   'node', 'cell', 'rect', 'circle', 'badge', 'icon',
   'diamond', 'pill', 'hexagon', 'triangle', 'parallelogram',
@@ -512,21 +528,23 @@ export function computeLayoutChildren(
       const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
 
       // 균등 분할: flow 노드는 모두 동일한 main/cross 크기를 가짐.
-      // role-based weight 시스템(entry/junction/terminal 차등)을 제거하여
-      // 시각적 일관성과 텍스트 폰트 통일을 확보한다.
+      // cross-axis 상한을 baseUnit 기반으로 밀도 적응 — dense flow는 작게, sparse flow는 크게.
+      // 개별 도형의 비율 보정은 applyShapeAspectToBounds에서 처리.
       const layerMainSize = mainUsable / layerCount;
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
       const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
-      const idealCross = isHorizontal ? (layerMainSize / PHI) : (layerMainSize * PHI);
-      const uniformCross = Math.min(referenceCross, idealCross);
+      const crossCap = scaleCtx ? scaleCtx.baseUnit * FLOW_CROSS_BASEUNIT_FACTOR : referenceCross;
+      const uniformCross = Math.min(referenceCross, crossCap);
 
       return plan.children.map(c => {
         const m = measureMap?.get(c.id);
         const measuredW = m?.minWidth ?? 0;
         const measuredH = m?.minHeight ?? 0;
+        // Flow 레이아웃이 사이징 권한을 가지므로 SHAPE_MAX cap을 적용하지 않음.
+        // 사용자가 명시적으로 지정한 크기(pinned)만 max 제약으로 사용.
         const cc = constraintMap?.get(c.id);
-        const maxW = cc?.maxWidth ?? Infinity;
-        const maxH = cc?.maxHeight ?? Infinity;
+        const maxW = cc?.pinnedWidth ? (cc.maxWidth ?? Infinity) : Infinity;
+        const maxH = cc?.pinnedHeight ? (cc.maxHeight ?? Infinity) : Infinity;
 
         if (isHorizontal) {
           const finalW = Math.max(layerMainSize, measuredW, 4);
@@ -557,34 +575,28 @@ export function computeLayoutChildren(
       const mainUsable = mainAxis - treeLevelGap * Math.max(numLevels - 1, 0);
       const uniformLevelMain = mainUsable / numLevels;
 
-      // Dense levels auto-shrink to maintain golden ratio with available cross space
-      const levelMainSizes: number[] = [];
-      for (let l = 0; l < numLevels; l++) {
-        const nodesAtLevel = levelInfo.nodesPerLevel[l] ?? 1;
-        const lvlCross = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
-        const maxMainFromCross = isHorizontal ? lvlCross * PHI : lvlCross / PHI;
-        levelMainSizes.push(Math.min(uniformLevelMain, maxMainFromCross));
-      }
-
-      // Per-level golden-ratio cross sizing
+      // cross-axis는 가용 공간을 직접 사용한다 (PHI 천장 없음).
+      // 명시적 preferredRatio가 있는 도형만 비율 제약.
+      // 개별 도형의 비율 보정은 applyShapeAspectToBounds에서 처리.
       return plan.children.map(c => {
         const level = levelInfo.nodeLevel.get(c.id) ?? 0;
-        const nodeMain = levelMainSizes[level] ?? mainUsable / Math.max(levelInfo.numLevels, 1);
+        const nodeMain = uniformLevelMain;
         const nodesAtLevel = levelInfo.nodesPerLevel[level] ?? 1;
         const levelCrossAvail = (crossAxis - siblingGap * Math.max(nodesAtLevel - 1, 0)) / Math.max(nodesAtLevel, 1);
         const elementType = c.elementType ?? '';
-        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType] ?? PHI;
-        const idealCross = isHorizontal
-          ? (nodeMain / preferredRatio)
-          : (nodeMain * preferredRatio);
-        const nodeCross = Math.min(levelCrossAvail, idealCross);
+        const preferredRatio = SHAPE_PREFERRED_RATIO[elementType];
+        const treeCrossCap = scaleCtx ? scaleCtx.baseUnit * FLOW_CROSS_BASEUNIT_FACTOR : levelCrossAvail;
+        const nodeCross = preferredRatio
+          ? Math.min(levelCrossAvail, isHorizontal ? nodeMain / preferredRatio : nodeMain * preferredRatio)
+          : Math.min(levelCrossAvail, treeCrossCap);
 
         const m = measureMap?.get(c.id);
         const measuredW = m?.minWidth ?? 0;
         const measuredH = m?.minHeight ?? 0;
+        // Tree 레이아웃이 사이징 권한을 가지므로 SHAPE_MAX cap을 적용하지 않음.
         const cc = constraintMap?.get(c.id);
-        const maxW = cc?.maxWidth ?? Infinity;
-        const maxH = cc?.maxHeight ?? Infinity;
+        const maxW = cc?.pinnedWidth ? (cc.maxWidth ?? Infinity) : Infinity;
+        const maxH = cc?.pinnedHeight ? (cc.maxHeight ?? Infinity) : Infinity;
 
         if (isHorizontal) {
           const finalW = Math.max(nodeMain, measuredW, 4);
@@ -721,14 +733,8 @@ export function runLayout(
     case 'flow': {
       const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId, structural: e.edgeStyle !== '--' }));
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
-      const baseGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
+      const flowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
       const dir = (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right';
-      const isHz = dir === 'right' || dir === 'left';
-      const mainAvail = isHz ? bounds.w : bounds.h;
-      // When edges exist, ensure gap is proportional to available space
-      const flowGap = flowEdges.length > 0
-        ? Math.max(baseGap, mainAvail / (2 * children.length))
-        : baseGap;
       return layoutFlow(children, {
         bounds,
         direction: dir,
@@ -743,13 +749,7 @@ export function runLayout(
       const defaultSiblingGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
       const baseLevelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
       const treeDir = (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down';
-      const isTreeHz = treeDir === 'right' || treeDir === 'left';
-      const treeMainAvail = isTreeHz ? bounds.w : bounds.h;
-      // Ensure level gap is large enough for visual hierarchy separation
-      const treeLevelGap = Math.max(
-        baseLevelGap * TREE_LEVEL_GAP_SCALE,
-        edges.length > 0 ? treeMainAvail / (2 * children.length) : 0,
-      );
+      const treeLevelGap = baseLevelGap * TREE_LEVEL_GAP_SCALE;
       return layoutTree(treeNodes, {
         bounds,
         direction: treeDir,
@@ -957,7 +957,7 @@ function applyShapeAspect(
  * and center within the allocated bounds.
  *
  * Shapes with a preferred ratio (diamond, circle, hexagon) are adjusted on
- * both axes. Other shapes use the generic MAX_SHAPE_ASPECT width-only cap.
+ * both axes. Other shapes use the generic MAX_SHAPE_ASPECT bidirectional cap.
  */
 function applyShapeAspectToBounds(
   child: PlanNode,
@@ -975,23 +975,29 @@ function applyShapeAspectToBounds(
   const preferredRatio = SHAPE_PREFERRED_RATIO[child.elementType ?? ''];
 
   if (preferredRatio) {
-    // Strict ratio: fit within bounds maintaining preferred w:h
+    // Ratio-aware fit: prefer strict ratio but cap shrinkage via MIN_ASPECT_KEEP
     const currentRatio = w / h;
     if (currentRatio > preferredRatio) {
-      const newW = h * preferredRatio;
-      x += (w - newW) / 2;
-      w = newW;
+      const strictW = h * preferredRatio;
+      const finalW = Math.max(strictW, w * MIN_ASPECT_KEEP);
+      x += (w - finalW) / 2;
+      w = finalW;
     } else if (currentRatio < preferredRatio) {
-      const newH = w / preferredRatio;
-      y += (h - newH) / 2;
-      h = newH;
+      const strictH = w / preferredRatio;
+      const finalH = Math.max(strictH, h * MIN_ASPECT_KEEP);
+      y += (h - finalH) / 2;
+      h = finalH;
     }
   } else {
-    // Generic fallback: cap width only
+    // Generic fallback: cap both width and height to MAX_SHAPE_ASPECT
     const maxW = h * MAX_SHAPE_ASPECT;
+    const maxH = w * MAX_SHAPE_ASPECT;
     if (w > maxW) {
       x += (w - maxW) / 2;
       w = maxW;
+    } else if (h > maxH) {
+      y += (h - maxH) / 2;
+      h = maxH;
     }
   }
 
