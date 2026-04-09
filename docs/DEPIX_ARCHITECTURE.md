@@ -98,12 +98,15 @@ DepixEngine ──────────→ Konva Stage
 DSL 텍스트                      에디터
     ↓ Compiler                    │
     ├─ Parse                      │
-    ├─ Resolve Theme              │
-    ├─ Plan Layout                │
-    ├─ Scale System               │ (IR 직접 조작)
-    ├─ Allocate Bounds            │
-    ├─ Layout                     │
-    ├─ Route Edges                │
+    ├─ Resolve (data, flatten,    │
+    │   theme)                    │ (IR 직접 조작)
+    ├─ Plan (AST → PlanNode[])    │
+    ├─ Per-scene Allocate:        │
+    │   scale → constraints       │
+    │   → fixpoint(budget↔measure)│
+    │   → allocate-bounds         │
+    ├─ Emit (walker 순회 → IR)    │
+    ├─ Apply Overrides            │
     ↓                             ↓
 DepixIR (JSON)  ←─────────────────┘
     ↓
@@ -219,28 +222,23 @@ IR의 핵심 속성:
 ```
 DSL 텍스트
     ↓
-① Parse ─────────── 텍스트 → AST (tokenizer → parser)
+① Parse ──────────── 텍스트 → AST (tokenizer → parser)
     ↓
-② Resolve Theme ─── 시맨틱 토큰 → 구체값
+② Resolve ────────── resolveData → flattenHierarchy → resolveTheme
     ↓
-③ Plan Layout ───── 구조 분석, 가중치 산출
+③ Extract Overrides ─ @overrides 디렉티브 추출
     ↓
-④ Scale System ──── 캔버스 면적 + 요소 수 → baseUnit → 동적 gap/font/padding
+④ Plan ───────────── planDocument(ast) → PlanNode[] (씬당 1트리)
     ↓
-⑤ Allocate Bounds ─ 가중치 비례 공간 배분 (top-down)
+⑤ Allocate (per-scene):
+   scale → constraints → fixpoint(budget↔measure) → allocate-bounds
     ↓
-⑥ Layout ────────── flow/stack/grid/tree → 절대 좌표
+⑥ Emit ──────────── emit(plans, boundsMap) → walker 순회 → IRScene[]
     ↓
-⑦ Route Edges ───── 연결선 경로 계산
-    ↓
-⑧ Emit IR ────────── AST → IR 변환 + 동적 fontSize/padding 적용
+⑦ Apply Overrides ── @overrides 위치 보정 적용
 ```
 
-③~⑦은 블록 유형에 따라 두 경로로 처리된다:
-- **다이어그램 블록** (`flow`, `stack` 등): `emitIR()` 내부에서 `planDiagram() → createScaleContext() → allocateDiagram() → emitDiagramFromPlan()` 실행 후 IRScene으로 래핑
-- **씬 블록** (`scene {}`): `emitSceneIR()` 내부에서 `planScene() → emitScene()` 실행
-
-`emitSceneIR()`이 최종 통합 단계이며, 두 경로의 결과를 모아 `DepixIR`을 생성한다.
+모든 블록은 통합 PlanNode 파이프라인으로 처리된다. scene, 슬롯, container, element 모두 단일 `PlanNode` 타입이며 `blockType` 필드로 구분된다. `planDocument()`가 AST를 씬 단위 PlanNode 트리로 변환하고, 이후 씬별로 allocation 패스를 거친 뒤, `emit()` walker가 BoundsMap을 조회하며 IR을 생성한다.
 
 ### 스케일 시스템 (`passes/scale-system.ts`)
 
@@ -275,14 +273,16 @@ DSL에서 명시적으로 지정한 `gap`, `font-size`, `padding` 값은 항상 
 
 | 단계 | 입력 | 출력 | 핵심 로직 |
 |------|------|------|----------|
-| Parse | DSL 텍스트 | AST | 토큰화, 구문 분석 |
-| Resolve Theme | AST + Theme | AST (값 해결됨) | 시맨틱 컬러/토큰 → HEX/수치 |
-| Plan Layout | AST (해결됨) | DiagramLayoutPlan | 가중치, 깊이, 자식 수 분석 |
-| Scale System | Plan + Canvas | ScaleContext | baseUnit, 요소 수 기반 스케일 팩터 |
-| Allocate Bounds | Plan + ScaleContext | BoundsMap | top-down 가중치 비례 공간 배분 |
-| Layout | LayoutChildren + Props | LayoutResult | 레이아웃 알고리즘 실행 (동적 gap) |
-| Route Edges | IR 요소들 + edge 정의 | IREdge[] | 경로 계산, 라벨 배치 |
-| Emit IR | AST + BoundsMap + ScaleContext | DepixIR JSON | IR 변환, 동적 fontSize/padding |
+| Parse | DSL 텍스트 | AST + ParseError[] | 토큰화, 구문 분석 |
+| Resolve | AST + Theme | AST (값 해결됨) | @data 바인딩, hierarchy 평탄화, 시맨틱 토큰 해석 |
+| Extract Overrides | AST | OverridesMap | @overrides 디렉티브 추출 (IR 후처리용) |
+| Plan | AST + Theme | PlanNode[] | planDocument: AST → 씬별 PlanNode 트리 (가중치, 메트릭스, 구조 정보) |
+| Scale | PlanNode + Canvas | ScaleContext | baseUnit = √(면적/요소수) × 0.55 |
+| Constraints | PlanNode + ScaleCtx | ConstraintMap | bottom-up min/max 제약 수집 |
+| Fixpoint | PlanNode + ConstraintMap + ScaleCtx | BudgetMap + MeasureMap | budget↔measure 수렴 루프 (최대 3+1회) |
+| Allocate Bounds | PlanNode + MeasureMap + ConstraintMap | BoundsMap | top-down 좌표 확정 (0–100 상대 좌표) |
+| Emit | PlanNode[] + BoundsMap | IRScene[] | walker 순회, BoundsMap 조회만 수행 |
+| Apply Overrides | DepixIR + OverridesMap | DepixIR | @overrides 위치 보정 적용 |
 
 ### 레이아웃 알고리즘
 

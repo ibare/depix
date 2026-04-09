@@ -107,77 +107,86 @@ tree direction:down {
 ### 3.1 전체 구조
 
 ```
-DSL 텍스트 + @overrides
+DSL 텍스트
     │
     ▼
-┌─────────────┐
-│    Parse     │  DSL + @overrides → AST + PinnedMap
-└──────┬──────┘
+┌───────────────┐
+│     Parse      │  DSL → AST + ParseError[]
+└──────┬────────┘
        │
     ▼
-┌─────────────┐
-│ Resolve Theme│  시맨틱 토큰 → 구체 값 (color: warning → #F59E0B)
-└──────┬──────┘
+┌───────────────┐
+│    Resolve     │  resolveData → flattenHierarchy → resolveTheme
+└──────┬────────┘
        │
     ▼
-┌─────────────┐
-│  Plan Layout │  구조 분석 — 레벨 수, 분기, 레이어 등
-└──────┬──────┘
+┌───────────────┐
+│Extract Override│  @overrides 디렉티브 추출 (IR 후처리용)
+└──────┬────────┘
        │
     ▼
-┌─────────────┐
-│  Scale System│  baseUnit 계산 (√(면적/요소수) × 0.55)
-└──────┬──────┘
+┌───────────────┐
+│     Plan       │  planDocument(ast) → PlanNode[] (씬당 1트리)
+└──────┬────────┘
        │
-    ▼  ← 2-pass 예산 시스템
-┌─────────────┐
-│  Bottom-up   │  자식 → 부모 방향으로 min/max 제약 수집
-│  Constraints │  (pinned 노드는 고정값을 제약으로 사용)
-└──────┬──────┘
+    ▼  ← per scene
+┌───────────────┐
+│  Scale System  │  baseUnit 계산 (√(면적/요소수) × 0.55)
+└──────┬────────┘
+       │
+    ▼
+┌───────────────┐
+│  Constraints   │  bottom-up min/max 제약 수집
+└──────┬────────┘
        │  ConstraintMap = Map<id, { minW, maxW, minH, maxH }>
     ▼
-┌─────────────┐
-│  Top-down    │  부모 → 자식 방향으로 예산 배분
-│  Budget      │  (pinned 노드는 배분 스킵, 고정값 그대로)
-└──────┬──────┘
-       │  BudgetMap = Map<id, { width, height, pinned }>
+┌───────────────┐
+│  Fixpoint Loop │  budget↔measure 수렴 루프 (최대 3+1회)
+│  (budget →     │  allocateBudgets → measureDiagram 반복
+│   measure)     │  EPS=0.5 수렴 시 조기 종료
+└──────┬────────┘
+       │  BudgetMap + MeasureMap
     ▼
-┌─────────────┐
-│   Measure    │  budget 기반 fontSize, padding, minHeight 결정
-└──────┬──────┘
-       │  MeasureMap = Map<id, MeasureResult>
+┌───────────────┐
+│Allocate Bounds │  measure 제약 + layout 알고리즘으로 최종 좌표 확정
+└──────┬────────┘
+       │  BoundsMap = Map<id, IRBounds>
     ▼
-┌─────────────┐
-│   Allocate   │  measure 제약 + layout 알고리즘으로 최종 좌표 확정
-│              │  (pinned 노드는 좌표 계산 스킵)
-└──────┬──────┘
-       │  BoundsMap = Map<id, BoundsEntry>
+┌───────────────┐
+│     Emit       │  walker 순회: walkScene → walkBlock → walkElement
+│                │  BoundsMap 조회만 수행 (재측정/재배치 없음)
+└──────┬────────┘
+       │
     ▼
-┌─────────────┐
-│   Emit IR    │  모든 좌표, 색상, 경로가 확정된 IR JSON 생성
-└─────────────┘
+┌───────────────┐
+│Apply Overrides │  @overrides 위치 보정 적용
+└───────────────┘
        │
     ▼
   DepixIR
 ```
 
-### 3.2 핵심: 2-pass 예산 시스템
+### 3.2 핵심: Fixed-point 수렴 루프
 
-기존 파이프라인의 문제는 **닭과 달걀**이었다.
-
-```
-fontSize를 결정하려면 → 할당된 공간(크기)을 알아야 함
-공간을 할당하려면   → fontSize(→ minHeight)를 알아야 함
-```
-
-2-pass가 이를 해소한다.
+fontSize와 공간 할당의 상호 의존을 해소하기 위해 fixed-point 수렴 루프를 사용한다.
 
 ```
-Pass 1 (Bottom-up): 자식이 "나는 최소 X, 최대 Y가 필요해"를 부모에게 보고
-Pass 2 (Top-down):  부모가 그 제약 안에서 예산을 배분하고 자식에게 전달
+문제: fontSize를 결정하려면 → 할당된 공간(크기)을 알아야 함
+      공간을 할당하려면   → fontSize(→ minHeight)를 알아야 함
 ```
 
-measure는 확정된 예산을 받은 후 실행되므로 순환 의존이 끊긴다.
+해법: `runBudgetMeasureFixpoint` 헬퍼가 budget↔measure를 반복 수렴시킨다.
+
+```
+1. computeConstraints (1회) — bottom-up min/max 제약 수집
+2. allocateBudgets → measureDiagram (초기 1회)
+3. 루프: allocateBudgets(with measure feedback) → measureDiagram
+   - 최대 3회 반복 (MAX_ITER=3)
+   - minWidth/minHeight 변화량이 EPS=0.5 미만이면 조기 수렴
+4. allocateBounds (1회) — 최종 좌표 확정
+```
+
+이 루프는 루트 PlanNode 범위에서만 동작한다. container 내부에서의 재진입은 금지된다 (S-pipeline MUST).
 
 ---
 
@@ -222,8 +231,7 @@ interface BoundsEntry {
 
 ```typescript
 export function computeConstraints(
-  plan: DiagramLayoutPlan,
-  pinnedMap: PinnedMap,
+  plan: PlanNode,
   scaleCtx: ScaleContext,
 ): ConstraintMap;
 ```

@@ -241,7 +241,7 @@ LLM이 구체적 수치를 몰라도 의도를 표현할 수 있도록 시맨틱
 
 ### 컴파일러 파이프라인
 
-모든 DSL은 **통합 씬 파이프라인**을 통해 컴파일된다. `scene` 블록이 없는 DSL도 암묵적 씬으로 감싸진 뒤 동일한 경로를 거친다.
+모든 DSL은 **통합 PlanNode 파이프라인**을 통해 컴파일된다. `scene` 블록이 없는 DSL도 암묵적 씬으로 감싸진 뒤 동일한 경로를 거친다.
 
 ```
 DSL 텍스트
@@ -252,81 +252,66 @@ DSL 텍스트
 └────────┬──────────┘
          ▼
 ┌───────────────────┐
-│  Resolve Data     │  @data 데이터셋 → chart/table 블록에 바인딩
+│  Resolve          │  @data 바인딩 → hierarchy flatten → theme 해석
 └────────┬──────────┘
          ▼
 ┌───────────────────┐
-│ Flatten Hierarchy  │  중첩 tree/flow → flat children + implicit edges
+│  Plan             │  AST → PlanNode[] (씬당 1트리, 슬롯·블록·요소 단일 타입)
+└────────┬──────────┘
+         ▼
+┌───────────────────┐  ┌── per scene ──────────────────────────────────┐
+│  Allocate         │  │ scale → constraints → fixpoint(budget↔measure)│
+│                   │  │ → allocate-bounds                             │
+└────────┬──────────┘  └───────────────────────────────────────────────┘
+         ▼
+┌───────────────────┐
+│  Emit             │  PlanNode 트리 + BoundsMap → IRScene[] (walker 순회)
 └────────┬──────────┘
          ▼
 ┌───────────────────┐
-│  Resolve Theme    │  시맨틱 토큰 → 구체 값 (background: warning → #F59E0B)
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│ Extract Overrides  │  @overrides { #id { x, y, w, h } } 추출 (IR 후처리용)
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│ Normalize Scenes   │  모든 블록 → 슬롯 기반 씬 AST로 정규화
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│  Emit Scene IR    │  씬별 레이아웃 + IR 생성 (아래 상세)
-└────────┬──────────┘
-         ▼
-┌───────────────────┐
-│ Apply Overrides    │  추출된 @overrides를 IR에 적용
+│ Apply Overrides    │  @overrides 위치 보정 적용
 └────────┬──────────┘
          ▼
       DepixIR  →  Renderer (Konva)
 ```
 
-#### Emit Scene IR 내부
-
-각 씬에 대해 아래 과정을 수행한다:
-
-```
-씬 AST
-  ├─ planScene()         슬롯 분석 → 14 preset 중 하나로 슬롯 영역 계산
-  └─ emitScene()         씬 자식 순회 → IR 생성
-       │
-       ├─ 텍스트 요소 → emitHeading / emitStat / emitQuote / ...
-       ├─ 테이블/차트 → emitSceneTable / emitSceneChart
-       ├─ box/column → emitBoxBlock / emitColumn (자식 재귀)
-       └─ flow/tree/stack/grid/... → emitInlineBlock()
-            ├─ planNode()            구조 분석
-            ├─ createScaleContext()   동적 스케일 산출
-            ├─ runLayout()           레이아웃 알고리즘 실행 → 좌표 확정
-            ├─ 자식 재귀 emit
-            └─ routeEdge()           연결선 경로 계산
-```
-
-#### 컴파일러 패스 순서 (8단계)
+#### 컴파일러 패스 순서 (7단계)
 
 | # | 패스 | 함수 | 역할 |
 |---|------|------|------|
 | 1 | Parse | `parse(dsl)` | tokenize + 구문 분석 → AST |
-| 2 | Resolve Data | `resolveData(ast)` | `@data` 데이터셋을 chart/table 블록에 바인딩 |
-| 3 | Flatten Hierarchy | `flattenHierarchy(ast)` | tree/flow 중첩 → flat children + implicit edges |
-| 4 | Resolve Theme | `resolveTheme(ast, theme)` | 시맨틱 토큰(`primary`, `md`) → HEX/수치 |
-| 5 | Extract Overrides | `extractOverrides(ast)` | `@overrides` 디렉티브 추출 |
-| 6 | Normalize Scenes | `normalizeScenes(ast)` | 모든 블록 → 슬롯 기반 씬 AST로 정규화 |
-| 7 | Emit Scene IR | `emitSceneIR(ast, theme, sceneTheme)` | 씬별 planScene → emitScene → IR 생성 |
-| 8 | Apply Overrides | `applyOverridesToIR(ir, overrides)` | `@overrides` 위치 보정 적용 |
+| 2 | Resolve | `resolveData` → `flattenHierarchy` → `resolveTheme` | 데이터 바인딩, 계층 평탄화, 시맨틱 토큰 해석 |
+| 3 | Extract Overrides | `extractOverrides(ast)` | `@overrides` 디렉티브 추출 (IR 후처리용) |
+| 4 | Plan | `planDocument(ast, theme)` | AST → PlanNode[] (씬당 1트리). 씬·슬롯·블록·요소 모두 단일 `PlanNode` 타입 |
+| 5 | Allocate | per-scene `createScaleContext` → `computeConstraints` → `runBudgetMeasureFixpoint` → `allocateBounds` | 스케일 산출 → 제약조건 → budget↔fontSize 수렴 루프 → 최종 좌표 확정 |
+| 6 | Emit | `emit(plans, boundsMap, ...)` | PlanNode 트리를 walker로 순회하여 IR 생성. BoundsMap 조회만 수행 |
+| 7 | Apply Overrides | `applyOverridesToIR(ir, overrides)` | `@overrides` 위치 보정 적용 |
 
 > 각 패스는 **순수 함수**다. 전역 상태를 읽지 않고, 같은 입력에 항상 같은 출력을 반환한다.
 
-#### 인라인 블록 레이아웃
+#### Allocation 상세 (Per-scene)
 
-씬 슬롯 안에 배치된 다이어그램 블록(`flow`, `tree`, `stack`, `grid`, `group`, `layers`, `canvas`)은 `emitInlineBlock()` 을 통해 재귀적으로 처리된다. 내부에서는 다음 과정을 거친다:
+씬별로 아래 과정을 순서대로 실행한다:
 
-1. **planNode** — 구조 분석 (가중치, 깊이, 자식 수)
-2. **createScaleContext** — `baseUnit = √(면적 / 요소수) × 0.55` 기반 동적 스케일
-3. **runLayout** — 블록 타입별 레이아웃 알고리즘 실행 → 좌표 확정
-4. **routeEdge** — shape-aware 엣지 라우팅 (back-edge는 curved feedback 경로)
+1. **createScaleContext** — `baseUnit = √(면적 / 요소수) × 0.55` 기반 동적 스케일
+2. **computeConstraints** — PlanNode 트리 순회 → 각 노드의 제약조건(aspect ratio, 최소 크기 등) 산출
+3. **runBudgetMeasureFixpoint** — budget(예산 분배) ↔ measure(폰트 크기 기반 최소 크기) 상호 의존을 fixed-point 수렴 루프로 해소 (최대 3+1회 반복, EPS=0.5 수렴)
+4. **allocateBounds** — 제약조건 + measure 결과를 종합하여 0–100 상대 좌표 확정 → BoundsMap
 
-블록 타입별 레이아웃 전략:
+#### Emit Walker 구조
+
+`emit()` 함수는 PlanNode 트리를 한 번 순회하며 IR을 생성한다. walker는 BoundsMap을 **조회만** 하며, 크기 분배나 좌표 계산을 수행하지 않는다.
+
+```
+emit(plans, boundsMap, ...)
+  └─ walkScene()              scene PlanNode → IRScene
+       └─ walkBlock()         container PlanNode → IRContainer (재귀)
+            ├─ walkElement()  leaf element → IRText/IRShape/IRLine/...
+            ├─ walkChart()    chart → IRContainer
+            └─ walkTable()    table → IRContainer
+```
+
+#### 블록 타입별 레이아웃 전략
 
 | 블록 | 전략 |
 |------|------|
@@ -681,8 +666,8 @@ engine.getRegistry().register('my-logo', {
 
 | 패키지 | 테스트 수 | 커버리지 목표 |
 |--------|----------|-------------|
-| `@depix/core` | 1,271 | 90%+ |
+| `@depix/core` | 1,281 | 90%+ |
 | `@depix/engine` | 120 | 70%+ |
 | `@depix/editor` | 344 | 80%+ |
 | `@depix/react` | 408 | 60%+ |
-| **합계** | **2,143** | |
+| **합계** | **2,153** | |
