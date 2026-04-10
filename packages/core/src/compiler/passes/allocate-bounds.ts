@@ -74,7 +74,17 @@ const MIN_ASPECT_KEEP = 0.4;
  *  Factor 1.0 means cross-axis ≤ baseUnit, giving density-proportional sizing
  *  that adapts to both dense (Binary Search 12 nodes) and sparse (3 nodes) flows.
  *  Unit: dimensionless multiplier applied to baseUnit (0–100 coordinate). */
-const FLOW_CROSS_BASEUNIT_FACTOR = 1.0;
+const FLOW_CROSS_BASEUNIT_FACTOR = 0.7;
+
+/** Minimum gap-to-node ratio for flow/tree main-axis spacing.
+ *  Ensures inter-node gaps are at least this fraction of node main size,
+ *  giving edges and labels readable space between nodes.
+ *  Derived algebraically: L = mainAxis / (N + r*(N-1)), G = L*r.
+ *  At r=0.5, gap:node = 1:2 — nodes occupy 2/3, gaps 1/3 of main axis.
+ *  Sparse flows (3 nodes): gap grows from connectorGap 4.8 to 10.5.
+ *  Dense flows (9+ layers): connectorGap already exceeds threshold → no change.
+ *  Unit: dimensionless ratio (0–1). */
+const FLOW_MIN_GAP_RATIO = 0.5;
 
 const SHAPE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
   'node', 'cell', 'rect', 'circle', 'badge', 'icon',
@@ -525,14 +535,20 @@ export function computeLayoutChildren(
       const nodeIds = plan.children.map(c => c.id);
       const layerInfo = computeFlowLayerInfo(nodeIds, plan.edges ?? []);
       const layerCount = Math.max(layerInfo.layerCount, 1);
-      const mainUsable = mainAxis - flowGap * Math.max(layerCount - 1, 0);
+
+      // Proportional gap: gap ≥ nodeMain * FLOW_MIN_GAP_RATIO for edge readability.
+      // Algebraic: L = mainAxis / (N + r*(N-1)), G = L*r. Only activates when G > connectorGap.
+      const gapSlots = Math.max(layerCount - 1, 0);
+      const proportionalMain = mainAxis / (layerCount + FLOW_MIN_GAP_RATIO * gapSlots);
+      const effectiveFlowGap = Math.max(flowGap, proportionalMain * FLOW_MIN_GAP_RATIO);
+      const mainUsable = mainAxis - effectiveFlowGap * gapSlots;
 
       // 균등 분할: flow 노드는 모두 동일한 main/cross 크기를 가짐.
-      // cross-axis 상한을 baseUnit 기반으로 밀도 적응 — dense flow는 작게, sparse flow는 크게.
+      // cross-axis 상한을 baseUnit 기반으로 밀도 적응.
       // 개별 도형의 비율 보정은 applyShapeAspectToBounds에서 처리.
       const layerMainSize = mainUsable / layerCount;
       const maxNodesInAnyLayer = Math.max(...layerInfo.nodesPerLayer, 1);
-      const referenceCross = (crossAxis - flowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
+      const referenceCross = (crossAxis - effectiveFlowGap * Math.max(maxNodesInAnyLayer - 1, 0)) / Math.max(maxNodesInAnyLayer, 1);
       const crossCap = scaleCtx ? scaleCtx.baseUnit * FLOW_CROSS_BASEUNIT_FACTOR : referenceCross;
       const uniformCross = Math.min(referenceCross, crossCap);
 
@@ -571,8 +587,12 @@ export function computeLayoutChildren(
       const numLevels = Math.max(levelInfo.numLevels, 1);
 
       // Uniform level heights — hierarchy conveyed by position, not size
-      const treeLevelGap = levelGap * TREE_LEVEL_GAP_SCALE;
-      const mainUsable = mainAxis - treeLevelGap * Math.max(numLevels - 1, 0);
+      const baseTreeLevelGap = levelGap * TREE_LEVEL_GAP_SCALE;
+      // Proportional gap: gap ≥ nodeMain * FLOW_MIN_GAP_RATIO
+      const treeLevelGapSlots = Math.max(numLevels - 1, 0);
+      const treeProportionalMain = mainAxis / (numLevels + FLOW_MIN_GAP_RATIO * treeLevelGapSlots);
+      const treeLevelGap = Math.max(baseTreeLevelGap, treeProportionalMain * FLOW_MIN_GAP_RATIO);
+      const mainUsable = mainAxis - treeLevelGap * treeLevelGapSlots;
       const uniformLevelMain = mainUsable / numLevels;
 
       // cross-axis는 가용 공간을 직접 사용한다 (PHI 천장 없음).
@@ -733,8 +753,19 @@ export function runLayout(
     case 'flow': {
       const flowEdges = edges.map(e => ({ fromId: e.fromId, toId: e.toId, structural: e.edgeStyle !== '--' }));
       const defaultFlowGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'connectorGap') : 5;
-      const flowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
+      const baseFlowGap = typeof props.gap === 'number' ? props.gap : defaultFlowGap;
       const dir = (props.direction as 'right' | 'left' | 'down' | 'up') ?? 'right';
+      // Proportional gap: match computeLayoutChildren sizing
+      const isHz = dir === 'right' || dir === 'left';
+      const mainAvail = isHz ? bounds.w : bounds.h;
+      const nodeIds = children.map(c => c.id);
+      const flowLayerInfo = computeFlowLayerInfo(nodeIds, edges.map(e => ({
+        fromId: e.fromId, toId: e.toId, edgeStyle: e.edgeStyle,
+      })));
+      const flowLayerCount = Math.max(flowLayerInfo.layerCount, 1);
+      const flowGapSlots = Math.max(flowLayerCount - 1, 0);
+      const proportionalMain = mainAvail / (flowLayerCount + FLOW_MIN_GAP_RATIO * flowGapSlots);
+      const flowGap = Math.max(baseFlowGap, proportionalMain * FLOW_MIN_GAP_RATIO);
       return layoutFlow(children, {
         bounds,
         direction: dir,
@@ -749,7 +780,18 @@ export function runLayout(
       const defaultSiblingGap = scaleCtx ? computeGap(scaleCtx.baseUnit, 'siblingGap') : 3;
       const baseLevelGap = typeof props.gap === 'number' ? props.gap : defaultLevelGap;
       const treeDir = (props.direction as 'down' | 'right' | 'up' | 'left') ?? 'down';
-      const treeLevelGap = baseLevelGap * TREE_LEVEL_GAP_SCALE;
+      const baseTreeLvlGap = baseLevelGap * TREE_LEVEL_GAP_SCALE;
+      // Proportional gap: match computeLayoutChildren tree sizing
+      const isTreeHz = treeDir === 'right' || treeDir === 'left';
+      const treeMainAvail = isTreeHz ? bounds.w : bounds.h;
+      const treeNodeIds = children.map(c => c.id);
+      const treeLvlInfo = computeTreeLevelInfo(treeNodeIds, edges.map(e => ({
+        fromId: e.fromId, toId: e.toId, edgeStyle: e.edgeStyle,
+      })));
+      const treeLvlCount = Math.max(treeLvlInfo.numLevels, 1);
+      const treeLvlGapSlots = Math.max(treeLvlCount - 1, 0);
+      const treePropMain = treeMainAvail / (treeLvlCount + FLOW_MIN_GAP_RATIO * treeLvlGapSlots);
+      const treeLevelGap = Math.max(baseTreeLvlGap, treePropMain * FLOW_MIN_GAP_RATIO);
       return layoutTree(treeNodes, {
         bounds,
         direction: treeDir,
