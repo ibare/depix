@@ -32,6 +32,7 @@ import { measureDiagram } from './passes/measure.js';
 import { allocateBounds } from './passes/allocate-bounds.js';
 import type { BoundsMap } from './passes/allocate-bounds.js';
 import type { MeasureMap } from './passes/measure.js';
+import { resolveFonts } from './passes/resolve-fonts.js';
 import type { ScaleContext } from './passes/scale-system.js';
 import type { PlanNode } from './layout/plan-types.js';
 import { emit } from './emit.js';
@@ -210,8 +211,12 @@ export function compile(dsl: string, options?: CompileOptions): CompileResult {
 
     const bounds = allocateBounds(plan, canvasBounds, sceneTheme, scaleCtx, measure, constraints);
 
+    // Post-allocation: 최종 bounds 기반으로 fontSize 재산출.
+    // measure에서 budget 기반으로 추정했던 fontSize를 실제 도형 크기에 맞게 교정.
+    const resolvedMeasure = resolveFonts([plan], bounds, measure);
+
     for (const [k, v] of bounds) allBoundsMap.set(k, v);
-    for (const [k, v] of measure) allMeasureMap.set(k, v);
+    for (const [k, v] of resolvedMeasure) allMeasureMap.set(k, v);
   }
 
   // 6. Emit IR — walk PlanNode trees using BoundsMap + MeasureMap

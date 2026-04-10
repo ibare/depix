@@ -73,7 +73,8 @@ describe('measureDiagram', () => {
     const { measureMap, plan } = measureWithDefaults(scene);
     const m = measureMap.get(plan.children[0].id);
     expect(m).toBeDefined();
-    expect(m!.fontSize).toBeGreaterThan(0);
+    // Auto fontSize = 0 (resolveFonts 패스에서 결정)
+    expect(m!.fontSize).toBe(0);
     expect(m!.minHeight).toBeGreaterThan(0);
     expect(m!.minWidth).toBeGreaterThan(0);
   });
@@ -136,14 +137,14 @@ describe('fontSize resolution priority', () => {
     expect(m!.fontSize).toBe(5.0);
   });
 
-  it('uses scale system when no inline font-size', () => {
+  it('auto fontSize is 0 when no inline font-size (resolved later by resolveFonts)', () => {
     const scene = makeScene([
       makeElement('text', { id: 't1', label: 'Normal' }),
     ]);
     const { measureMap, plan } = measureWithDefaults(scene);
     const m = measureMap.get(plan.children[0].id);
-    // ScaleSystem should produce a value different from theme fallback
-    expect(m!.fontSize).toBeGreaterThan(0);
+    // Auto fontSize = 0 — resolveFonts 패스가 최종 bounds 기반으로 결정
+    expect(m!.fontSize).toBe(0);
   });
 });
 

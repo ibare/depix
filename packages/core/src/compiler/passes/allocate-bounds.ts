@@ -267,12 +267,15 @@ function allocateLeaf(
     const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
 
     // Reserve space for title and subtitle (box/layer elements)
+    // bounds 기반 inline 계산 — measure의 titleHeight/subtitleHeight에 의존하지 않음
     let headerOffset = 0;
-    if (mParent?.titleHeight) {
-      headerOffset += mParent.titleHeight + childGap;
+    const innerShort = Math.min(bounds.w - padding * 2, bounds.h - padding * 2);
+    if (plan.label && innerShort > 0) {
+      // 1.8: TEXT_BLOCK_MULTIPLIER — line-height(1.4) + 상하 여백(0.4)
+      headerOffset += computeFontSize(innerShort, 'innerLabel') * 1.8 + childGap;
     }
-    if (mParent?.subtitleHeight) {
-      headerOffset += mParent.subtitleHeight + childGap;
+    if (typeof plan.props.subtitle === 'string' && innerShort > 0) {
+      headerOffset += computeFontSize(innerShort, 'listItem') * 1.8 + childGap;
     }
 
     const innerBounds: IRBounds = {
@@ -361,12 +364,14 @@ function allocateBlock(
         const childGap = mParent ? mParent.childGap : (scaleCtx ? computeGap(scaleCtx.baseUnit, 'childGap') : 1);
 
         // Reserve space for title and subtitle
+        // bounds 기반 inline 계산 — measure의 titleHeight/subtitleHeight에 의존하지 않음
         let headerOffset = 0;
-        if (mParent?.titleHeight) {
-          headerOffset += mParent.titleHeight + childGap;
+        const gcInnerShort = Math.min(finalBounds.w - padding * 2, finalBounds.h - padding * 2);
+        if (childPlan.label && gcInnerShort > 0) {
+          headerOffset += computeFontSize(gcInnerShort, 'innerLabel') * 1.8 + childGap;
         }
-        if (mParent?.subtitleHeight) {
-          headerOffset += mParent.subtitleHeight + childGap;
+        if (typeof childPlan.props.subtitle === 'string' && gcInnerShort > 0) {
+          headerOffset += computeFontSize(gcInnerShort, 'listItem') * 1.8 + childGap;
         }
 
         const innerBounds: IRBounds = {

@@ -65,6 +65,70 @@ const TEXT_ROLE_RATIO: Record<TextRole, number> = {
 // 폰트 크기 하한 (0–100 상대 좌표 기준). 0.6 미만 ≈ ~3px 이하 → 렌더링 불가
 const FONT_SIZE_MIN = 0.6;
 
+// ---------------------------------------------------------------------------
+// Post-allocation text sizing utilities
+// ---------------------------------------------------------------------------
+
+// 0.55: 프로포셔널 폰트의 평균 문자 너비 ≈ fontSize × 0.55 (실측 기반 근삿값)
+const AVG_CHAR_WIDTH_RATIO = 0.55;
+// 0.15: 노드 너비의 양측 15%씩 수평 패딩 여백 (텍스트 끝–경계 간격 확보)
+const TEXT_PADDING_H_RATIO = 0.15;
+// 1.8: line-height 기본값(1.4) + 상하 여백 여유(0.4). 텍스트 블록 높이 산출에 사용
+export const TEXT_BLOCK_MULTIPLIER = 1.8;
+
+/**
+ * Adjust fontSize based on label text length.
+ * Short text (1-4 chars): reduce to prevent oversized appearance.
+ * Long text (8+ chars): sqrt decay to prevent overflow.
+ */
+export function applyTextLengthPenalty(fontSize: number, label?: string): number {
+  if (!label || label.length === 0) return fontSize;
+
+  const len = label.length;
+
+  // Short text penalty: 1→0.70, 2→0.78, 3→0.86, 4→0.95
+  const shortPenalty = len <= 4 ? 0.62 + len * 0.082 : 1.0;
+
+  // Long text decay: sqrt(6 / len) for 8+ chars
+  const longPenalty = len > 7 ? Math.sqrt(6 / len) : 1.0;
+
+  return fontSize * Math.min(shortPenalty, longPenalty);
+}
+
+/**
+ * Shrink fontSize if the estimated text width exceeds the available node width.
+ */
+export function clampFontToFit(fontSize: number, label: string | undefined, nodeWidth: number): number {
+  if (!label || label.length === 0 || nodeWidth <= 0) return fontSize;
+  const availableWidth = nodeWidth * (1 - TEXT_PADDING_H_RATIO * 2);
+  const estimatedTextWidth = fontSize * label.length * AVG_CHAR_WIDTH_RATIO;
+  if (estimatedTextWidth <= availableWidth) return fontSize;
+  return fontSize * (availableWidth / estimatedTextWidth);
+}
+
+/**
+ * Compute fontSize for an element based on its final allocated bounds.
+ * Called AFTER layout allocation in the resolveFonts pass.
+ *
+ * @param boundsW  — 요소의 최종 할당 너비 (0–100 상대 좌표)
+ * @param boundsH  — 요소의 최종 할당 높이 (0–100 상대 좌표)
+ * @param role     — 텍스트 역할 (innerLabel, standaloneText, listItem 등)
+ * @param label    — 요소 라벨 (텍스트 길이 기반 보정에 사용)
+ * @param fontScale — 요소 타입별 폰트 배율 (heading: 1.5, 기본: 1.0)
+ */
+export function computeBoundsFontSize(
+  boundsW: number,
+  boundsH: number,
+  role: TextRole,
+  label?: string,
+  fontScale: number = 1,
+): number {
+  const shortSide = Math.min(boundsW, boundsH);
+  if (shortSide <= 0) return FONT_SIZE_MIN;
+  const base = computeFontSize(shortSide, role) * fontScale;
+  const adjusted = applyTextLengthPenalty(base, label);
+  return clampFontToFit(adjusted, label, boundsW);
+}
 
 // ---------------------------------------------------------------------------
 // Public API

@@ -26,6 +26,8 @@ last_verified: 2026-04-09
   (4) 루프 본체는 `allocateBudgets` → `measureDiagram` 순서만 반복한다. `computeConstraints` / `allocateBounds` / 기타 패스는 루프 외부에서 1회 호출된다.
   (5) 루프는 PlanNode 루트 범위에서만 동작한다. container 내부에서의 재진입은 S-pipeline MUST NOT "container별 자체 핑퐁"에 여전히 해당하며 금지된다.
 
+- `resolveFonts`는 `allocateBounds` 이후, `emit` 이전에 scene 단위로 1회 호출된다. `BoundsMap`의 최종 bounds를 기반으로 `MeasureMap`의 fontSize를 재산출하여 새 MeasureMap을 반환한다. user-specified `font-size`가 있는 요소는 건너뛴다.
+
 - `emit` walker (`compiler/emit.ts` 및 그 분할 파일들)는 `BoundsMap` 조회와 IR 요소 생성만 수행한다.
   walker 내부에서는 크기 분배, 좌표 계산, measure/allocate 호출, 색상 해석을 수행하지 않는다. 모든 계산은 walker 호출 전에 완료되어 있어야 한다.
 

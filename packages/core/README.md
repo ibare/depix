@@ -74,7 +74,7 @@ const roundtripped = serialize(ast);   // AST → DSL 문자열
 DSL 텍스트 → tokenize → parse → AST
   → resolveData → flattenHierarchy → resolveTheme
   → planDocument → PlanNode[]
-  → per-scene: scale → constraints → fixpoint(budget↔measure) → allocate-bounds
+  → per-scene: scale → constraints → fixpoint(budget↔measure) → allocate-bounds → resolveFonts
   → emit → IRScene[]
   → applyOverrides → DepixIR
 ```

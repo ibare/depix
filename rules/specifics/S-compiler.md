@@ -14,14 +14,15 @@ last_verified: 2026-04-08
 ## MUST
 
 - `compile()` 본문은 다음 순서로 각 패스를 _루트에서 1회씩_ 호출한다:
-  `tokenize → parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → planAll → createScaleContext → computeConstraints → runBudgetMeasureFixpoint → allocateBounds → routeEdges → emit → applyOverridesToIR`
+  `tokenize → parse → resolveData → flattenHierarchy → resolveTheme → extractOverrides → planAll → createScaleContext → computeConstraints → runBudgetMeasureFixpoint → allocateBounds → resolveFonts → routeEdges → emit → applyOverridesToIR`
   각 패스는 이전 패스의 출력만을 입력으로 받는다. 순서를 바꾸거나 패스를 건너뛰지 않는다.
   `runBudgetMeasureFixpoint`는 내부적으로 `allocateBudgets`↔`measureDiagram`을 fixed-point 수렴 루프로 호출하는 단일 헬퍼이다. 루프 경계 제약(MAX_ITER ≤ 5, EPS 수렴 조건, 루트 스코프 한정)은 `S-pipeline.md`의 carveout 조항을 참조한다.
   `flattenHierarchy`는 connection 계열 레이아웃(tree, flow)의 nested element를 flat children + implicit edges로 정규화하는 AST 변환 패스이다.
   `planAll`은 AST를 단일 `PlanNode` 트리로 변환한다. scene / layout slot / container / element를 모두 하나의 트리로 표현한다. 비-scene 블록(flow, stack 등)은 `planAll` 내부에서 implicit scene (`layout: full`, `body` slot)으로 감싸진다.
   `computeConstraints`는 plan 트리를 bottom-up(후위순회)으로 순회하며 각 노드의 최소/최대 크기 제약을 수집하는 패스이다.
   `allocateBudgets`는 canvas 루트로부터 top-down(BFS)으로 가용 공간을 배분하여 각 노드의 예산(budget)을 결정하는 패스이다.
-  `measureDiagram`은 plan 트리를 bottom-up으로 순회하며 각 노드의 fontSize, lineHeight, padding, 최소 크기를 산출한다. budgetMap이 제공되면 예산 기반으로 fontSize를 결정한다.
+  `measureDiagram`은 plan 트리를 bottom-up으로 순회하며 각 노드의 lineHeight, padding, 최소 크기를 산출한다. user-specified `font-size`가 있으면 minSize에 반영하고, 그 외 fontSize는 0으로 설정한다(후속 `resolveFonts`에서 결정).
+  `resolveFonts`는 `allocateBounds` 이후 실행되며, 각 요소의 최종 할당 bounds를 기반으로 MeasureMap의 fontSize를 재산출한다. user-specified `font-size`가 있는 요소는 건너뛴다. 새 MeasureMap을 반환한다.
   `emit`은 최종 walker 패스로, scene/container/element를 단일 트리로 walk하면서 `BoundsMap`을 조회하여 IR 요소를 생성한다. container별 자체 measure/allocate는 금지 (S-pipeline.md 참조).
 
 - 새 레이아웃 알고리즘은 `packages/core/src/compiler/layout/` 에 독립 파일로 추가한다. `emit.ts` walker 내부에 인라인으로 작성하지 않는다.
@@ -40,7 +41,7 @@ last_verified: 2026-04-08
 
 - box/layer 요소에 title/subtitle이 있으면 자식 예산 배분 전 해당 높이를 차감(reserve)한다. 타이틀 공간을 고려하지 않고 자식에게 전체 예산을 배분하지 않는다.
 
-- fontSize 결정 우선순위: (1) 사용자 인라인 스타일(`font-size`) → (2) budget 기반 ScaleSystem(`computeFontSize`) → (3) 테마 폴백. `budgetMap`이 제공되면 `plan.intrinsicSize` 대신 budget의 shortSide를 사용한다.
+- fontSize 결정 우선순위: (1) 사용자 인라인 스타일(`font-size`) → (2) 최종 bounds 기반 `computeBoundsFontSize`(`resolveFonts` 패스에서 실행) → (3) 테마 폴백. `allocateBounds`가 결정한 최종 도형 크기의 shortSide를 사용한다.
 
 - `pinnedWidth`/`pinnedHeight`가 설정된 노드는 예산 배분에서 고정 크기로 취급하고 나머지를 다른 노드에 재분배한다.
 

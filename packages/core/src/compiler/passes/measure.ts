@@ -11,7 +11,7 @@
 import type { DepixTheme } from '../../theme/types.js';
 import type { PlanNode } from '../layout/plan-types.js';
 import type { ScaleContext } from './scale-system.js';
-import { computeFontSize, computePadding, computeGap } from './scale-system.js';
+import { computePadding, computeGap } from './scale-system.js';
 import type { BudgetMap } from './budget-types.js';
 import { getElementConfig } from '../element-type-registry.js';
 
@@ -182,39 +182,52 @@ function measureText(
   plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
-  budgetMap?: BudgetMap,
+  _budgetMap?: BudgetMap,
   fontScale = 1,
 ): MeasureResult {
-  const baseFontSize = resolveElementFontSize(plan, theme, scaleCtx, 'standaloneText', budgetMap);
-  const fontSize = baseFontSize * fontScale;
-  const lineHeight = DEFAULT_LINE_HEIGHT;
-  const textHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
+  // User-specified font-size: 레이아웃이 이 크기를 수용하도록 minSize에 반영
+  const userFontSize = typeof plan.style['font-size'] === 'number' ? plan.style['font-size'] as number : null;
+  if (userFontSize) {
+    const fontSize = userFontSize * fontScale;
+    const textHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
+    return {
+      fontSize,
+      lineHeight: DEFAULT_LINE_HEIGHT,
+      padding: 0,
+      childGap: 0,
+      minWidth: fontSize * 2,
+      minHeight: textHeight,
+    };
+  }
 
+  // Auto: baseUnit 기반 최소 크기. fontSize는 resolveFonts 패스에서 최종 bounds 기반으로 결정.
+  // 0.25: standaloneText ratio(0.25)와 동일. baseUnit 기반이므로 밀도 적응형.
+  const baseSize = scaleCtx ? scaleCtx.baseUnit * 0.25 : theme.fontSize.md;
   return {
-    fontSize,
-    lineHeight,
+    fontSize: 0,
+    lineHeight: DEFAULT_LINE_HEIGHT,
     padding: 0,
     childGap: 0,
-    minWidth: fontSize * 2,
-    minHeight: textHeight,
+    minWidth: baseSize * 2,
+    minHeight: baseSize * TEXT_BLOCK_MULTIPLIER,
   };
 }
 
 function measureShape(
   plan: PlanNode,
   theme: DepixTheme,
-  scaleCtx: ScaleContext | undefined,
-  budgetMap?: BudgetMap,
+  _scaleCtx: ScaleContext | undefined,
+  _budgetMap?: BudgetMap,
 ): MeasureResult {
-  const fontSize = resolveElementFontSize(plan, theme, scaleCtx, 'innerLabel', budgetMap);
-  const lineHeight = DEFAULT_LINE_HEIGHT;
-  const labelHeight = plan.label ? fontSize * TEXT_BLOCK_MULTIPLIER : 0;
+  // User-specified font-size: 레이아웃이 이 크기를 수용하도록 minH에 반영
+  const userFontSize = typeof plan.style['font-size'] === 'number' ? plan.style['font-size'] as number : null;
+  const labelHeight = userFontSize && plan.label ? userFontSize * TEXT_BLOCK_MULTIPLIER : 0;
   const minW = typeof plan.props.width === 'number' ? plan.props.width : theme.node.minWidth;
   const minH = typeof plan.props.height === 'number' ? plan.props.height : Math.max(theme.node.minHeight, labelHeight);
 
   return {
-    fontSize,
-    lineHeight,
+    fontSize: userFontSize ?? 0,
+    lineHeight: DEFAULT_LINE_HEIGHT,
     padding: 0,
     childGap: 0,
     minWidth: minW,
@@ -226,60 +239,46 @@ function measureList(
   plan: PlanNode,
   theme: DepixTheme,
   scaleCtx: ScaleContext | undefined,
-  budgetMap?: BudgetMap,
+  _budgetMap?: BudgetMap,
 ): MeasureResult {
   const items = plan.items ?? [];
   const itemCount = Math.max(items.length, 1);
 
-  // Use per-item effective height so fontSize scales with item count
-  const fontSize = resolveListFontSize(plan, theme, scaleCtx, itemCount, budgetMap);
-  const lineHeight = DEFAULT_LINE_HEIGHT;
-  const itemHeight = fontSize * TEXT_BLOCK_MULTIPLIER;
-  const itemGap = fontSize * 0.3; // 항목 간격 = 폰트 크기의 30% (텍스트 행 간격 기준)
-  const totalHeight = items.length > 0
-    ? items.length * itemHeight + (items.length - 1) * itemGap
-    : itemHeight;
+  // User-specified font-size: 레이아웃이 이 크기를 수용하도록 minSize에 반영
+  const userFontSize = typeof plan.style['font-size'] === 'number' ? plan.style['font-size'] as number : null;
+  if (userFontSize) {
+    const itemHeight = userFontSize * TEXT_BLOCK_MULTIPLIER;
+    // 0.3: 항목 간격 = 폰트 크기의 30% (텍스트 행 간격 기준)
+    const itemGap = userFontSize * 0.3;
+    const totalHeight = items.length > 0
+      ? items.length * itemHeight + (items.length - 1) * itemGap
+      : itemHeight;
+    return {
+      fontSize: userFontSize,
+      lineHeight: DEFAULT_LINE_HEIGHT,
+      padding: 0,
+      childGap: itemGap,
+      minWidth: userFontSize * 4,
+      minHeight: totalHeight,
+    };
+  }
 
+  // Auto: baseUnit 기반 최소 크기. fontSize는 resolveFonts 패스에서 결정.
+  // 0.20: listItem ratio(0.20)와 동일. 항목 수에 비례한 밀도 적응형 최소 높이.
+  const itemSize = scaleCtx ? scaleCtx.baseUnit * 0.20 : theme.fontSize.sm;
+  const itemHeight = itemSize * TEXT_BLOCK_MULTIPLIER;
+  const itemGap = itemSize * 0.3;
+  const totalHeight = itemCount > 0
+    ? itemCount * itemHeight + Math.max(itemCount - 1, 0) * itemGap
+    : itemHeight;
   return {
-    fontSize,
-    lineHeight,
+    fontSize: 0,
+    lineHeight: DEFAULT_LINE_HEIGHT,
     padding: 0,
     childGap: itemGap,
-    minWidth: fontSize * 4, // 최소 너비 = 폰트 크기의 4배 (단어 1~2개 표시 공간)
+    minWidth: itemSize * 4,
     minHeight: totalHeight,
   };
-}
-
-/**
- * Resolve fontSize for a list element, accounting for item count.
- * Uses per-item height as the effective short side so that more items → smaller font.
- */
-function resolveListFontSize(
-  plan: PlanNode,
-  theme: DepixTheme,
-  scaleCtx: ScaleContext | undefined,
-  itemCount: number,
-  budgetMap?: BudgetMap,
-): number {
-  // Priority 1: user-specified
-  if (typeof plan.style['font-size'] === 'number') {
-    return plan.style['font-size'];
-  }
-
-  // Priority 2: budget-aware with per-item height
-  if (scaleCtx) {
-    const budget = budgetMap?.get(plan.id);
-    const totalH = budget ? budget.height : plan.intrinsicSize.height;
-    const perItemH = totalH / itemCount;
-    const width = budget ? budget.width : plan.intrinsicSize.width;
-    const shortSide = Math.min(width, perItemH);
-    if (shortSide > 0) {
-      return computeFontSize(shortSide, 'listItem');
-    }
-  }
-
-  // Priority 3: theme fallback
-  return theme.fontSize.sm;
 }
 
 function measureDivider(): MeasureResult {
@@ -306,88 +305,3 @@ function measureImage(plan: PlanNode): MeasureResult {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Font size resolution
-// ---------------------------------------------------------------------------
-
-type TextRole = 'innerLabel' | 'standaloneText' | 'listItem' | 'edgeLabel';
-
-// 0.55: 프로포셔널 폰트의 평균 문자 너비 ≈ fontSize × 0.55 (실측 기반 근삿값)
-const AVG_CHAR_WIDTH_RATIO = 0.55;
-// 0.15: 노드 너비의 양측 15%씩 수평 패딩 여백 (텍스트 끝–경계 간격 확보)
-const TEXT_PADDING_H_RATIO = 0.15;
-
-/**
- * Shrink fontSize if the estimated text width exceeds the available node width.
- */
-function clampFontToFit(fontSize: number, label: string | undefined, nodeWidth: number): number {
-  if (!label || label.length === 0 || nodeWidth <= 0) return fontSize;
-  const availableWidth = nodeWidth * (1 - TEXT_PADDING_H_RATIO * 2);
-  const estimatedTextWidth = fontSize * label.length * AVG_CHAR_WIDTH_RATIO;
-  if (estimatedTextWidth <= availableWidth) return fontSize;
-  return fontSize * (availableWidth / estimatedTextWidth);
-}
-
-/**
- * Adjust fontSize based on label text length.
- * Short text (1-4 chars): reduce to prevent oversized appearance.
- * Long text (8+ chars): sqrt decay to prevent overflow.
- */
-function applyTextLengthPenalty(fontSize: number, label?: string): number {
-  if (!label || label.length === 0) return fontSize;
-
-  const len = label.length;
-
-  // Short text penalty: 1→0.70, 2→0.78, 3→0.86, 4→0.95
-  const shortPenalty = len <= 4 ? 0.62 + len * 0.082 : 1.0;
-
-  // Long text decay: sqrt(6 / len) for 8+ chars
-  const longPenalty = len > 7 ? Math.sqrt(6 / len) : 1.0;
-
-  return fontSize * Math.min(shortPenalty, longPenalty);
-}
-
-/**
- * Resolve fontSize for an element following the priority:
- * 1. User-specified inline style (font-size: number)
- * 2. ScaleSystem dynamic calculation (based on intrinsic short side)
- * 3. Theme fallback
- */
-function resolveElementFontSize(
-  plan: PlanNode,
-  theme: DepixTheme,
-  scaleCtx: ScaleContext | undefined,
-  role: TextRole,
-  budgetMap?: BudgetMap,
-): number {
-  // Priority 1: user-specified
-  if (typeof plan.style['font-size'] === 'number') {
-    return plan.style['font-size'];
-  }
-
-  // Priority 2: scale system (budget-aware) with text length correction
-  if (scaleCtx) {
-    const budget = budgetMap?.get(plan.id);
-    const shortSide = budget
-      ? Math.min(budget.width, budget.height)
-      : Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
-    if (shortSide > 0) {
-      const base = computeFontSize(shortSide, role);
-      const adjusted = applyTextLengthPenalty(base, plan.label);
-      const nodeWidth = budget ? budget.width : plan.intrinsicSize.width;
-      return clampFontToFit(adjusted, plan.label, nodeWidth);
-    }
-  }
-
-  // Priority 3: theme fallback
-  switch (role) {
-    case 'innerLabel':
-    case 'standaloneText':
-    case 'edgeLabel':
-      return theme.fontSize.md;
-    case 'listItem':
-      return theme.fontSize.sm;
-    default:
-      return theme.fontSize.md;
-  }
-}

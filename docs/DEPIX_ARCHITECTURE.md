@@ -266,7 +266,7 @@ baseUnit = sqrt(canvasArea / elementCount) * DENSITY_FACTOR(0.55)
 | `innerLabel` | 0.30 | 0.6~3.2 |
 | `edgeLabel` | 0.60 | 0.6~3.2 |
 
-fontSize는 `containerShortSide * ratio`로 산출하여 도형 크기에 비례한다.
+fontSize는 `allocateBounds` 이후 `resolveFonts` 패스에서 최종 도형의 `shortSide * ratio`로 산출한다. 도형 크기에 정확히 비례하므로 같은 크기 도형은 같은 fontSize를 받는다.
 DSL에서 명시적으로 지정한 `gap`, `font-size`, `padding` 값은 항상 우선한다.
 
 ### 각 단계의 입출력
@@ -281,7 +281,8 @@ DSL에서 명시적으로 지정한 `gap`, `font-size`, `padding` 값은 항상 
 | Constraints | PlanNode + ScaleCtx | ConstraintMap | bottom-up min/max 제약 수집 |
 | Fixpoint | PlanNode + ConstraintMap + ScaleCtx | BudgetMap + MeasureMap | budget↔measure 수렴 루프 (최대 3+1회) |
 | Allocate Bounds | PlanNode + MeasureMap + ConstraintMap | BoundsMap | top-down 좌표 확정 (0–100 상대 좌표) |
-| Emit | PlanNode[] + BoundsMap | IRScene[] | walker 순회, BoundsMap 조회만 수행 |
+| Resolve Fonts | PlanNode + BoundsMap + MeasureMap | MeasureMap (fontSize 갱신) | 최종 bounds의 shortSide 기반 fontSize 산출 |
+| Emit | PlanNode[] + BoundsMap + MeasureMap | IRScene[] | walker 순회, BoundsMap/MeasureMap 조회만 수행 |
 | Apply Overrides | DepixIR + OverridesMap | DepixIR | @overrides 위치 보정 적용 |
 
 ### 레이아웃 알고리즘

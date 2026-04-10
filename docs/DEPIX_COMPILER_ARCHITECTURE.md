@@ -526,7 +526,7 @@ Normal   → 900 × (1.0 / 3.25) ≈ 277px
 Minor    → 900 × (0.75 / 3.25) ≈ 208px
 ```
 
-각 노드는 받은 예산 안에서 fontSize가 자동 결정된다. `font-size: xl`이라고 썼지만 실제 fontSize 수치는 캔버스 크기와 형제 수에 따라 달라진다.
+각 노드의 fontSize는 최종 bounds가 확정된 뒤 `resolveFonts` 패스에서 결정된다. `font-size: xl`이라고 썼지만 실제 fontSize 수치는 캔버스 크기와 형제 수에 따라 달라진다.
 
 ### 7.4 중첩 의도에서의 동작
 
@@ -543,28 +543,26 @@ tree direction:down {
 }
 ```
 
-### 7.5 measure에서의 fontSize 결정
+### 7.5 resolveFonts에서의 fontSize 결정
 
-시맨틱 사이즈 weight는 예산 배분 단계에서 이미 반영된다. measure 패스는 확정된 예산 크기만으로 fontSize를 결정하므로 별도 처리가 없다.
+시맨틱 사이즈 weight는 예산 배분 단계에서 이미 반영된다. measure 패스에서는 fontSize를 0(auto)으로 남겨 두고 minSize만 산출한다. 최종 fontSize는 `allocateBounds` 이후 `resolveFonts` 패스에서 확정된 bounds를 기반으로 결정된다.
 
 ```typescript
-// measure.ts
-const budget = budgetMap.get(plan.id);
-const shortSide = budget
-  ? Math.min(budget.width, budget.height)
-  : Math.min(plan.intrinsicSize.width, plan.intrinsicSize.height);
+// resolve-fonts.ts
+const bounds = boundsMap.get(node.id);
+const shortSide = Math.min(bounds.w, bounds.h);
 
-return computeFontSize(shortSide, role);
-// innerLabel: shortSide × 0.30
-// outerLabel: shortSide × 0.25
-// header:     shortSide × 0.35
+computeBoundsFontSize(bounds.w, bounds.h, role, label, fontScale);
+// 1. computeFontSize(shortSide, role) × fontScale
+// 2. applyTextLengthPenalty — 긴 텍스트 보정
+// 3. clampFontToFit — bounds.w 기준 오버플로우 방지
 ```
 
-요소가 많아질수록 예산이 줄고, 예산이 줄면 fontSize가 자연스럽게 축소된다.
+최종 bounds가 클수록 fontSize가 커지고, 작을수록 자연스럽게 축소된다. 동일한 도형 타입이면 같은 크기의 bounds에서 같은 fontSize가 산출되므로 일관성이 보장된다.
 
-**layers 시뮬레이션** (동일 weight):
+**bounds 기반 시뮬레이션** (동일 weight):
 
-| 요소 수 | budget.h | fontSize |
+| 요소 수 | bounds.h | fontSize |
 |---------|----------|----------|
 | 1 | 90.0 | 10.0 (max) |
 | 2 | 43.3 | 10.0 (max) |
